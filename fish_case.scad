@@ -59,7 +59,7 @@ ODD_ROT  = [0, 0, 0];
 /* ---------- GaN PSU (HDPLEX 250W GaN AIO ATX) ---------- */
 // HDPLEX-listed envelope: 170 (D) x 55 (W) x 25 (H) mm
 GAN_PSU_SIZE = [170, 55, 25];       // [D, W, H]
-GAN_PSU_POS  = [-53, -88, -10];
+GAN_PSU_POS  = [-53+5, -88, -10];
 GAN_PSU_ROT  = [0, 0, 90];
 
 /* ---------- new spine (sandwich-layout divider, per the printables.com design) ---------- */
@@ -433,20 +433,38 @@ function rot2d(p, deg) = [p[0]*cos(deg) - p[1]*sin(deg), p[0]*sin(deg) + p[1]*co
 // arriving, instead of the peg overhanging off the thin plate with no lead-in
 // - it also just beefs up the standoff around the screw. plate_z is whichever
 // end of the peg sits flush against the plate (matches the z_from arg below).
-// The near end is a flat box (the peg's own bounding square, not a curved
-// cylinder) so the ramp stays flat/uncurved in the X-Z plane while still
-// fully overlapping the peg - no gap, no taper around the peg's curve. The
-// hole is NOT cut here; standoffs() drills it through the peg+ramp union as
-// one step, since a hole cut only in the peg would just get plugged by this
-// solid ramp material where the two overlap.
+//
+// Two stages, unioned:
+//  1. A round-to-square BLEND right at the peg - hull() of the peg's own
+//     cylinder (radius r, so it's flush with the round standoff with zero
+//     gap and zero mismatch) and a square cross-section of the same "size"
+//     (side = 2r, same as the peg's diameter) sitting at the peg's own +Y
+//     tangent line. Because the two shapes are offset from each other along
+//     Y, hull() actually blends between round and square here instead of
+//     the square just swallowing the circle outright.
+//  2. The flat square ramp itself, from that same square cross-section down
+//     to the foot, flush with the plate further +Y - unchanged in spirit
+//     from before: flat/uncurved sides, no taper in the X-Z plane.
+// The hole is NOT cut here; standoffs() drills it through the peg+ramp union
+// as one step, since a hole cut only in the peg would just get plugged by
+// this solid ramp material where the two overlap.
 module standoff_ramp(wx, wy, r, z_from, z_to, plate_z, run) {
     EPS = 0.02;
     h = abs(z_to - z_from);
-    hull() {
-        translate([wx - r, wy - r, min(z_from, z_to)])
-            cube([2*r, 2*r, h]);
-        translate([wx - r, wy + r + run, plate_z - EPS/2])
-            cube([2*r, EPS, EPS]);
+    zmin = min(z_from, z_to);
+    union() {
+        hull() {
+            translate([wx, wy, zmin])
+                cylinder(h = h, r = r, $fn = 24);
+            translate([wx - r, wy + r, zmin])
+                cube([2*r, EPS, h]);
+        }
+        hull() {
+            translate([wx - r, wy + r, zmin])
+                cube([2*r, EPS, h]);
+            translate([wx - r, wy + r + run, plate_z - EPS/2])
+                cube([2*r, EPS, EPS]);
+        }
     }
 }
 
