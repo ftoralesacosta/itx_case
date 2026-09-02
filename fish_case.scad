@@ -328,12 +328,27 @@ GAN_FRONT_MOUNT_CS_ANGLE = 90;  // countersink included angle
 // so the grill boundary can be pushed around freely on any one side (e.g.
 // TOP bigger than BOTTOM lets air in along more of the drive's length
 // instead of just its middle).
-HDD_GRILL_MARGIN_LEFT   = 1; // extra space beyond the HDD's -X edge
-HDD_GRILL_MARGIN_RIGHT  = 1; // extra space beyond the HDD's +X edge
+HDD_GRILL_MARGIN_LEFT   = 4; // extra space beyond the HDD's -X edge
+HDD_GRILL_MARGIN_RIGHT  = 4; // extra space beyond the HDD's +X edge
 HDD_GRILL_MARGIN_TOP    = 6; // extra space beyond the HDD's +Z edge
 HDD_GRILL_MARGIN_BOTTOM = 1; // extra space beyond the HDD's -Z edge
 HDD_GRILL_HEX_R  = 4;   // hexagon circumradius (cell size)
 HDD_GRILL_WALL   = 1.2; // wall thickness left between adjacent hex cells
+
+// The +X -Z corner mounting screw (see corner_screw_xs/corner_screw_z
+// below) sits close enough to the honeycomb grill that individual hex
+// cells can land right up against its countersink/tab slot, leaving only
+// a sliver of material there. This cuts a triangular wedge OUT of the
+// honeycomb pattern itself (not the panel) in that corner, guaranteeing
+// solid, unbroken material around the screw regardless of exactly where
+// the hex tiling's cell walls happen to fall - anchored at the panel's
+// real +X,-Z corner and sized comfortably larger than the screw's own tab
+// slot + countersink footprint (checked: that footprint's nearest corner
+// sits about 27% inside this triangle's hypotenuse, not right on the
+// edge). The screw hole/countersink/tab slot are still cut in normally
+// afterward, so this only ever adds material, never blocks the screw.
+FRONT_PANEL_CORNER_INFILL_X = 15; // wedge reach inward from the panel's +X edge
+FRONT_PANEL_CORNER_INFILL_Z = 15; // wedge reach inward from the panel's -Z edge
 
 // A field of regular hexagons (2D, centered at the origin) tiling a [w,h]
 // rectangle, clipped to a clean straight border. Wall thickness between
@@ -443,11 +458,25 @@ module front_panel_lower(show, plate_top, col, alpha) {
                     translate([screw_x - FRONT_PANEL_TAB_SLOT_W/2, -FRONT_PANEL_THICKNESS - 0.5, corner_screw_z - FRONT_PANEL_TAB_SLOT_H/2])
                         cube([FRONT_PANEL_TAB_SLOT_W, FRONT_PANEL_TAB_SLOT_DEPTH + 0.5, FRONT_PANEL_TAB_SLOT_H]);
                 }
-                // HDD ventilation grill
+                // HDD ventilation grill, with a solid wedge guarded out of it
+                // in the +X -Z corner (see FRONT_PANEL_CORNER_INFILL_*) so the
+                // nearby corner screw always has real material around it.
+                // honeycomb_2d() is in its own local 2D frame, centered on
+                // (grill_x, grill_z); the rotate([-90,0,0]) below flips that
+                // frame's Y axis relative to world Z, so local_x = world_X -
+                // grill_x but local_y = grill_z - world_Z (negated).
+                corner_guard = [
+                    [x_max - grill_x, grill_z - z_min],
+                    [x_max - FRONT_PANEL_CORNER_INFILL_X - grill_x, grill_z - z_min],
+                    [x_max - grill_x, grill_z - (z_min + FRONT_PANEL_CORNER_INFILL_Z)],
+                ];
                 translate([grill_x, -FRONT_PANEL_THICKNESS - 1, grill_z])
                     rotate([-90, 0, 0])
                         linear_extrude(height = FRONT_PANEL_THICKNESS + 2)
-                            honeycomb_2d(grill_w, grill_h, HDD_GRILL_HEX_R, HDD_GRILL_WALL);
+                            difference() {
+                                honeycomb_2d(grill_w, grill_h, HDD_GRILL_HEX_R, HDD_GRILL_WALL);
+                                polygon(corner_guard);
+                            }
             }
     }
 }
