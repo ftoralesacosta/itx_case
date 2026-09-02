@@ -10,7 +10,7 @@ SHOW_ENCLOSURE  = false;
 SHOW_ODD        = false;
 
 
-used_components = false;
+used_components = true;
 
 SHOW_MB         = used_components;
 SHOW_HDD        = used_components;
@@ -26,14 +26,15 @@ ENCLOSURE_ALPHA = 0.55;
 
 /* ---------- enclosure (outer volume budget) ---------- */
 // ~200 x 200 mm footprint, height TBD as the build develops.
-ENCLOSURE_SIZE = [180, 180, 85];   // [W, D, H] - H is the free variable
+ENCLOSURE_SIZE = [176, 178, 85];   // [W, D, H] - H is the free variable
+// Accounts for wall thickness of outer case, which will be 2mm in each dimension. There is an open face to the case, in +Y direction, hence only a single 2mm allowance.
 ENCLOSURE_POS  = [5, -90, 18];
 ENCLOSURE_ROT  = [0, 0, 0];
 ENCLOSURE_EDGE_R = 1.0;             // wireframe rod radius
 
 /* ---------- motherboard ---------- */
 MB_SIZE = [170, 170, 38];           // existing screw holes assumed on this footprint
-MB_POS  = [5, -90, 38.66];
+MB_POS  = [2, -90, 38.66];
 MB_ROT  = [0, 0, 0];
 
 /* ---------- HDD (replaces GPU) ---------- */
@@ -168,7 +169,9 @@ GAN_STANDOFF_CS_ANGLE = 90;  // M3 flat-head countersink angle (ISO 7046)
 // Both measured via DXF projection of the spine STL (X-Z plane, same method
 // used for the MB holes):
 //   - Panel top edge: Z = 68.28
-//   - MB I/O rectangle: X [-67.01, 91.99], Z [16.83, 61.33]
+//   - MB I/O rectangle (at the MB_POS/MB_SIZE in place when measured):
+//     X [-67.01, 91.99], Z [16.83, 61.33] - now stored as FRONT_PANEL_IO_OFFSET,
+//     an offset from the MB rather than this fixed rectangle - see there.
 //
 // Removed corner mounting holes - coordinates kept here in case they're
 // wanted again later, as [X, Z, hole_r]:
@@ -178,7 +181,23 @@ GAN_STANDOFF_CS_ANGLE = 90;  // M3 flat-head countersink angle (ISO 7046)
 // 6.4mm dia / 90deg - removed along with the holes.)
 FRONT_PANEL_TOP_Z    = 68.28;
 FRONT_PANEL_THICKNESS = 5; // Y depth of the plate, front face at Y=0, back overlaps the divider plate for a clean union
-FRONT_PANEL_IO_RECT  = [-67.01, 91.99, 16.83, 61.33]; // [x_min, x_max, z_min, z_max]
+
+// MB I/O rectangle - stored as an OFFSET from the motherboard, not a fixed
+// world rectangle, so it (and the snap groove built from it, and the
+// standoffs which already do this) all move together if MB_POS/MB_SIZE
+// change. X is offset from MB_POS[0]; Z is offset from mb_bottom (the
+// board's underside, MB_POS[2]-MB_SIZE[2]/2) rather than MB_POS[2] itself,
+// since that's the real reference point the IO shield's position is tied to
+// on an actual board (confirmed by measurement: the reference STL's own
+// standoff top - i.e. real mb_bottom - sits within ~0.3mm of this build's
+// mb_bottom, and the IO rectangle was extracted from that same STL). These
+// 4 numbers are exactly [-67.01, 91.99, 16.83, 61.33] (the originally
+// measured absolute rectangle) minus [MB_POS[0], MB_POS[0], mb_bottom,
+// mb_bottom] at the values in place when that alignment was confirmed
+// (MB_POS=[5,-90,38.66], MB_SIZE=[170,170,38] -> mb_bottom=19.66) - so
+// moving MB_POS/MB_SIZE now reproduces the exact same real-world rectangle
+// as before until you actually change them.
+FRONT_PANEL_IO_OFFSET = [-72.01, 86.99, -2.83, 41.67]; // [x_min, x_max, z_min, z_max], relative to MB_POS[0] and mb_bottom
 
 // IO shield retention groove - real geometry, measured (not guessed) from
 // the reference spine STL. Stock ATX IO shields are stamped steel with a
@@ -192,7 +211,7 @@ FRONT_PANEL_IO_RECT  = [-67.01, 91.99, 16.83, 61.33]; // [x_min, x_max, z_min, z
 // same translate/rotate as spine_ref) rather than guessed: all 4 walls
 // (left, right, top, bottom) show the identical two-depth step, to the
 // hundredth of a mm - a flush collar for the first ~1.5mm of depth (exactly
-// FRONT_PANEL_IO_RECT size), then the opening widens by ~3.25mm on all 4
+// the nominal io[] rectangle size, see FRONT_PANEL_IO_OFFSET), then the opening widens by ~3.25mm on all 4
 // sides for the remaining depth. That 3.25mm widen is a real measured value
 // on 3 of 4 walls checked (the 4th read 2.75mm - most likely just a slightly
 // off cut plane on that pass, not a real asymmetry - 3.25mm is used
@@ -229,7 +248,13 @@ module front_panel_upper(show, plate_bot, col, alpha) {
     if (show) {
         x_min = ENCLOSURE_POS[0] - ENCLOSURE_SIZE[0]/2;
         x_max = ENCLOSURE_POS[0] + ENCLOSURE_SIZE[0]/2;
-        io = FRONT_PANEL_IO_RECT;
+        mb_bottom = MB_POS[2] - MB_SIZE[2]/2;
+        io = [
+            MB_POS[0] + FRONT_PANEL_IO_OFFSET[0],
+            MB_POS[0] + FRONT_PANEL_IO_OFFSET[1],
+            mb_bottom + FRONT_PANEL_IO_OFFSET[2],
+            mb_bottom + FRONT_PANEL_IO_OFFSET[3],
+        ];
 
         screw_xs = [x_min + FRONT_PANEL_SCREW_X_INSET, x_max - FRONT_PANEL_SCREW_X_INSET];
         screw_z = FRONT_PANEL_TOP_Z - FRONT_PANEL_SCREW_Z_INSET;
