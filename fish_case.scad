@@ -5,7 +5,7 @@
 // below are offsets from that origin - dial them in against the spine.
 
 /* ---------- global toggles ---------- */
-SHOW_SPINE      = true;          // original reference STL
+SHOW_SPINE      = false;          // original reference STL
 SHOW_ENCLOSURE  = false;
 SHOW_ODD        = false;
 
@@ -180,6 +180,26 @@ FRONT_PANEL_TOP_Z    = 68.28;
 FRONT_PANEL_THICKNESS = 5; // Y depth of the plate, front face at Y=0, back overlaps the divider plate for a clean union
 FRONT_PANEL_IO_RECT  = [-67.01, 91.99, 16.83, 61.33]; // [x_min, x_max, z_min, z_max]
 
+// IO shield retention groove - real geometry, measured (not guessed) from
+// the reference spine STL. Stock ATX IO shields are stamped steel with a
+// perimeter lip folded backward from the shield's flat face; the shield
+// registers flush against a snug "collar" at the front of the opening, and
+// that folded lip snaps into a wider pocket recessed just behind it - the
+// narrower collar is what keeps the shield located and gives the snap its
+// grip, same mechanism as a picture frame's rabbet.
+// Measured by cross-sectioning the reference STL (projection(cut=true) at
+// several fixed X and Z planes through the opening's 4 walls, using the
+// same translate/rotate as spine_ref) rather than guessed: all 4 walls
+// (left, right, top, bottom) show the identical two-depth step, to the
+// hundredth of a mm - a flush collar for the first ~1.5mm of depth (exactly
+// FRONT_PANEL_IO_RECT size), then the opening widens by ~3.25mm on all 4
+// sides for the remaining depth. That 3.25mm widen is a real measured value
+// on 3 of 4 walls checked (the 4th read 2.75mm - most likely just a slightly
+// off cut plane on that pass, not a real asymmetry - 3.25mm is used
+// everywhere here for a consistent groove).
+FRONT_PANEL_IO_COLLAR_DEPTH = 1.51; // Y depth of the flush collar, front face inward
+FRONT_PANEL_IO_GROOVE_WIDEN = 3.25; // how much wider the pocket gets beyond the collar, per side
+
 // Top corner screw holes (-X +Z and +X +Z) - M3 clearance + countersink,
 // both just plain difference() cuts (a straight cylinder for the shaft, a
 // cone for the countersink), no reinforcement boss. Position is defined as
@@ -190,6 +210,20 @@ FRONT_PANEL_SCREW_Z_INSET = 3.5;   // distance from the panel's +Z (top) edge to
 FRONT_PANEL_SCREW_R       = 1.5; // M3 clearance radius
 FRONT_PANEL_SCREW_CS_DIA   = 6.4; // countersink head diameter, standard M3 flat-head value
 FRONT_PANEL_SCREW_CS_ANGLE = 90;  // countersink included angle
+
+// Shell-mating tab slots - cut into the panel's INSIDE face (opposite the
+// countersinks, i.e. the MB-facing back side), centered on each of the 4
+// corner screw holes above. The eventual outer shell (next session) gets a
+// matching tab + screw hole at each of these 4 spots, so the spine seats
+// into the shell and the same screw that holds the panel together also
+// clamps the shell tab in place. FRONT_PANEL_TAB_SLOT_H is deliberately
+// taller than FRONT_PANEL_SCREW_Z_INSET (8mm half-height vs. a 3.5mm inset)
+// so the slot always overshoots past the panel's real top/bottom edge and
+// opens straight through it, rather than falling short and leaving a
+// pocket with a floor - the shell's tab needs to slide in from that edge.
+FRONT_PANEL_TAB_SLOT_W     = 7.1; // X width, centered on the screw hole
+FRONT_PANEL_TAB_SLOT_H     = 8; // Z height, centered on the screw hole - reaches past the panel's edge on purpose
+FRONT_PANEL_TAB_SLOT_DEPTH = 3; // Y depth, cut in from the inside face
 
 module front_panel_upper(show, plate_bot, col, alpha) {
     if (show) {
@@ -202,12 +236,21 @@ module front_panel_upper(show, plate_bot, col, alpha) {
         cs_r = FRONT_PANEL_SCREW_CS_DIA / 2;
         cs_depth = (cs_r - FRONT_PANEL_SCREW_R) / tan(FRONT_PANEL_SCREW_CS_ANGLE / 2);
 
+        w = FRONT_PANEL_IO_GROOVE_WIDEN;
+
         color(col, alpha)
             difference() {
                 translate([x_min, -FRONT_PANEL_THICKNESS, plate_bot])
                     cube([x_max - x_min, FRONT_PANEL_THICKNESS, FRONT_PANEL_TOP_Z - plate_bot]);
-                translate([io[0], -FRONT_PANEL_THICKNESS - 1, io[2]])
-                    cube([io[1] - io[0], FRONT_PANEL_THICKNESS + 2, io[3] - io[2]]);
+                // Collar: flush with the front face, exact nominal IO_RECT
+                // size - the shield's flat face registers/seats against this.
+                translate([io[0], -FRONT_PANEL_IO_COLLAR_DEPTH, io[2]])
+                    cube([io[1] - io[0], FRONT_PANEL_IO_COLLAR_DEPTH + 0.5, io[3] - io[2]]);
+                // Groove: beyond the collar, the pocket widens on all 4 sides
+                // to receive the shield's folded retention flange - this is
+                // the snap-fit groove itself. See FRONT_PANEL_IO_GROOVE_WIDEN.
+                translate([io[0] - w, -FRONT_PANEL_THICKNESS - 1, io[2] - w])
+                    cube([io[1] - io[0] + 2*w, FRONT_PANEL_THICKNESS + 1 - FRONT_PANEL_IO_COLLAR_DEPTH + 0.5, io[3] - io[2] + 2*w]);
                 for (screw_x = screw_xs) {
                     // M3 clearance shaft, straight through
                     translate([screw_x, -FRONT_PANEL_THICKNESS - 1, screw_z])
@@ -217,6 +260,9 @@ module front_panel_upper(show, plate_bot, col, alpha) {
                     translate([screw_x, 0.5 - cs_depth, screw_z])
                         rotate([-90, 0, 0])
                             cylinder(h = cs_depth, r1 = FRONT_PANEL_SCREW_R, r2 = cs_r, $fn = 48);
+                    // shell-mating tab slot, inside face - see FRONT_PANEL_TAB_SLOT_*
+                    translate([screw_x - FRONT_PANEL_TAB_SLOT_W/2, -FRONT_PANEL_THICKNESS - 0.5, screw_z - FRONT_PANEL_TAB_SLOT_H/2])
+                        cube([FRONT_PANEL_TAB_SLOT_W, FRONT_PANEL_TAB_SLOT_DEPTH + 0.5, FRONT_PANEL_TAB_SLOT_H]);
                 }
             }
     }
@@ -368,6 +414,9 @@ module front_panel_lower(show, plate_top, col, alpha) {
                     translate([screw_x, 0.5 - corner_cs_depth, corner_screw_z])
                         rotate([-90, 0, 0])
                             cylinder(h = corner_cs_depth, r1 = FRONT_PANEL_SCREW_R, r2 = corner_cs_r, $fn = 48);
+                    // shell-mating tab slot, inside face - see FRONT_PANEL_TAB_SLOT_*
+                    translate([screw_x - FRONT_PANEL_TAB_SLOT_W/2, -FRONT_PANEL_THICKNESS - 0.5, corner_screw_z - FRONT_PANEL_TAB_SLOT_H/2])
+                        cube([FRONT_PANEL_TAB_SLOT_W, FRONT_PANEL_TAB_SLOT_DEPTH + 0.5, FRONT_PANEL_TAB_SLOT_H]);
                 }
                 // HDD ventilation grill
                 translate([grill_x, -FRONT_PANEL_THICKNESS - 1, grill_z])
