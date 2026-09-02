@@ -5,14 +5,17 @@
 // below are offsets from that origin - dial them in against the spine.
 
 /* ---------- global toggles ---------- */
-SHOW_SPINE      = false;            // original reference STL
+SHOW_SPINE      = false;          // original reference STL
 SHOW_ENCLOSURE  = false;
 SHOW_PSU        = false;
 SHOW_ODD        = false;
 
-SHOW_MB         = true;
-SHOW_HDD        = true;
-SHOW_GAN_PSU    = true;
+
+used_components = false;
+
+SHOW_MB         = used_components;
+SHOW_HDD        = used_components;
+SHOW_GAN_PSU    = used_components;
 
 
 SHOW_NEW_SPINE  = true;
@@ -100,9 +103,7 @@ MB_HOLES = [
 // A5=3.18mm side inset, A7=41.28mm (required row, from front/connector edge),
 // A13=76.2mm (alternate 2nd row, from front edge) - non-symmetric front-to-back,
 // which matches the actual spec. Assumes -Y is the drive's front/connector edge;
-// flip HDD_ROT by 180 about Z if that's backwards for your orientation. Native
-// HDD threads are 6-32 UNC, not metric - this hole is just bracket-side clearance
-// for a grommet/screw shank, sized for M3 per your call.
+// flip HDD_ROT by 180 about Z if that's backwards for your orientation.
 HDD_HOLE_X_INSET  = 3.18;   // SFF-8301 A5
 HDD_HOLE_Y_FRONT  = 41.28;  // SFF-8301 A7 (required)
 HDD_HOLE_Y_REAR   = 76.20;  // SFF-8301 A13 (alternate 2nd row)
@@ -111,6 +112,15 @@ HDD_HOLES = let(
         y1 = -HDD_SIZE[1]/2 + HDD_HOLE_Y_FRONT,
         y2 = -HDD_SIZE[1]/2 + HDD_HOLE_Y_REAR
     ) [[hx,y1], [hx,y2], [-hx,y1], [-hx,y2]];
+// Native HDD threads are 6-32 UNC (major dia 3.51mm) - NOT metric M3 (3mm) -
+// this is a genuinely different screw from everything else in this build, now
+// that a real screw actually passes through here (was just a generic
+// placeholder clearance before this hole became a real pass-through). Sized
+// for a "free fit" 6-32 clearance (~3.9mm dia, ANSI B18.2.8), a bit more open
+// than a bare-minimum fit to allow for 3D-print tolerance.
+HDD_STANDOFF_HOLE_R = 1.95;
+HDD_STANDOFF_CS_DIA   = 6.8; // 6-32 flat-head countersink diameter (ASME B18.6.3, #6 flat head)
+HDD_STANDOFF_CS_ANGLE = 82;  // 6-32 flat-head countersink angle (US standard - NOT the 90deg ISO angle used for M3)
 
 // GaN PSU: REAL numbers, extracted directly from HDPLEX's own published STEP
 // CAD file (hdplex.com product page -> "3D Engineer Drawing (STP) Download
@@ -125,22 +135,30 @@ HDD_HOLES = let(
 //     cap on the 55x25mm connector-end face like front_panel_lower() assumes.
 //     The cable-opening cutout there is still valid; the 4 mount holes on
 //     that panel are a simplified stand-in, not this real hardware.
-// This entry is the OTHER pattern: real mounting holes tapped directly into
-// the PSU's own flat body (M2.5, 2.05mm tap-drill holes, r=1.025mm found),
-// spacing 122.3 x 43.3mm (one of two documented groups - HDPLEX calls this
-// one "same as HDPLEX 400W DCATX"). Center of this hole group sits 4mm off
-// the body's own geometric center along its length (real, not rounding -
-// preserved rather than symmetrized). Standoffs hang from the plate's
-// underside down to the PSU's top face, same as MB/HDD standoffs, so the PSU
-// is supported along its length instead of cantilevered off the front panel
-// alone.
+// This entry is one of two real mounting-hole patterns tapped directly into
+// the PSU's own flat body - HDPLEX documents both as compatible alternates
+// (for cross-compatibility with sibling PSU models), not a better/worse
+// choice:
+//   - 122.3 x 43.3mm spacing, r=1.025mm (2.05mm dia, M2.5 tap drill) -
+//     "same as HDPLEX 400W DCATX". NOT used here.
+//   - 144 x 33.3mm spacing, r=1.25mm (2.5mm dia, M3 tap drill) - "same as
+//     HDPLEX 200W ACDC and HDPLEX 400W ACDC". USED here, for hardware
+//     consistency with the M3 screws used everywhere else in this build.
+// This group's center sits almost exactly on the PSU body's own geometric
+// center (within 1mm - the M2.5 group was off by 4mm), so the 4 positions
+// below are close to a plain symmetric rectangle. Standoffs hang from the
+// plate's underside down to the PSU's top face, same as MB/HDD standoffs, so
+// the PSU is supported along its length instead of cantilevered off the
+// front panel alone.
 GAN_PSU_HOLES = [
-    [ 65.15, -21.77],
-    [-57.15,  21.54],
-    [ 65.15,  21.54],
-    [-57.15, -21.77],
+    [ 71,  16.65],
+    [-73,  16.65],
+    [ 71, -16.65],
+    [-73, -16.65],
 ];
-GAN_STANDOFF_HOLE_R = 1.4; // M2.5 clearance (2.9mm dia) - these are real M2.5 holes, unlike the shared M3 STANDOFF_HOLE_R
+GAN_STANDOFF_HOLE_R = 1.9; // M3 clearance (3.8mm dia) - matches STANDOFF_HOLE_R now that this is an M3 hole too
+GAN_STANDOFF_CS_DIA   = 6.4; // M3 flat-head countersink diameter, same value used everywhere else in this build
+GAN_STANDOFF_CS_ANGLE = 90;  // M3 flat-head countersink angle (ISO 7046)
 
 /* ---------- front panel (simple flat plate, MB I/O opening only) ---------- */
 // Kept deliberately simple: a flat plate spanning the enclosure's X width,
@@ -233,6 +251,54 @@ GAN_FRONT_MOUNT_R = 1.5;    // M3 clearance - unverified size, see note below
 GAN_FRONT_MOUNT_CS_DIA   = 6.4; // countersink head diameter, same M3 flat-head value used elsewhere
 GAN_FRONT_MOUNT_CS_ANGLE = 90;  // countersink included angle
 
+// HDD ventilation grill - a honeycomb of hex cutouts sized around the HDD's
+// own front-face footprint (its width x height cross-section facing this
+// panel: HDD_SIZE[0] x HDD_SIZE[2], unaffected by HDD_ROT since that's
+// currently [0,0,0]). Each of the 4 edges is an independent margin measured
+// outward from the HDD's own raw bounding box - not a single shared margin -
+// so the grill boundary can be pushed around freely on any one side (e.g.
+// TOP bigger than BOTTOM lets air in along more of the drive's length
+// instead of just its middle).
+HDD_GRILL_MARGIN_LEFT   = 1; // extra space beyond the HDD's -X edge
+HDD_GRILL_MARGIN_RIGHT  = 1; // extra space beyond the HDD's +X edge
+HDD_GRILL_MARGIN_TOP    = 1; // extra space beyond the HDD's +Z edge
+HDD_GRILL_MARGIN_BOTTOM = 1; // extra space beyond the HDD's -Z edge
+HDD_GRILL_HEX_R  = 4;   // hexagon circumradius (cell size)
+HDD_GRILL_WALL   = 1.2; // wall thickness left between adjacent hex cells
+
+// A field of regular hexagons (2D, centered at the origin) tiling a [w,h]
+// rectangle, clipped to a clean straight border. Wall thickness between
+// cells comes out uniform by tiling on an enlarged "virtual" hex radius
+// (r_tile) and cutting the smaller real hex (hex_r) inside each tile: for
+// two hexagons sharing a tiling edge, shrinking each one's apothem by half
+// the wall thickness opens a gap of exactly `wall` between them everywhere,
+// not just along one axis.
+module honeycomb_2d(w, h, hex_r, wall) {
+    r_tile = hex_r + wall / sqrt(3);
+    pitch_x = 1.5 * r_tile;      // column spacing
+    pitch_y = sqrt(3) * r_tile;  // row spacing
+    n_cols = ceil(w / pitch_x) + 2;
+    n_rows = ceil(h / pitch_y) + 2;
+    intersection() {
+        union() {
+            // circle($fn=6) at angle 0 gives a flat-top/bottom hex (pointy
+            // left/right) - that orientation tiles with alternating COLUMNS
+            // offset vertically by half a row, not alternating rows offset
+            // horizontally (which is the other hex orientation's tiling).
+            for (i = [-n_cols : n_cols]) {
+                x = i * pitch_x;
+                y_off = (i % 2 == 0) ? 0 : pitch_y / 2;
+                for (j = [-n_rows : n_rows]) {
+                    y = j * pitch_y + y_off;
+                    translate([x, y])
+                        circle(r = hex_r, $fn = 6);
+                }
+            }
+        }
+        square([w, h], center = true);
+    }
+}
+
 module front_panel_lower(show, plate_top, col, alpha) {
     if (show) {
         x_min = ENCLOSURE_POS[0] - ENCLOSURE_SIZE[0]/2;
@@ -256,6 +322,26 @@ module front_panel_lower(show, plate_top, col, alpha) {
         cs_r = GAN_FRONT_MOUNT_CS_DIA / 2;
         cs_depth = (cs_r - GAN_FRONT_MOUNT_R) / tan(GAN_FRONT_MOUNT_CS_ANGLE / 2);
 
+        // Lower corner case-mounting screws (-X -Z and +X -Z) - same M3
+        // clearance + countersink treatment as the upper panel's top corner
+        // screws, reusing the exact same FRONT_PANEL_SCREW_* parameters (just
+        // measured up from the bottom edge here instead of down from the top).
+        corner_screw_xs = [x_min + FRONT_PANEL_SCREW_X_INSET, x_max - FRONT_PANEL_SCREW_X_INSET];
+        corner_screw_z = z_min + FRONT_PANEL_SCREW_Z_INSET;
+        corner_cs_r = FRONT_PANEL_SCREW_CS_DIA / 2;
+        corner_cs_depth = (corner_cs_r - FRONT_PANEL_SCREW_R) / tan(FRONT_PANEL_SCREW_CS_ANGLE / 2);
+
+        // HDD ventilation grill placement - 4 independent edges, each offset
+        // outward from the HDD's own raw bounding box
+        grill_x_min = HDD_POS[0] - HDD_SIZE[0]/2 - HDD_GRILL_MARGIN_LEFT;
+        grill_x_max = HDD_POS[0] + HDD_SIZE[0]/2 + HDD_GRILL_MARGIN_RIGHT;
+        grill_z_min = HDD_POS[2] - HDD_SIZE[2]/2 - HDD_GRILL_MARGIN_BOTTOM;
+        grill_z_max = HDD_POS[2] + HDD_SIZE[2]/2 + HDD_GRILL_MARGIN_TOP;
+        grill_w = grill_x_max - grill_x_min;
+        grill_h = grill_z_max - grill_z_min;
+        grill_x = (grill_x_min + grill_x_max) / 2;
+        grill_z = (grill_z_min + grill_z_max) / 2;
+
         color(col, alpha)
             difference() {
                 translate([x_min, -FRONT_PANEL_THICKNESS, z_min])
@@ -274,6 +360,22 @@ module front_panel_lower(show, plate_top, col, alpha) {
                         rotate([-90, 0, 0])
                             cylinder(h = cs_depth, r1 = GAN_FRONT_MOUNT_R, r2 = cs_r, $fn = 48);
                 }
+                // lower corner case-mounting screws
+                for (screw_x = corner_screw_xs) {
+                    // M3 clearance shaft, straight through
+                    translate([screw_x, -FRONT_PANEL_THICKNESS - 1, corner_screw_z])
+                        rotate([-90, 0, 0])
+                            cylinder(h = FRONT_PANEL_THICKNESS + 2, r = FRONT_PANEL_SCREW_R, $fn = 24);
+                    // countersink at the front face
+                    translate([screw_x, 0.5 - corner_cs_depth, corner_screw_z])
+                        rotate([-90, 0, 0])
+                            cylinder(h = corner_cs_depth, r1 = FRONT_PANEL_SCREW_R, r2 = corner_cs_r, $fn = 48);
+                }
+                // HDD ventilation grill
+                translate([grill_x, -FRONT_PANEL_THICKNESS - 1, grill_z])
+                    rotate([-90, 0, 0])
+                        linear_extrude(height = FRONT_PANEL_THICKNESS + 2)
+                            honeycomb_2d(grill_w, grill_h, HDD_GRILL_HEX_R, HDD_GRILL_WALL);
             }
     }
 }
@@ -387,15 +489,51 @@ module new_spine(show, col, alpha) {
         plate_bot = plate_z - SPINE_PLATE_T/2;
 
         color(col, alpha) {
-            // divider plate - the sandwich core between the MB compartment and the HDD/PSU compartment
-            translate([ENCLOSURE_POS[0], ENCLOSURE_POS[1], plate_z])
-                cube([plate_w, plate_d, SPINE_PLATE_T], center = true);
+            // divider plate - the sandwich core between the MB compartment and the HDD/PSU compartment.
+            // HDD/GaN standoffs hang BELOW the plate, unreachable by a screwdriver
+            // once the drive/PSU are installed underneath - so unlike the MB
+            // standoffs (screwed from the MB side straight down into the standoff,
+            // no plate access needed), these get screwed from the MB side of the
+            // plate instead: the screw passes through this plate access hole, down
+            // through the standoff's own bore, and threads directly into the
+            // HDD's/PSU's own tapped hole below. Drilled here (through the plate
+            // only) using the exact same positions/rotations as the standoffs
+            // below, so the two bores line up and form one continuous channel.
+            // Countersinks are cut on the MB side (plate_top) for a flat-head
+            // screw driven in from above - HDD uses its own 6-32/82deg spec
+            // (HDD_STANDOFF_CS_*), GaN PSU uses the M3/90deg one used
+            // everywhere else (GAN_STANDOFF_CS_*), since they're genuinely
+            // different fasteners.
+            hdd_cs_depth = (HDD_STANDOFF_CS_DIA/2 - HDD_STANDOFF_HOLE_R) / tan(HDD_STANDOFF_CS_ANGLE / 2);
+            gan_cs_depth = (GAN_STANDOFF_CS_DIA/2 - GAN_STANDOFF_HOLE_R) / tan(GAN_STANDOFF_CS_ANGLE / 2);
+            difference() {
+                translate([ENCLOSURE_POS[0], ENCLOSURE_POS[1], plate_z])
+                    cube([plate_w, plate_d, SPINE_PLATE_T], center = true);
+                for (p = HDD_HOLES) {
+                    wc = rot2d(p, HDD_ROT[2]);
+                    wx = HDD_POS[0] + wc[0];
+                    wy = HDD_POS[1] + wc[1];
+                    translate([wx, wy, plate_bot - 0.5])
+                        cylinder(h = SPINE_PLATE_T + 1, r = HDD_STANDOFF_HOLE_R, $fn = 24);
+                    translate([wx, wy, (plate_top + 0.5) - hdd_cs_depth])
+                        cylinder(h = hdd_cs_depth, r1 = HDD_STANDOFF_HOLE_R, r2 = HDD_STANDOFF_CS_DIA/2, $fn = 48);
+                }
+                for (p = GAN_PSU_HOLES) {
+                    wc = rot2d(p, GAN_PSU_ROT[2]);
+                    wx = GAN_PSU_POS[0] + wc[0];
+                    wy = GAN_PSU_POS[1] + wc[1];
+                    translate([wx, wy, plate_bot - 0.5])
+                        cylinder(h = SPINE_PLATE_T + 1, r = GAN_STANDOFF_HOLE_R, $fn = 24);
+                    translate([wx, wy, (plate_top + 0.5) - gan_cs_depth])
+                        cylinder(h = gan_cs_depth, r1 = GAN_STANDOFF_HOLE_R, r2 = GAN_STANDOFF_CS_DIA/2, $fn = 48);
+                }
+            }
 
             // motherboard standoffs - rise from the plate's top face up to the MB
             standoffs(MB_POS, MB_HOLES, MB_ROT[2], STANDOFF_R, STANDOFF_HOLE_R, plate_top, mb_bottom);
 
             // HDD standoffs - hang from the plate's underside down to the HDD
-            standoffs(HDD_POS, HDD_HOLES, HDD_ROT[2], STANDOFF_R, STANDOFF_HOLE_R, plate_bot, hdd_top);
+            standoffs(HDD_POS, HDD_HOLES, HDD_ROT[2], STANDOFF_R, HDD_STANDOFF_HOLE_R, plate_bot, hdd_top);
 
             // GaN PSU standoffs - hang from the plate's underside down to the PSU, real hole pattern (see GAN_PSU_HOLES)
             standoffs(GAN_PSU_POS, GAN_PSU_HOLES, GAN_PSU_ROT[2], STANDOFF_R, GAN_STANDOFF_HOLE_R, plate_bot, gan_top);
