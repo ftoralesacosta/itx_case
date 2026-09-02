@@ -5,9 +5,8 @@
 // below are offsets from that origin - dial them in against the spine.
 
 /* ---------- global toggles ---------- */
-SHOW_SPINE      = false;          // original reference STL
+SHOW_SPINE      = true;          // original reference STL
 SHOW_ENCLOSURE  = false;
-SHOW_PSU        = false;
 SHOW_ODD        = false;
 
 
@@ -22,7 +21,7 @@ SHOW_NEW_SPINE  = true;
 SHOW_FRONT_PANEL = true;   // upper (MB-side) portion of the spine's front I/O panel, copied from the STL
 SHOW_FRONT_PANEL_LOWER = true; // lower (HDD/GaN PSU-side) portion - simple flat plate, PSU cable opening + mount screws
 
-SPINE_ALPHA     = 0.25;
+SPINE_ALPHA     = 0.9;
 ENCLOSURE_ALPHA = 0.55;
 
 /* ---------- enclosure (outer volume budget) ---------- */
@@ -34,7 +33,7 @@ ENCLOSURE_EDGE_R = 1.0;             // wireframe rod radius
 
 /* ---------- motherboard ---------- */
 MB_SIZE = [170, 170, 38];           // existing screw holes assumed on this footprint
-MB_POS  = [5, -90, 39];
+MB_POS  = [5, -90, 38.66];
 MB_ROT  = [0, 0, 0];
 
 /* ---------- HDD (replaces GPU) ---------- */
@@ -42,13 +41,6 @@ MB_ROT  = [0, 0, 0];
 HDD_SIZE = [101.6, 146.99, 26.11]; // [W, D, H]
 HDD_POS  = [35, -75, -9];
 HDD_ROT  = [0, 0, 0];
-
-/* ---------- PSU (Flex ATX) ---------- */
-// FlexATX standard envelope: 150 (L) x 81.5 (W) x 40.5 (H) mm
-// Power inlet side faces where the GPU I/O slots currently sit.
-PSU_SIZE = [150, 81.5, 40.5];       // [L, W, H]
-PSU_POS  = [-59, -75, -35];
-PSU_ROT  = [90, 0, 90];
 
 /* ---------- ODD (slim internal Blu-ray drive) ---------- */
 // Slim slot-load internal BD writer envelope (e.g. Panasonic UJ-265): 128 x 129 x 12.7 mm
@@ -68,10 +60,16 @@ GAN_PSU_ROT  = [0, 0, 90];
 // on one face, GPU/PSU mounting on the other. Here the spine is a horizontal
 // divider plate sitting in the gap between the MB (above) and the HDD + GaN
 // PSU (below): standoffs rise to the MB, and hang down to the HDD/PSU.
-// Position/rotation are NOT independent pos/rot params like the other parts -
-// the plate and its standoffs are derived from MB_POS/HDD_POS/GAN_PSU_POS
-// above so it stays keyed to whatever those are set to. Assumes those parts
-// are only rotated about Z (true for the current layout).
+// X/Y position and rotation are NOT independent params like the other parts -
+// the plate footprint and its standoffs' X/Y positions are derived from
+// MB_POS/HDD_POS/GAN_PSU_POS above so they stay keyed to whatever those are
+// set to. Assumes those parts are only rotated about Z (true for the
+// current layout). Z height is the one exception: SPINE_PLATE_Z below is a
+// fixed, independent value rather than derived from the parts' Z positions,
+// so raising/lowering the HDD or GaN PSU only shortens/lengthens their own
+// standoffs instead of dragging the whole plate (and MB standoffs) with
+// them. Move the plate itself by editing SPINE_PLATE_Z directly.
+SPINE_PLATE_Z   = 8.1; // fixed plate mid-height - matches the layout's original derived position (see history)
 SPINE_PLATE_T   = 3;    // divider plate thickness - matches the real spine STL's own material thickness (measured)
 SPINE_INSET     = 2;    // clearance from the enclosure walls so it can slide in
 STANDOFF_R      = 3.5;  // mounting standoff outer radius (7mm OD, ~1.6mm wall around the hole)
@@ -261,7 +259,7 @@ GAN_FRONT_MOUNT_CS_ANGLE = 90;  // countersink included angle
 // instead of just its middle).
 HDD_GRILL_MARGIN_LEFT   = 1; // extra space beyond the HDD's -X edge
 HDD_GRILL_MARGIN_RIGHT  = 1; // extra space beyond the HDD's +X edge
-HDD_GRILL_MARGIN_TOP    = 1; // extra space beyond the HDD's +Z edge
+HDD_GRILL_MARGIN_TOP    = 6; // extra space beyond the HDD's +Z edge
 HDD_GRILL_MARGIN_BOTTOM = 1; // extra space beyond the HDD's -Z edge
 HDD_GRILL_HEX_R  = 4;   // hexagon circumradius (cell size)
 HDD_GRILL_WALL   = 1.2; // wall thickness left between adjacent hex cells
@@ -499,8 +497,7 @@ module new_spine(show, col, alpha) {
         mb_bottom = MB_POS[2] - MB_SIZE[2]/2;
         hdd_top   = HDD_POS[2] + HDD_SIZE[2]/2;
         gan_top   = GAN_PSU_POS[2] + GAN_PSU_SIZE[2]/2;
-        below_top = max(hdd_top, gan_top);
-        plate_z   = (mb_bottom + below_top) / 2;
+        plate_z   = SPINE_PLATE_Z;
         plate_w   = ENCLOSURE_SIZE[0] - 2*SPINE_INSET;
         plate_d   = ENCLOSURE_SIZE[1] - 2*SPINE_INSET;
         plate_top = plate_z + SPINE_PLATE_T/2;
@@ -583,6 +580,5 @@ enclosure_ref(ENCLOSURE_SIZE, ENCLOSURE_POS, ENCLOSURE_ROT, SHOW_ENCLOSURE, "Gra
 
 labeled_box(MB_SIZE,  MB_POS,  MB_ROT,  SHOW_MB,  "Blue");
 labeled_box(HDD_SIZE, HDD_POS, HDD_ROT, SHOW_HDD, "Red");
-labeled_box(PSU_SIZE, PSU_POS, PSU_ROT, SHOW_PSU, "Green");
 labeled_box(ODD_SIZE, ODD_POS, ODD_ROT, SHOW_ODD, "Cyan");
 labeled_box(GAN_PSU_SIZE, GAN_PSU_POS, GAN_PSU_ROT, SHOW_GAN_PSU, "Black");
