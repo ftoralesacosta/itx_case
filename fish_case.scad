@@ -53,7 +53,7 @@ ODD_ROT  = [0, 0, 0];
 /* ---------- GaN PSU (HDPLEX 250W GaN AIO ATX) ---------- */
 // HDPLEX-listed envelope: 170 (D) x 55 (W) x 25 (H) mm
 GAN_PSU_SIZE = [170, 55, 25];       // [D, W, H]
-GAN_PSU_POS  = [-53+5, -88, -10];
+GAN_PSU_POS  = [-50, -88, -10];
 GAN_PSU_ROT  = [0, 0, 90];
 
 /* ---------- new spine (sandwich-layout divider, per the printables.com design) ---------- */
@@ -62,18 +62,35 @@ GAN_PSU_ROT  = [0, 0, 90];
 // on one face, GPU/PSU mounting on the other. Here the spine is a horizontal
 // divider plate sitting in the gap between the MB (above) and the HDD + GaN
 // PSU (below): standoffs rise to the MB, and hang down to the HDD/PSU.
-// X/Y position and rotation are NOT independent params like the other parts -
-// the plate footprint and its standoffs' X/Y positions are derived from
-// MB_POS/HDD_POS/GAN_PSU_POS above so they stay keyed to whatever those are
-// set to. Assumes those parts are only rotated about Z (true for the
-// current layout). Z height is the one exception: SPINE_PLATE_Z below is a
-// fixed, independent value rather than derived from the parts' Z positions,
-// so raising/lowering the HDD or GaN PSU only shortens/lengthens their own
-// standoffs instead of dragging the whole plate (and MB standoffs) with
-// them. Move the plate itself by editing SPINE_PLATE_Z directly.
-SPINE_PLATE_Z   = 8.1; // fixed plate mid-height - matches the layout's original derived position (see history)
-SPINE_PLATE_T   = 3;    // divider plate thickness - matches the real spine STL's own material thickness (measured)
-SPINE_INSET     = 2;    // clearance from the enclosure walls so it can slide in
+// Two different things share the word "position" here, and they're
+// deliberately independent:
+//   - The STANDOFFS (MB/HDD/GaN) are always tethered to their own part's
+//     POS - MB standoffs move with MB_POS, HDD standoffs with HDD_POS, GaN
+//     standoffs with GAN_PSU_POS. This is never affected by anything below.
+//     Assumes those parts are only rotated about Z (true for the current
+//     layout).
+//   - The PLATE's own footprint (the slab itself, not the standoffs poking
+//     through it) is positioned and sized fully independently now, the same
+//     way MB_POS/MB_SIZE etc. work for every other part: SPINE_PLATE_POS is
+//     a fixed [x,y,z] rather than derived from any part's position, so
+//     sliding the plate around (or raising/lowering the HDD or GaN PSU)
+//     only changes standoff length, never drags the plate (or the
+//     standoffs on its OTHER side) along with it. Move the plate itself by
+//     editing SPINE_PLATE_POS directly.
+// X (position and size both) is set to make the plate flush on both ends -
+// no overhang either way: the +X edge lines up exactly with the front
+// panel's own +X edge (ENCLOSURE_POS[0]+ENCLOSURE_SIZE[0]/2 = 93), and the
+// -X edge lines up exactly with the MOTHERBOARD standoffs' own -X edge
+// (their leftmost peg center, -77.16, minus STANDOFF_R = -80.66). That
+// pins both ends, which pins width (173.66 = 93 - -80.66) and center
+// (6.17 = (93 + -80.66)/2) as a direct consequence - solved and hardcoded
+// here as plain numbers, same as everything else in SPINE_PLATE_POS/SIZE,
+// not as a live formula, so this stays a one-time fit rather than silently
+// re-coupling the plate to the enclosure/MB again. Re-run the same
+// calculation (front panel +X edge, leftmost MB standoff center - r) if
+// either of those ever move.
+SPINE_PLATE_POS  = [6.17, -90, 8.1]; // [x, y, z] - y/z match ENCLOSURE_POS[1] / the layout's original derived Z position (see history)
+SPINE_PLATE_SIZE = [173.66, 174, 3]; // [w, d, t] - w set for the X-flush fit above; d was ENCLOSURE_SIZE[1] minus a 2mm-per-side clearance inset (so the plate can slide into the shell); t matches the real spine STL's own material thickness (measured)
 STANDOFF_R      = 3.5;  // mounting standoff outer radius (7mm OD, ~1.6mm wall around the hole)
 STANDOFF_HOLE_R = 1.9;  // clearance hole radius - matches the 3.8mm dia modeled in the spine's own MB holes (fits M3 loosely)
 STANDOFF_MARGIN = 8;    // fallback corner inset, used only where no real hole spec is known (GaN PSU)
@@ -634,11 +651,14 @@ module new_spine(show, col, alpha) {
         mb_bottom = MB_POS[2] - MB_SIZE[2]/2;
         hdd_top   = HDD_POS[2] + HDD_SIZE[2]/2;
         gan_top   = GAN_PSU_POS[2] + GAN_PSU_SIZE[2]/2;
-        plate_z   = SPINE_PLATE_Z;
-        plate_w   = ENCLOSURE_SIZE[0] - 2*SPINE_INSET;
-        plate_d   = ENCLOSURE_SIZE[1] - 2*SPINE_INSET;
-        plate_top = plate_z + SPINE_PLATE_T/2;
-        plate_bot = plate_z - SPINE_PLATE_T/2;
+        plate_x   = SPINE_PLATE_POS[0];
+        plate_y   = SPINE_PLATE_POS[1];
+        plate_z   = SPINE_PLATE_POS[2];
+        plate_w   = SPINE_PLATE_SIZE[0];
+        plate_d   = SPINE_PLATE_SIZE[1];
+        plate_t   = SPINE_PLATE_SIZE[2];
+        plate_top = plate_z + plate_t/2;
+        plate_bot = plate_z - plate_t/2;
 
         color(col, alpha) {
             // divider plate - the sandwich core between the MB compartment and the HDD/PSU compartment.
@@ -660,14 +680,14 @@ module new_spine(show, col, alpha) {
             // straight down on it.
             gan_cs_depth = (GAN_STANDOFF_CS_DIA/2 - GAN_STANDOFF_HOLE_R) / tan(GAN_STANDOFF_CS_ANGLE / 2);
             difference() {
-                translate([ENCLOSURE_POS[0], ENCLOSURE_POS[1], plate_z])
-                    cube([plate_w, plate_d, SPINE_PLATE_T], center = true);
+                translate([plate_x, plate_y, plate_z])
+                    cube([plate_w, plate_d, plate_t], center = true);
                 for (p = HDD_HOLES) {
                     wc = rot2d(p, HDD_ROT[2]);
                     wx = HDD_POS[0] + wc[0];
                     wy = HDD_POS[1] + wc[1];
                     translate([wx, wy, plate_bot - 0.5])
-                        cylinder(h = SPINE_PLATE_T + 1, r = HDD_STANDOFF_HOLE_R, $fn = 24);
+                        cylinder(h = plate_t + 1, r = HDD_STANDOFF_HOLE_R, $fn = 24);
                     // O-ring pocket for the screw head, MB side
                     translate([wx, wy, plate_top - HDD_ORING_POCKET_DEPTH])
                         cylinder(h = HDD_ORING_POCKET_DEPTH + 0.5, r = HDD_ORING_POCKET_DIA/2, $fn = 48);
@@ -677,7 +697,7 @@ module new_spine(show, col, alpha) {
                     wx = GAN_PSU_POS[0] + wc[0];
                     wy = GAN_PSU_POS[1] + wc[1];
                     translate([wx, wy, plate_bot - 0.5])
-                        cylinder(h = SPINE_PLATE_T + 1, r = GAN_STANDOFF_HOLE_R, $fn = 24);
+                        cylinder(h = plate_t + 1, r = GAN_STANDOFF_HOLE_R, $fn = 24);
                     translate([wx, wy, (plate_top + 0.5) - gan_cs_depth])
                         cylinder(h = gan_cs_depth, r1 = GAN_STANDOFF_HOLE_R, r2 = GAN_STANDOFF_CS_DIA/2, $fn = 48);
                 }
