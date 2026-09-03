@@ -70,27 +70,78 @@ GAN_PSU_ROT  = [0, 0, 90];
 //     Assumes those parts are only rotated about Z (true for the current
 //     layout).
 //   - The PLATE's own footprint (the slab itself, not the standoffs poking
-//     through it) is positioned and sized fully independently now, the same
-//     way MB_POS/MB_SIZE etc. work for every other part: SPINE_PLATE_POS is
-//     a fixed [x,y,z] rather than derived from any part's position, so
-//     sliding the plate around (or raising/lowering the HDD or GaN PSU)
-//     only changes standoff length, never drags the plate (or the
-//     standoffs on its OTHER side) along with it. Move the plate itself by
-//     editing SPINE_PLATE_POS directly.
-// X (position and size both) is set to make the plate flush on both ends -
-// no overhang either way: the +X edge lines up exactly with the front
-// panel's own +X edge (ENCLOSURE_POS[0]+ENCLOSURE_SIZE[0]/2 = 93), and the
-// -X edge lines up exactly with the MOTHERBOARD standoffs' own -X edge
-// (their leftmost peg center, -77.16, minus STANDOFF_R = -80.66). That
-// pins both ends, which pins width (173.66 = 93 - -80.66) and center
-// (6.17 = (93 + -80.66)/2) as a direct consequence - solved and hardcoded
-// here as plain numbers, same as everything else in SPINE_PLATE_POS/SIZE,
-// not as a live formula, so this stays a one-time fit rather than silently
-// re-coupling the plate to the enclosure/MB again. Re-run the same
-// calculation (front panel +X edge, leftmost MB standoff center - r) if
-// either of those ever move.
-SPINE_PLATE_POS  = [6.17, -90, 8.1]; // [x, y, z] - y/z match ENCLOSURE_POS[1] / the layout's original derived Z position (see history)
-SPINE_PLATE_SIZE = [173.66, 174, 3]; // [w, d, t] - w set for the X-flush fit above; d was ENCLOSURE_SIZE[1] minus a 2mm-per-side clearance inset (so the plate can slide into the shell); t matches the real spine STL's own material thickness (measured)
+//     through it) is positioned/sized via SPINE_PLATE_POS/SIZE - plain,
+//     independent [x,y,z] numbers, same as every other part's POS/SIZE, no
+//     formulas inside them. Sliding the plate around (or raising/lowering
+//     the HDD or GaN PSU) only changes standoff length, never drags the
+//     plate along with it.
+//   - SPINE_PLATE_MARGIN_X is applied on top of that, inside new_spine()
+//     below, as an X-only inset (shrinks the plate's width symmetrically,
+//     recentered - see plate_w/plate_x there) rather than being baked into
+//     SPINE_PLATE_SIZE/POS themselves. 0 (current value) means the POS/SIZE
+//     numbers below are the plate's actual edges; larger pulls both edges
+//     inward evenly.
+// At the current 0 margin, the two edges are deliberately flush against two
+// DIFFERENT things, not symmetric: -X (-83) matches the front panel's own
+// -X edge (ENCLOSURE_POS[0]-ENCLOSURE_SIZE[0]/2); +X (87.62) matches the
+// HDD standoffs' own +X edge (their rightmost peg center, 82.62, plus
+// HDD_STANDOFF_R). Since the two references aren't symmetric around any
+// obvious center, width (170.62) and center (2.31) were solved directly
+// from those two edges and hardcoded as plain numbers, same as everywhere
+// else - not a live formula. Re-run the same calculation (front panel -X
+// edge, rightmost HDD standoff center + HDD_STANDOFF_R) if either of those
+// ever move.
+SPINE_PLATE_POS  = [2.31, -90, 8.1]; // [x, y, z] - y/z match ENCLOSURE_POS[1] / the layout's original derived Z position (see history)
+SPINE_PLATE_SIZE = [170.62, 174, 3]; // [w, d, t] - w set for the -X-to-front-panel / +X-to-HDD-standoff fit above; d matches ENCLOSURE_SIZE[1], t matches the real spine STL's own material thickness (measured)
+SPINE_PLATE_MARGIN_X = 0; // X-only inset applied on top of SPINE_PLATE_POS/SIZE above, each side - 0 = the flush fit described above
+
+// +X trapezoidal edge indent, copied from the reference spine STL's own
+// shape (it has this same style of diagonal taper on all 3 non-IO sides -
+// this is the first of the 3, +X). Measured directly from the STL's own
+// outline (top-down DXF projection of the real reference file): its +X
+// taper runs 17.665mm in Y (from local Y -34.335 to -52, where the edge
+// steps from X 96.715 down to 71.487). Reused here as-is: full width (93,
+// flush with the front panel) for SPINE_PLATE_TAPER_PX_BEFORE mm back from
+// the plate's own front edge (plate_y_max), THEN tapering inward over the
+// 17.665mm run until it reaches plate_x_max (87.62, already flush with the
+// HDD standoffs - see SPINE_PLATE_POS/SIZE above), then staying there for
+// the rest of the plate's depth. At the default 0 "before" distance the
+// taper starts right at the front edge, same as the first pass. Confirmed
+// clear of the HDD standoffs themselves (their front-most peg edge sits at
+// Y -67.3) as long as PX_BEFORE + PX_RUN stays under ~64mm.
+SPINE_PLATE_TAPER_PX_BEFORE = 15; // Y run of flat, full-width material before the taper starts, measured back from the plate's front edge
+SPINE_PLATE_TAPER_PX_RUN = 17.665; // Y-run of the +X taper itself, full width to flush-with-HDD-standoffs width
+
+// -Y trapezoidal edge indent - second of the reference STL's 3 non-IO-side
+// tapers, same idea as +X above but rotated 90deg: the edge runs along X
+// instead of Y, so it's indexed by X and tapers in Y instead of X. Its
+// "bottom" (deepest indent, matching the flush-width reference on the +X
+// taper) is set to the GaN PSU standoffs' own -Y face - their rearmost peg
+// center (-161) minus STANDOFF_R, giving -164.5 - rather than the plate's
+// current full back edge (-177). Mirrored from both ends (-X corner and
+// +X corner) same as the +X taper's own front/back mirror. RUN is measured
+// from the reference STL's own back-edge taper (the diagonal segment there
+// runs 5mm in X, from local X 64.487/-179.278 to 59.487/-174.278, and
+// symmetrically on the other end) - notably shorter than the +X taper's
+// 17.665mm, because the reference's back edge is a much sharper, more
+// right-angled transition than its side edges, not a long diagonal.
+SPINE_PLATE_TAPER_NY_BEFORE = 20; // X run of flat, full-depth material before the taper starts, measured in from each end of the -Y edge
+SPINE_PLATE_TAPER_NY_RUN = 5; // X-run of the -Y taper itself, full depth to flush-with-GaN-standoffs depth
+
+// -X trapezoidal edge indent - third and last of the reference STL's 3
+// non-IO-side tapers, same idea as +X (indexed by Y, tapers in X), mirrored
+// from both ends (front/back) the same way. UNLIKE the other two, there's
+// no real component to flush against here (no standoff sits right at the
+// -X edge's own inset line the way HDD/GaN did) - so instead of a
+// derived depth, SPINE_PLATE_TAPER_NX_DEPTH is just a free, adjustable
+// number. RUN is still measured from the reference STL's own -X edge
+// taper (its diagonal runs 15.054mm in Y - from local Y -145.054 to
+// -130.000 on the back end, symmetric on the front end) for the same
+// "match the real shape" reason as the other two edges.
+SPINE_PLATE_TAPER_NX_BEFORE = 25; // Y run of flat, full-width material before the taper starts, from each end (front/back)
+SPINE_PLATE_TAPER_NX_RUN = 30; // Y-run of the -X taper itself, measured from the reference STL
+SPINE_PLATE_TAPER_NX_DEPTH = 30; // X-depth of the indent, into the plate from plate_x_min - freely adjustable, no fixed reference
+
 STANDOFF_R      = 3.5;  // mounting standoff outer radius (7mm OD, ~1.6mm wall around the hole)
 STANDOFF_HOLE_R = 1.9;  // clearance hole radius - matches the 3.8mm dia modeled in the spine's own MB holes (fits M3 loosely)
 STANDOFF_MARGIN = 8;    // fallback corner inset, used only where no real hole spec is known (GaN PSU)
@@ -651,14 +702,77 @@ module new_spine(show, col, alpha) {
         mb_bottom = MB_POS[2] - MB_SIZE[2]/2;
         hdd_top   = HDD_POS[2] + HDD_SIZE[2]/2;
         gan_top   = GAN_PSU_POS[2] + GAN_PSU_SIZE[2]/2;
+        // SPINE_PLATE_MARGIN_X insets plate_w symmetrically from the plain
+        // SPINE_PLATE_SIZE[0] (flush) value - plate_x doesn't need to move
+        // to compensate, since a symmetric inset never shifts the center.
         plate_x   = SPINE_PLATE_POS[0];
         plate_y   = SPINE_PLATE_POS[1];
         plate_z   = SPINE_PLATE_POS[2];
-        plate_w   = SPINE_PLATE_SIZE[0];
+        plate_w   = SPINE_PLATE_SIZE[0] - 2*SPINE_PLATE_MARGIN_X;
         plate_d   = SPINE_PLATE_SIZE[1];
         plate_t   = SPINE_PLATE_SIZE[2];
         plate_top = plate_z + plate_t/2;
         plate_bot = plate_z - plate_t/2;
+        plate_x_min = plate_x - plate_w/2;
+        plate_x_max = plate_x + plate_w/2;
+        plate_y_min = plate_y - plate_d/2;
+        plate_y_max = plate_y + plate_d/2;
+        // +X trapezoidal taper, mirrored at both ends - see
+        // SPINE_PLATE_TAPER_PX_BEFORE/RUN above. Same two dimensions reused
+        // for both (this matches the reference STL's own shape too: its
+        // back-end taper measured out to the exact same 17.665mm run as the
+        // front one). Front: full width (flush with the front panel) for
+        // PX_BEFORE back from the front edge, then tapers down to
+        // plate_x_max (flush with the HDD standoffs) over PX_RUN. Back:
+        // mirror image, starting from full width right at the back corner
+        // (plate_y_min) as asked - full width for PX_BEFORE forward from
+        // there, then tapers back down to plate_x_max over PX_RUN. Between
+        // the two tapers, the edge stays at the narrow plate_x_max width
+        // (the "waist", same as the reference).
+        front_x_max = ENCLOSURE_POS[0] + ENCLOSURE_SIZE[0]/2;
+        taper_start_y = plate_y_max - SPINE_PLATE_TAPER_PX_BEFORE;
+        taper_end_y   = taper_start_y - SPINE_PLATE_TAPER_PX_RUN;
+        back_taper_start_y = plate_y_min + SPINE_PLATE_TAPER_PX_BEFORE;
+        back_taper_end_y   = back_taper_start_y + SPINE_PLATE_TAPER_PX_RUN;
+        // -Y trapezoidal taper, mirrored from both ends of the edge (-X
+        // corner and +X corner) - see SPINE_PLATE_TAPER_NY_BEFORE/RUN
+        // above. "Bottom" depth is the GaN PSU standoffs' own -Y face, not
+        // a fixed number - computed the same way the HDD standoffs' +X
+        // face was for the PX taper.
+        gan_world_ys  = [for (p = GAN_PSU_HOLES) GAN_PSU_POS[1] + rot2d(p, GAN_PSU_ROT[2])[1]];
+        gan_y_min_edge = min(gan_world_ys) - STANDOFF_R;
+        ny_taper_left_start_x  = plate_x_min + SPINE_PLATE_TAPER_NY_BEFORE;
+        ny_taper_left_end_x    = ny_taper_left_start_x + SPINE_PLATE_TAPER_NY_RUN;
+        ny_taper_right_start_x = front_x_max - SPINE_PLATE_TAPER_NY_BEFORE;
+        ny_taper_right_end_x   = ny_taper_right_start_x - SPINE_PLATE_TAPER_NY_RUN;
+        // -X trapezoidal taper, mirrored from both ends (front/back) - see
+        // SPINE_PLATE_TAPER_NX_BEFORE/RUN/DEPTH above. No fixed component
+        // to flush against here, so the inset X is just plate_x_min +
+        // DEPTH, a free number rather than something computed from real
+        // hardware.
+        nx_inset_x = plate_x_min + SPINE_PLATE_TAPER_NX_DEPTH;
+        nx_taper_front_start_y = plate_y_max - SPINE_PLATE_TAPER_NX_BEFORE;
+        nx_taper_front_end_y   = nx_taper_front_start_y - SPINE_PLATE_TAPER_NX_RUN;
+        nx_taper_back_start_y  = plate_y_min + SPINE_PLATE_TAPER_NX_BEFORE;
+        nx_taper_back_end_y    = nx_taper_back_start_y + SPINE_PLATE_TAPER_NX_RUN;
+        plate_outline = [
+            [plate_x_min, plate_y_min],
+            [ny_taper_left_start_x, plate_y_min],
+            [ny_taper_left_end_x, gan_y_min_edge],
+            [ny_taper_right_end_x, gan_y_min_edge],
+            [ny_taper_right_start_x, plate_y_min],
+            [front_x_max, plate_y_min],
+            [front_x_max, back_taper_start_y],
+            [plate_x_max, back_taper_end_y],
+            [plate_x_max, taper_end_y],
+            [front_x_max, taper_start_y],
+            [front_x_max, plate_y_max],
+            [plate_x_min, plate_y_max],
+            [plate_x_min, nx_taper_front_start_y],
+            [nx_inset_x, nx_taper_front_end_y],
+            [nx_inset_x, nx_taper_back_end_y],
+            [plate_x_min, nx_taper_back_start_y],
+        ];
 
         color(col, alpha) {
             // divider plate - the sandwich core between the MB compartment and the HDD/PSU compartment.
@@ -680,8 +794,9 @@ module new_spine(show, col, alpha) {
             // straight down on it.
             gan_cs_depth = (GAN_STANDOFF_CS_DIA/2 - GAN_STANDOFF_HOLE_R) / tan(GAN_STANDOFF_CS_ANGLE / 2);
             difference() {
-                translate([plate_x, plate_y, plate_z])
-                    cube([plate_w, plate_d, plate_t], center = true);
+                translate([0, 0, plate_z])
+                    linear_extrude(height = plate_t, center = true)
+                        polygon(plate_outline);
                 for (p = HDD_HOLES) {
                     wc = rot2d(p, HDD_ROT[2]);
                     wx = HDD_POS[0] + wc[0];
