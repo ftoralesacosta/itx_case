@@ -10,7 +10,7 @@ SHOW_ENCLOSURE  = false;
 SHOW_ODD        = false;
 
 
-used_components = true;
+used_components = false;
 
 SHOW_MB         = used_components;
 SHOW_HDD        = used_components;
@@ -34,13 +34,14 @@ ENCLOSURE_EDGE_R = 1.0;             // wireframe rod radius
 
 /* ---------- motherboard ---------- */
 MB_SIZE = [170, 170, 38];           // existing screw holes assumed on this footprint
-MB_POS  = [2, -90, 38.66];
+//MB_POS  = [2, -90, 38.66];
+MB_POS  = [2, -90, 34.6];
 MB_ROT  = [0, 0, 0];
 
 /* ---------- HDD (replaces GPU) ---------- */
 // Standard 3.5" HDD envelope (damping/grommet screw mount): 101.6 x 146.99 x 26.11 mm
 HDD_SIZE = [101.6, 146.99, 26.11]; // [W, D, H]
-HDD_POS  = [35, -75, -9];
+HDD_POS  = [35, -75, -9.98]; // Z lowered 0.98mm from -9 to lengthen the HDD standoff gap to fit a standard 6-32 x 3/8" screw - see HDD_ORING_POCKET_DEPTH comment
 HDD_ROT  = [0, 0, 0];
 
 /* ---------- ODD (slim internal Blu-ray drive) ---------- */
@@ -114,12 +115,45 @@ HDD_HOLES = let(
 // Native HDD threads are 6-32 UNC (major dia 3.51mm) - NOT metric M3 (3mm) -
 // this is a genuinely different screw from everything else in this build, now
 // that a real screw actually passes through here (was just a generic
-// placeholder clearance before this hole became a real pass-through). Sized
-// for a "free fit" 6-32 clearance (~3.9mm dia, ANSI B18.2.8), a bit more open
-// than a bare-minimum fit to allow for 3D-print tolerance.
-HDD_STANDOFF_HOLE_R = 1.95;
-HDD_STANDOFF_CS_DIA   = 6.8; // 6-32 flat-head countersink diameter (ASME B18.6.3, #6 flat head)
-HDD_STANDOFF_CS_ANGLE = 82;  // 6-32 flat-head countersink angle (US standard - NOT the 90deg ISO angle used for M3)
+// placeholder clearance before this hole became a real pass-through).
+//
+// Vibration isolation: the screw is meant to touch NOTHING rigid except the
+// HDD's own threads - not the plate, not the standoff. Two silicone O-rings
+// (AS568-007: ID 3.68mm, OD 7.24mm, cross-section 1.78mm, 70A - real,
+// catalog part, not guessed) take up the entire clamping load instead: one
+// under the pan-head screw's flat underside (in a pocket cut into the
+// plate's MB-side face), one under the standoff's own bottom face (in a
+// matching pocket, between the standoff and the HDD's mounting boss). A
+// pan/button head is required here, not a flat/countersunk one - there's no
+// flat underside on a countersunk head to compress an O-ring evenly against.
+// -007 was chosen over the next size up (-008) specifically because its OD
+// (7.24mm) is almost fully covered by a #6 pan head's ~6.86mm (0.270") max
+// diameter, so the clamping force compresses it evenly across the whole
+// ring - -008's wider OD would leave ~15% of the ring's cross-section
+// outside the head's reach, compressing unevenly for the part's whole
+// service life. The tradeoff: -007's 3.68mm ID only just clears the screw's
+// 3.51mm major diameter (0.09mm margin per side) - it has to be threaded on
+// gently, not dropped on loose.
+HDD_STANDOFF_HOLE_R = 2.3; // shank clearance through the plate + standoff bore - bigger than the O-ring's own ID (3.68mm/2), so the O-ring is the only thing that ever touches the screw
+HDD_STANDOFF_R = 5; // wider than the shared STANDOFF_R - needs to comfortably contain the O-ring pocket (see HDD_ORING_POCKET_DIA) plus a real wall around it
+HDD_ORING_OD = 7.24; // AS568-007, measured (real part, see catalog: ID 0.145in/3.68mm, OD 0.285in/7.24mm, CS 0.070in/1.78mm)
+HDD_ORING_CS = 1.78;  // AS568-007 cross-section (the O-ring's own "thickness" when sitting uncompressed)
+HDD_ORING_POCKET_CLEARANCE = 0.4; // extra pocket diameter beyond the O-ring's OD, for an easy (not interference) fit
+HDD_ORING_POCKET_DIA   = HDD_ORING_OD + HDD_ORING_POCKET_CLEARANCE;
+HDD_ORING_POCKET_DEPTH = 1.56; // ~12.5% compression of HDD_ORING_CS (target range: 10-15%, softer compression damps vibration better) - re-tune once you have the real part in hand
+// Screw: 6-32 x 3/8" (9.53mm), pan/button head, ~3mm thread engagement into
+// the HDD - real stack-up math, not a guess: plate (3mm) + standoff gap
+// (HDD's own standoff height, see HDD_POS[2]) + engagement (3mm, WD
+// SFF-8301's own minimum) = 9.53mm needed. Because the pocket depth above is
+// set to exactly match the target compressed O-ring height, the screw head
+// ends up flush with the plate and the peg rim never bottoms out against the
+// HDD - and the compression % cancels out of this equation entirely, so 3/8"
+// holds across the whole 10-15% target range, not just at 12.5% exactly.
+// 3/8" was picked over the next standard sizes up/down: 5/16" leaves only
+// 0.38mm of peg wall around the pocket (too thin to print reliably); 7/16"
+// and larger need enough extra standoff length that the HDD gets pushed
+// past the enclosure's own bottom (z_min) - see HDD_POS[2] below, which was
+// lowered 0.98mm from its previous value specifically to hit this length.
 
 // GaN PSU: REAL numbers, extracted directly from HDPLEX's own published STEP
 // CAD file (hdplex.com product page -> "3D Engineer Drawing (STP) Download
@@ -617,12 +651,13 @@ module new_spine(show, col, alpha) {
             // HDD's/PSU's own tapped hole below. Drilled here (through the plate
             // only) using the exact same positions/rotations as the standoffs
             // below, so the two bores line up and form one continuous channel.
-            // Countersinks are cut on the MB side (plate_top) for a flat-head
-            // screw driven in from above - HDD uses its own 6-32/82deg spec
-            // (HDD_STANDOFF_CS_*), GaN PSU uses the M3/90deg one used
-            // everywhere else (GAN_STANDOFF_CS_*), since they're genuinely
-            // different fasteners.
-            hdd_cs_depth = (HDD_STANDOFF_CS_DIA/2 - HDD_STANDOFF_HOLE_R) / tan(HDD_STANDOFF_CS_ANGLE / 2);
+            // Countersinks are cut on the MB side (plate_top). GaN PSU keeps
+            // its M3/90deg flat-head countersink (GAN_STANDOFF_CS_*). HDD is
+            // different: a pan-head screw + silicone O-ring instead of a
+            // flat-head + countersink (see HDD_ORING_* above for why) - so
+            // instead of a cone, it gets a straight cylindrical pocket sized
+            // to seat that O-ring, with the screw's flat underside pressing
+            // straight down on it.
             gan_cs_depth = (GAN_STANDOFF_CS_DIA/2 - GAN_STANDOFF_HOLE_R) / tan(GAN_STANDOFF_CS_ANGLE / 2);
             difference() {
                 translate([ENCLOSURE_POS[0], ENCLOSURE_POS[1], plate_z])
@@ -633,8 +668,9 @@ module new_spine(show, col, alpha) {
                     wy = HDD_POS[1] + wc[1];
                     translate([wx, wy, plate_bot - 0.5])
                         cylinder(h = SPINE_PLATE_T + 1, r = HDD_STANDOFF_HOLE_R, $fn = 24);
-                    translate([wx, wy, (plate_top + 0.5) - hdd_cs_depth])
-                        cylinder(h = hdd_cs_depth, r1 = HDD_STANDOFF_HOLE_R, r2 = HDD_STANDOFF_CS_DIA/2, $fn = 48);
+                    // O-ring pocket for the screw head, MB side
+                    translate([wx, wy, plate_top - HDD_ORING_POCKET_DEPTH])
+                        cylinder(h = HDD_ORING_POCKET_DEPTH + 0.5, r = HDD_ORING_POCKET_DIA/2, $fn = 48);
                 }
                 for (p = GAN_PSU_HOLES) {
                     wc = rot2d(p, GAN_PSU_ROT[2]);
@@ -650,8 +686,24 @@ module new_spine(show, col, alpha) {
             // motherboard standoffs - rise from the plate's top face up to the MB
             standoffs(MB_POS, MB_HOLES, MB_ROT[2], STANDOFF_R, STANDOFF_HOLE_R, plate_top, mb_bottom);
 
-            // HDD standoffs - hang from the plate's underside down to the HDD
-            standoffs(HDD_POS, HDD_HOLES, HDD_ROT[2], STANDOFF_R, HDD_STANDOFF_HOLE_R, plate_bot, hdd_top);
+            // HDD standoffs - hang from the plate's underside down to the HDD.
+            // Wrapped in an extra difference() here (not inside standoffs()
+            // itself, which is shared with MB/GaN) to cut a matching O-ring
+            // pocket into each standoff's own bottom face - the second of
+            // the two isolation points, between the standoff and the HDD's
+            // mounting boss. HDD_STANDOFF_R (not the shared STANDOFF_R) is
+            // used here since the peg needs to be wide enough to actually
+            // contain that pocket plus a real wall around it.
+            difference() {
+                standoffs(HDD_POS, HDD_HOLES, HDD_ROT[2], HDD_STANDOFF_R, HDD_STANDOFF_HOLE_R, plate_bot, hdd_top);
+                for (p = HDD_HOLES) {
+                    wc = rot2d(p, HDD_ROT[2]);
+                    wx = HDD_POS[0] + wc[0];
+                    wy = HDD_POS[1] + wc[1];
+                    translate([wx, wy, hdd_top - 0.5])
+                        cylinder(h = HDD_ORING_POCKET_DEPTH + 0.5, r = HDD_ORING_POCKET_DIA/2, $fn = 48);
+                }
+            }
 
             // GaN PSU standoffs - hang from the plate's underside down to the PSU, real hole pattern (see GAN_PSU_HOLES)
             standoffs(GAN_PSU_POS, GAN_PSU_HOLES, GAN_PSU_ROT[2], STANDOFF_R, GAN_STANDOFF_HOLE_R, plate_bot, gan_top);

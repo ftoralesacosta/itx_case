@@ -38,6 +38,11 @@ and mounting study for the spine only.
   installed. Screws for those two joints go in from the **motherboard side**
   instead — through an access hole in the plate, down through the standoff's
   bore, and directly into the HDD's/PSU's own tapped mounting hole.
+- **HDD vibration isolation**: the HDD standoffs mount the drive through a
+  pair of silicone O-rings per screw instead of a rigid plastic-to-metal
+  clamp, so drive vibration doesn't couple straight into the plate (and
+  from there, the rest of the case). See "HDD vibration isolation" under
+  Hardware below for the real numbers and install instructions.
 
 Most dimensions and hole patterns are pulled from real sources (datasheets,
 official spec whitepapers, or — for the GaN PSU — the manufacturer's own
@@ -55,22 +60,54 @@ except the HDD, which uses the drive industry's standard **6-32 UNC**
 | Joint | Qty | Thread | Length | Head | Notes |
 |---|---|---|---|---|---|
 | Motherboard → standoffs | 4 | M3 | ~6mm | pan/socket | Standard mITX standoff screw length. The standoffs themselves are printed plastic with a plain clearance bore — they need **M3 heat-set threaded inserts**, or M3 thread-forming ("PT"/plastic) screws, since there's no metal thread to bite into. |
-| HDD → standoffs (from MB side) | 4 | **6-32 UNC** | 1/2" (12.7mm)† | flat/countersunk, 82° | Threads directly into the drive's own tapped bottom-mount holes (real metal thread, no insert needed). Screw travels from the plate's MB-side face, through the plate and standoff, into the drive. |
+| HDD → standoffs (from MB side) | 4 | **6-32 UNC** | 3/8" (9.53mm)† | pan/button (flat underside) | Threads directly into the drive's own tapped bottom-mount holes. Vibration-isolated (see below) — the screw touches nothing but the two O-rings and the drive's threads the whole way through the plate and standoff. **Not** flat/countersunk — a countersunk head has no flat face to compress an O-ring evenly against. |
+| HDD standoff isolation O-rings | 8 | — | AS568-007 (ID 0.145"/3.68mm, OD 0.285"/7.24mm, CS 0.070"/1.78mm) | silicone (VMQ), 70A | Two per standoff — one under the screw head, one between the standoff and the HDD's mounting boss. This is what actually isolates HDD vibration from the plate; the screw and standoff themselves never touch each other rigidly. See "HDD vibration isolation" below for install compression. |
 | GaN PSU → standoffs (from MB side) | 4 | M3 | 16mm‡ | flat/countersunk, 90° | Threads directly into the PSU's own tapped mounting holes (verified from HDPLEX's STEP file, "same as HDPLEX 200W ACDC / 400W ACDC" pattern). Same access-from-above arrangement as the HDD. |
 | Front panel → case shell (top+bottom corners) | 4 | M3 | TBD | flat/countersunk, 90° | Attaches the spine assembly to the outer case shell. Length depends on the shell's own screw boss depth, which hasn't been designed yet. |
 | GaN PSU → front panel (cable-side mounts) | 4 | M3 | TBD | flat/countersunk, 90° | **Placeholder, not verified real hardware** — the GaN PSU's actual front-mounting bracket is a length-wise rail (177×35mm hole spacing, confirmed M3) rather than a small end-cap plate like this cutout assumes. Keep these for now, but don't treat the spacing as matching the real PSU rail. |
 
-† Based on WD's SFF-8301 bottom-mount spec: engagement depth requirements
-vary by drive family (1–3 disk vs. 4-disk vs. >5-disk) enough that no single
-length is ideal for every drive. 1/2" targets ~3mm engagement, a safe
-default across families. If you know your drive is a modern high-capacity
-(4+ platter) model, **5/8" (15.88mm)** gives ~6.4mm engagement instead,
-matching that family's spec more closely.
+† A real stack-up calculation, not a rule of thumb: plate thickness (3mm) +
+standoff gap + ~3mm thread engagement (WD SFF-8301's own minimum) needs to
+land exactly on a standard screw length. The HDD's own Z position
+(`HDD_POS[2]` in `fish_case.scad`) was adjusted specifically to make that
+land on 3/8" - the next standard size down (5/16") leaves only 0.38mm of
+printed wall around the O-ring pocket (too thin to print reliably), and the
+next size up (7/16") pushes the drive past the enclosure's own floor. See
+the `HDD_ORING_POCKET_DEPTH` comment in `fish_case.scad` for the full math.
 
 ‡ Assumes ~4.5mm of M3 thread engagement into the PSU's aluminum body (a
 general engineering guideline — the PSU's tapped-hole *depth* wasn't
 extracted from the STEP file, only hole position and diameter). If 16mm
 screws bottom out, drop to 14mm.
+
+### HDD vibration isolation - install notes
+
+The HDD isn't rigidly bolted to the spine. Two silicone O-rings per
+standoff (screw-head side and standoff-to-HDD side) carry the entire
+clamping load - the screw never touches the plate or the standoff, only
+the O-rings and the drive's threads. That only works if the O-rings end up
+compressed to roughly the right amount, and this joint has **no hard
+mechanical stop** - past the target, tightening further just keeps
+compressing the O-rings, so "screw it down snug" is the wrong instinct
+here.
+
+- **Target: 10-15% compression** (soft enough to actually damp vibration,
+  firm enough to hold the drive securely - see the design discussion for
+  why softer beats a fully-torqued rigid joint here).
+- Because each screw has **two** O-rings in series (not one), the
+  compression splits between them - a given amount of screw travel only
+  buys half the compression you'd get with a single isolator. Install by
+  hand-threading until resistance is first felt (both O-rings just
+  touching, zero compression), then turn an additional **1/2 to 2/3 turn**
+  past that point - 6-32's 32 TPI thread advances 0.79mm per full turn, so
+  that range covers 10-15% compression on both O-rings together. (A single
+  O-ring reaching 15% alone would only take about 1/3 turn - it's the
+  two-in-series setup that doubles it.)
+- `HDD_ORING_POCKET_DEPTH` in `fish_case.scad` targets 12.5% (the middle of
+  that range) assuming the O-ring's free height matches the AS568-007 spec
+  exactly (1.78mm cross-section) - real parts vary a little from nominal,
+  so treat the 1/2-2/3 turn instruction as the actual install reference,
+  not the pocket depth number.
 
 ## Known open items
 
