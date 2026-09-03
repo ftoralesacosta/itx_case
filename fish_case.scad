@@ -381,8 +381,8 @@ HDD_GRILL_WALL   = 1.2; // wall thickness left between adjacent hex cells
 // sits about 27% inside this triangle's hypotenuse, not right on the
 // edge). The screw hole/countersink/tab slot are still cut in normally
 // afterward, so this only ever adds material, never blocks the screw.
-FRONT_PANEL_CORNER_INFILL_X = 15; // wedge reach inward from the panel's +X edge
-FRONT_PANEL_CORNER_INFILL_Z = 15; // wedge reach inward from the panel's -Z edge
+FRONT_PANEL_CORNER_INFILL_X = 13; // wedge reach inward from the panel's +X edge
+FRONT_PANEL_CORNER_INFILL_Z = 13; // wedge reach inward from the panel's -Z edge
 
 // A field of regular hexagons (2D, centered at the origin) tiling a [w,h]
 // rectangle, clipped to a clean straight border. Wall thickness between
