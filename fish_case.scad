@@ -10,7 +10,7 @@ SHOW_ENCLOSURE  = false;
 SHOW_ODD        = false;
 
 
-used_components = false;
+used_components = true;
 
 SHOW_MB         = used_components;
 SHOW_HDD        = used_components;
@@ -35,7 +35,7 @@ ENCLOSURE_EDGE_R = 1.0;             // wireframe rod radius
 /* ---------- motherboard ---------- */
 MB_SIZE = [170, 170, 38];           // existing screw holes assumed on this footprint
 //MB_POS  = [2, -90, 38.66];
-MB_POS  = [2, -90, 34.6];
+MB_POS  = [4, -90, 34.6];
 MB_ROT  = [0, 0, 0];
 
 /* ---------- HDD (replaces GPU) ---------- */
@@ -141,6 +141,27 @@ SPINE_PLATE_TAPER_NY_RUN = 5; // X-run of the -Y taper itself, full depth to flu
 SPINE_PLATE_TAPER_NX_BEFORE = 25; // Y run of flat, full-width material before the taper starts, from each end (front/back)
 SPINE_PLATE_TAPER_NX_RUN = 30; // Y-run of the -X taper itself, measured from the reference STL
 SPINE_PLATE_TAPER_NX_DEPTH = 30; // X-depth of the indent, into the plate from plate_x_min - freely adjustable, no fixed reference
+
+// Front panel reinforcement wedges - 4 total, one in each of the 4 corners
+// where the (vertical) front panel meets the (horizontal) divider plate:
+// +X/upper, +X/lower, -X/upper, -X/lower. Each is a simple right-triangle
+// gusset lying in the Y-Z plane (extruded by its own THICKNESS in X): one
+// leg flush against the front panel's back face (at Y1, spanning Z1 to the
+// plate's own Z), the other leg flush against the plate's top or bottom
+// face (at Z2, spanning Y2 to the panel's own Y) - i.e. the right-angle
+// corner sits exactly at (Y1, Z2), the real physical corner where the two
+// parts meet. X position is NOT a free parameter - each wedge sits flush
+// with the plate's own edge at whatever X that edge is AT the wedge's own
+// Y2 depth (see spine_plate_px_edge()/spine_plate_nx_edge() below), so it
+// stays correctly anchored even if the taper parameters above change
+// later - this is exactly the kind of disconnect the NX depth experiment
+// just found the hard way with the MB standoffs. Y1/Z1/Y2/Z2 given here
+// are genuinely independent per wedge, as asked; only the X side (which
+// edge to anchor to) and thickness are shared in spirit, not value.
+WEDGE_PX_UPPER_Y1 = -5; WEDGE_PX_UPPER_Z1 = 24.6; WEDGE_PX_UPPER_Y2 = -15; WEDGE_PX_UPPER_Z2 = 9.6; WEDGE_PX_UPPER_THICKNESS = 2;
+WEDGE_PX_LOWER_Y1 = -5; WEDGE_PX_LOWER_Z1 = -8.4; WEDGE_PX_LOWER_Y2 = -15; WEDGE_PX_LOWER_Z2 = 6.6; WEDGE_PX_LOWER_THICKNESS = 2;
+WEDGE_NX_UPPER_Y1 = -5; WEDGE_NX_UPPER_Z1 = 24.6; WEDGE_NX_UPPER_Y2 = -5; WEDGE_NX_UPPER_Z2 = 9.6; WEDGE_NX_UPPER_THICKNESS = 0;
+WEDGE_NX_LOWER_Y1 = -5; WEDGE_NX_LOWER_Z1 = -8.4; WEDGE_NX_LOWER_Y2 = -15; WEDGE_NX_LOWER_Z2 = 6.6; WEDGE_NX_LOWER_THICKNESS = 2;
 
 STANDOFF_R      = 3.5;  // mounting standoff outer radius (7mm OD, ~1.6mm wall around the hole)
 STANDOFF_HOLE_R = 1.9;  // clearance hole radius - matches the 3.8mm dia modeled in the spine's own MB holes (fits M3 loosely)
@@ -431,9 +452,9 @@ GAN_FRONT_MOUNT_CS_ANGLE = 90;  // countersink included angle
 // TOP bigger than BOTTOM lets air in along more of the drive's length
 // instead of just its middle).
 HDD_GRILL_MARGIN_LEFT   = 4; // extra space beyond the HDD's -X edge
-HDD_GRILL_MARGIN_RIGHT  = 4; // extra space beyond the HDD's +X edge
+HDD_GRILL_MARGIN_RIGHT  = 5.2; // extra space beyond the HDD's +X edge
 HDD_GRILL_MARGIN_TOP    = 6; // extra space beyond the HDD's +Z edge
-HDD_GRILL_MARGIN_BOTTOM = 1; // extra space beyond the HDD's -Z edge
+HDD_GRILL_MARGIN_BOTTOM = 0; // extra space beyond the HDD's -Z edge
 HDD_GRILL_HEX_R  = 4;   // hexagon circumradius (cell size)
 HDD_GRILL_WALL   = 1.2; // wall thickness left between adjacent hex cells
 
@@ -627,6 +648,73 @@ module box_wireframe(size, r) {
 }
 
 function rot2d(p, deg) = [p[0]*cos(deg) - p[1]*sin(deg), p[0]*sin(deg) + p[1]*cos(deg)];
+
+// Real (taper-aware) plate edge X at a given world Y - mirrors the exact
+// same before/run/waist zone logic used to build plate_outline in
+// new_spine() below (keep the two in sync if the taper shape ever changes).
+// Used by the reinforcement wedges so they stay correctly anchored to
+// whatever the plate's real edge is at their own Y2, instead of assuming a
+// fixed X that a taper might have already carved past - the exact kind of
+// disconnect the NX_DEPTH experiment surfaced with the MB standoffs.
+function spine_plate_px_edge(y) =
+    let(
+        full  = ENCLOSURE_POS[0] + ENCLOSURE_SIZE[0]/2,
+        narrow = SPINE_PLATE_POS[0] + SPINE_PLATE_SIZE[0]/2,
+        y_max = SPINE_PLATE_POS[1] + SPINE_PLATE_SIZE[1]/2,
+        y_min = SPINE_PLATE_POS[1] - SPINE_PLATE_SIZE[1]/2,
+        fbe = y_max - SPINE_PLATE_TAPER_PX_BEFORE,
+        fte = fbe - SPINE_PLATE_TAPER_PX_RUN,
+        bbe = y_min + SPINE_PLATE_TAPER_PX_BEFORE,
+        bte = bbe + SPINE_PLATE_TAPER_PX_RUN
+    )
+    (y > fbe) ? full :
+    (y > fte) ? full - (full - narrow) * (fbe - y) / SPINE_PLATE_TAPER_PX_RUN :
+    (y > bte) ? narrow :
+    (y > bbe) ? full - (full - narrow) * (y - bbe) / SPINE_PLATE_TAPER_PX_RUN :
+    full;
+
+function spine_plate_nx_edge(y) =
+    let(
+        full  = SPINE_PLATE_POS[0] - SPINE_PLATE_SIZE[0]/2,
+        narrow = full + SPINE_PLATE_TAPER_NX_DEPTH,
+        y_max = SPINE_PLATE_POS[1] + SPINE_PLATE_SIZE[1]/2,
+        y_min = SPINE_PLATE_POS[1] - SPINE_PLATE_SIZE[1]/2,
+        fbe = y_max - SPINE_PLATE_TAPER_NX_BEFORE,
+        fte = fbe - SPINE_PLATE_TAPER_NX_RUN,
+        bbe = y_min + SPINE_PLATE_TAPER_NX_BEFORE,
+        bte = bbe + SPINE_PLATE_TAPER_NX_RUN
+    )
+    (y > fbe) ? full :
+    (y > fte) ? full + (narrow - full) * (fbe - y) / SPINE_PLATE_TAPER_NX_RUN :
+    (y > bte) ? narrow :
+    (y > bbe) ? full + (narrow - full) * (y - bbe) / SPINE_PLATE_TAPER_NX_RUN :
+    full;
+
+// Right-triangle gusset in the Y-Z plane, extruded by `thickness` in X,
+// starting at world X = x0. dir=+1 extrudes toward +X (for wedges anchored
+// to a +X edge, extending inward toward -X... ), dir=-1 the opposite - see
+// call sites below for which is which. Right-angle corner is at (y1, z2).
+module reinforcement_wedge(y1, z1, y2, z2, x0, thickness, dir) {
+    x_min = dir > 0 ? x0 : x0 - thickness;
+    x_max = dir > 0 ? x0 + thickness : x0;
+    polyhedron(
+        points = [
+            [x_min, y1, z1],
+            [x_min, y2, z2],
+            [x_min, y1, z2],
+            [x_max, y1, z1],
+            [x_max, y2, z2],
+            [x_max, y1, z2],
+        ],
+        faces = [
+            [0, 2, 1],
+            [3, 4, 5],
+            [0, 1, 4, 3],
+            [1, 2, 5, 4],
+            [2, 0, 3, 5],
+        ]
+    );
+}
 
 // Support ramp fused to a standoff's +Y side, like the real spine's own
 // standoff bosses: full peg height right at the peg, tapering down to flush
@@ -848,6 +936,19 @@ module new_spine(show, col, alpha) {
 
             // front panel, lower portion - simple flat plate, GaN PSU cable + mount screws
             front_panel_lower(SHOW_FRONT_PANEL_LOWER, plate_top, col, alpha);
+
+            // front panel reinforcement wedges - see WEDGE_* above. +X
+            // wedges anchor to the plate's real +X edge at their own Y2
+            // (dir=-1: extrude inward, toward -X); -X wedges anchor to the
+            // real -X edge (dir=+1: extrude inward, toward +X).
+            reinforcement_wedge(WEDGE_PX_UPPER_Y1, WEDGE_PX_UPPER_Z1, WEDGE_PX_UPPER_Y2, WEDGE_PX_UPPER_Z2,
+                spine_plate_px_edge(WEDGE_PX_UPPER_Y2), WEDGE_PX_UPPER_THICKNESS, -1);
+            reinforcement_wedge(WEDGE_PX_LOWER_Y1, WEDGE_PX_LOWER_Z1, WEDGE_PX_LOWER_Y2, WEDGE_PX_LOWER_Z2,
+                spine_plate_px_edge(WEDGE_PX_LOWER_Y2), WEDGE_PX_LOWER_THICKNESS, -1);
+            reinforcement_wedge(WEDGE_NX_UPPER_Y1, WEDGE_NX_UPPER_Z1, WEDGE_NX_UPPER_Y2, WEDGE_NX_UPPER_Z2,
+                spine_plate_nx_edge(WEDGE_NX_UPPER_Y2), WEDGE_NX_UPPER_THICKNESS, 1);
+            reinforcement_wedge(WEDGE_NX_LOWER_Y1, WEDGE_NX_LOWER_Z1, WEDGE_NX_LOWER_Y2, WEDGE_NX_LOWER_Z2,
+                spine_plate_nx_edge(WEDGE_NX_LOWER_Y2), WEDGE_NX_LOWER_THICKNESS, 1);
         }
     }
 }
