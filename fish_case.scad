@@ -471,6 +471,21 @@ GAN_FRONT_MOUNT_R = 1.5;    // M3 clearance - unverified size, see note below
 GAN_FRONT_MOUNT_CS_DIA   = 6.4; // countersink head diameter, same M3 flat-head value used elsewhere
 GAN_FRONT_MOUNT_CS_ANGLE = 90;  // countersink included angle
 
+// Ventilation grill on the FRONT PANEL itself (lower section), cut straight
+// through the panel's Y thickness - a row of small vertical bars sitting in
+// the one clear strip of solid material between the GaN PSU's cable
+// cutout (top at GAN_PSU_POS[2] + GAN_CABLE_CUTOUT_H/2 = -2.5) and where
+// the upper panel piece begins (plate_bot, currently 6.6 - the upper panel
+// covers everything above that). X is centered over the cable cutout
+// (GAN_PSU_POS[0]) and sized to sit inside its width, clear of the GaN
+// front-mount screws further out at X = GAN_PSU_POS[0] +/- 21.5. Re-check
+// clearance to both if GAN_PSU_POS, GAN_CABLE_CUTOUT_H, or the plate's own
+// Z position move.
+FRONT_VENT_POS   = [-48, 2]; // world [x, z] center of the grill (cut straight through the panel, front to back)
+FRONT_VENT_SIZE  = [16, 5];  // [x width, z height] of the grill's overall footprint - the row below is centered inside this, may end up slightly narrower once rounded to a whole number of slots
+FRONT_VENT_SLOT_W = 1.6; // X width of each individual vertical bar
+FRONT_VENT_WALL   = 1.6; // material left between adjacent bars
+
 // HDD ventilation grill - a honeycomb of hex cutouts sized around the HDD's
 // own front-face footprint (its width x height cross-section facing this
 // panel: HDD_SIZE[0] x HDD_SIZE[2], unaffected by HDD_ROT since that's
@@ -594,6 +609,19 @@ module front_panel_lower(show, plate_top, col, alpha) {
                     translate([p[0], 0.5 - cs_depth, p[1]])
                         rotate([-90, 0, 0])
                             cylinder(h = cs_depth, r1 = GAN_FRONT_MOUNT_R, r2 = cs_r, $fn = 48);
+                }
+                // front ventilation grill - see FRONT_VENT_* above
+                fvent_cols = floor(FRONT_VENT_SIZE[0] / (FRONT_VENT_SLOT_W + FRONT_VENT_WALL));
+                fvent_grid_w = fvent_cols * FRONT_VENT_SLOT_W + (fvent_cols - 1) * FRONT_VENT_WALL;
+                fvent_x0 = FRONT_VENT_POS[0] - fvent_grid_w/2;
+                fvent_z0 = FRONT_VENT_POS[1] - FRONT_VENT_SIZE[1]/2;
+                for (c = [0 : fvent_cols - 1]) {
+                    translate([
+                        fvent_x0 + c * (FRONT_VENT_SLOT_W + FRONT_VENT_WALL),
+                        -FRONT_PANEL_THICKNESS - 1,
+                        fvent_z0
+                    ])
+                        cube([FRONT_VENT_SLOT_W, FRONT_PANEL_THICKNESS + 2, FRONT_VENT_SIZE[1]]);
                 }
                 // lower corner case-mounting screws
                 for (screw_x = corner_screw_xs) {
