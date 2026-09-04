@@ -104,6 +104,14 @@ HDD_HOLES = let(
 // 6-32 UNC, not M3 - see README hardware table + vibration-isolation notes.
 HDD_STANDOFF_HOLE_R = 2.3;
 HDD_STANDOFF_R = 5;
+// Fillet radius on just the ramp's far two corners (where it meets the
+// plate) - NOT a full-reach clip, the straight ramp run itself is never
+// shortened, only those two corners get rounded off. HDD-only: after the
+// diamond lightening pattern was added, the HDD standoff ramps' far corners
+// were the ones found poking past solid plate material into an open cell;
+// MB's ramps don't have that problem and are left sharp (see new_spine()'s
+// standoffs() calls). 0 = sharp corners. See standoff_ramp() for the geometry.
+HDD_STANDOFF_RAMP_CORNER_R = 2;
 HDD_ORING_OD = 7.24; // AS568-007
 HDD_ORING_CS = 1.78;
 HDD_ORING_POCKET_CLEARANCE = 0.4;
@@ -227,7 +235,32 @@ FRONT_VENT_WALL   = 1.6;
 // see README for the tradeoffs (grid needs supports in this part's real
 // print orientation; diamond doesn't).
 SPINE_LIGHTENING_MODE = "diamond";
-SPINE_LIGHTENING_MARGIN = 10;  // solid rim kept in from the plate's real outline
+// Where the pattern stops, independently on each of the plate's 4 sides -
+// each is a plain distance in from that side's own edge of the plate's
+// bounding box (not the plate's real, taper-notched outline - see below
+// for why that distinction matters here). PX/NX/NY = same edges as the
+// taper params above; PY = the plate's plain (untapered) +Y edge.
+//
+// These are real, independent limits - not layered on some hidden shared
+// floor - so any of the 4 can be pushed down as low as you like (0, or
+// even negative to let the pattern reach past that edge, which the plate's
+// own real outline then naturally clips) without the others changing, and
+// there's no minimum enforced. That's safe to do here specifically because
+// of *how* this margin is applied: as a plain axis-aligned box, not a
+// taper-shape-following offset() of the plate's own outline (like this
+// used to be). That distinction is exactly what fixed the razor-thin
+// sliver-hole defect the 4 reflex (concave) taper-notch corners used to
+// produce (see git history/README) - it turned out to be a numerical
+// artifact of running OpenSCAD's offset() against those corners
+// specifically, not a "needs N mm of clearance" issue, so a plain box
+// (which never calls offset() at all) sidesteps it entirely - confirmed
+// clean at all 4 corners with every one of these pushed down to 5.
+// If you ever reintroduce an outline-following offset() here for some
+// other reason, re-verify all 4 corners with a render (not just Preview).
+SPINE_LIGHTENING_MARGIN_PX = 16;
+SPINE_LIGHTENING_MARGIN_NX = 16;
+SPINE_LIGHTENING_MARGIN_PY = 18;
+SPINE_LIGHTENING_MARGIN_NY = 22;
 SPINE_LIGHTENING_STANDOFF_CLEARANCE = 4; // extra clearance kept around every standoff
 SPINE_HONEYCOMB_HEX_R  = 4;
 SPINE_HONEYCOMB_WALL   = 1.4;
@@ -478,6 +511,35 @@ function spine_plate_nx_edge(y) =
     (y > bbe) ? full + (narrow - full) * (y - bbe) / SPINE_PLATE_TAPER_NX_RUN :
     full;
 
+// spine_plate_nx_edge() above, shifted outward (into solid material) by
+// `margin` and returned as an explicit polyline that follows the taper's
+// own flat/ramp/flat/ramp/flat shape - not a flat line - so a shape built
+// from it stays a constant distance from the *real* -X edge, and keeps
+// tracking it automatically if the taper params (SPINE_PLATE_TAPER_NX_*)
+// are ever re-tuned. y_pad extends the first/last points further in Y than
+// the plate's own real extent, purely so the caller can safely intersect
+// this against a taller/shorter box without the polyline's own ends
+// falling short.
+function spine_plate_nx_edge_points(margin, y_pad = 50) =
+    let(
+        y_max = SPINE_PLATE_POS[1] + SPINE_PLATE_SIZE[1]/2,
+        y_min = SPINE_PLATE_POS[1] - SPINE_PLATE_SIZE[1]/2,
+        fbe = y_max - SPINE_PLATE_TAPER_NX_BEFORE,
+        fte = fbe - SPINE_PLATE_TAPER_NX_RUN,
+        bbe = y_min + SPINE_PLATE_TAPER_NX_BEFORE,
+        bte = bbe + SPINE_PLATE_TAPER_NX_RUN
+    )
+    [
+        [spine_plate_nx_edge(y_max) + margin, y_max + y_pad],
+        [spine_plate_nx_edge(y_max) + margin, y_max],
+        [spine_plate_nx_edge(fbe) + margin, fbe],
+        [spine_plate_nx_edge(fte) + margin, fte],
+        [spine_plate_nx_edge(bte) + margin, bte],
+        [spine_plate_nx_edge(bbe) + margin, bbe],
+        [spine_plate_nx_edge(y_min) + margin, y_min],
+        [spine_plate_nx_edge(y_min) + margin, y_min - y_pad],
+    ];
+
 // The plate's real (taper-aware) outline polygon, in new_spine()'s own
 // point order - kept in sync with spine_plate_px_edge()/nx_edge() above.
 // Pulled out of new_spine() so the outline shape can be read on its own.
@@ -613,43 +675,73 @@ module reinforcement_wedge(y1, z1, y2, z2, x0, thickness, dir) {
     );
 }
 
-// 45deg print-support ramp fused to a standoff's +Y side - see README (Print
-// orientation). hull() blends round peg to a square ramp, then runs the
-// square ramp down flush with the plate. Clipped to clip_r (a cylinder
-// around the peg) so its far corners can't poke past the lightening
-// pattern's own standoff keepout radius - see README. Hole is drilled
-// later, through the peg+ramp union, by standoffs() below.
-module standoff_ramp(wx, wy, r, z_from, z_to, plate_z, run, clip_r) {
+// Un-rounded ramp wedge - the 45deg print-support slope itself, see README
+// (Print orientation). hull() blends the round peg into a flat, constant-
+// width (2r) bar, then a 2nd hull tapers that bar's height down to flush
+// with the plate over `run`. standoff_ramp() below optionally rounds this
+// wedge's far corners; this raw version is also what you get from it at
+// corner_r = 0.
+module standoff_ramp_wedge(wx, wy, r, z_from, z_to, plate_z, run) {
     EPS = 0.02;
     h = abs(z_to - z_from);
     zmin = min(z_from, z_to);
-    intersection() {
-        union() {
-            hull() {
-                translate([wx, wy, zmin])
-                    cylinder(h = h, r = r, $fn = 24);
-                translate([wx - r, wy + r, zmin])
-                    cube([2*r, EPS, h]);
-            }
-            hull() {
-                translate([wx - r, wy + r, zmin])
-                    cube([2*r, EPS, h]);
-                translate([wx - r, wy + r + run, plate_z - EPS/2])
-                    cube([2*r, EPS, EPS]);
-            }
+    union() {
+        hull() {
+            translate([wx, wy, zmin])
+                cylinder(h = h, r = r, $fn = 24);
+            translate([wx - r, wy + r, zmin])
+                cube([2*r, EPS, h]);
         }
-        translate([wx, wy, zmin - EPS])
-            cylinder(h = h + 2*EPS, r = clip_r, $fn = 48);
+        hull() {
+            translate([wx - r, wy + r, zmin])
+                cube([2*r, EPS, h]);
+            translate([wx - r, wy + r + run, plate_z - EPS/2])
+                cube([2*r, EPS, EPS]);
+        }
+    }
+}
+
+// standoff_ramp_wedge() above, with its far two corners (at [wx+-r, wy+r+run])
+// optionally rounded off by corner_r - purely a plan-view (X-Y) fillet, not a
+// taper-shape change: built as its own flat 2D shape (shrink by corner_r,
+// then grow back out with a rounding offset - the standard "fillet a
+// rectangle's corners" recipe), extruded straight up through the wedge's
+// full Z range, and intersected onto the wedge. Because that clip volume is
+// Z-invariant, the wedge's own Y-Z slope stays a dead-straight line at every
+// X - the curvature only ever shows up in the X-Y plan view, never bleeding
+// into the ramp's taper the way clipping with a sphere/cylinder centered in
+// 3D would. The straight run length is never shortened, only material right
+// at the two far corners is trimmed. 0 (default) = sharp corners, plain
+// wedge. Hole is drilled later, through the peg+ramp union, by standoffs()
+// below.
+module standoff_ramp(wx, wy, r, z_from, z_to, plate_z, run, corner_r=0) {
+    if (corner_r > 0) {
+        h = abs(z_to - z_from);
+        zmin = min(z_from, z_to);
+        far_y = wy + r + run;
+        back_y = wy - r - h; // generous margin behind the peg - no real geometry back there to protect
+        intersection() {
+            standoff_ramp_wedge(wx, wy, r, z_from, z_to, plate_z, run);
+            translate([0, 0, zmin - 1])
+                linear_extrude(height = h + 2)
+                    translate([wx, (back_y + far_y) / 2])
+                        offset(r = corner_r)
+                            offset(delta = -corner_r)
+                                square([2*r, far_y - back_y], center = true);
+        }
+    } else {
+        standoff_ramp_wedge(wx, wy, r, z_from, z_to, plate_z, run);
     }
 }
 
 // Standoffs at [x,y] local hole points, each with a drilled through-hole
-// and a +Y ramp. z_from is always the plate-contact end.
-module standoffs(pos, local_pts, rot_z, r, hole_r, z_from, z_to) {
+// and a +Y ramp. z_from is always the plate-contact end. ramp_corner_r
+// fillets just the ramp's far two corners - see standoff_ramp(); 0 (default)
+// leaves them sharp.
+module standoffs(pos, local_pts, rot_z, r, hole_r, z_from, z_to, ramp_corner_r=0) {
     h = abs(z_to - z_from);
     run = h * STANDOFF_RAMP_RUN_FACTOR;
     zmin = min(z_from, z_to);
-    clip_r = r + SPINE_LIGHTENING_STANDOFF_CLEARANCE;
     for (wp = world_holes(pos, local_pts, rot_z)) {
         wx = wp[0];
         wy = wp[1];
@@ -657,7 +749,7 @@ module standoffs(pos, local_pts, rot_z, r, hole_r, z_from, z_to) {
             union() {
                 translate([wx, wy, zmin])
                     cylinder(h = h, r = r, $fn = 24);
-                standoff_ramp(wx, wy, r, z_from, z_to, z_from, run, clip_r);
+                standoff_ramp(wx, wy, r, z_from, z_to, z_from, run, ramp_corner_r);
             }
             translate([wx, wy, zmin - 0.5])
                 cylinder(h = h + 1, r = hole_r, $fn = 24);
@@ -715,34 +807,67 @@ module new_spine(show, col, alpha) {
                         cylinder(h = gan_cs_depth, r1 = GAN_STANDOFF_HOLE_R, r2 = GAN_STANDOFF_CS_DIA/2, $fn = 48);
                 }
                 // Lightening/vent pattern - see SPINE_LIGHTENING_* above.
-                // Confined inside an inset copy of the plate's own real
-                // outline (follows the taper edges via offset()), with
+                // Confined to a plain axis-aligned box, independently inset
+                // from each of the plate's 4 sides by SPINE_LIGHTENING_
+                // MARGIN_PX/NX/PY/NY (deliberately NOT a taper-outline-
+                // following offset() - see those params for why), with
                 // every MB/HDD/GaN standoff's own real radius plus a
-                // clearance margin kept solid around it.
+                // clearance margin kept solid around it. The plate's own
+                // real (taper-notched) outline still bounds everything
+                // from the outer difference() this all sits inside, so the
+                // box is free to extend past the plate's real edge with no
+                // ill effect - it's just naturally clipped there.
+                lightening_px_limit = (ENCLOSURE_POS[0] + ENCLOSURE_SIZE[0]/2) - SPINE_LIGHTENING_MARGIN_PX;
+                lightening_nx_limit = (plate_x - plate_w/2) + SPINE_LIGHTENING_MARGIN_NX;
+                lightening_py_limit = (plate_y + plate_d/2) - SPINE_LIGHTENING_MARGIN_PY;
+                lightening_ny_limit = (plate_y - plate_d/2) + SPINE_LIGHTENING_MARGIN_NY;
+                // Tiling generated oversized to this box's own real size (not
+                // plate_w/plate_d) - the 4 margins above are independent and
+                // can even go negative, so the box itself is the only thing
+                // that reliably bounds how big the tiling actually needs to be.
+                lightening_box_w = lightening_px_limit - lightening_nx_limit;
+                lightening_box_d = lightening_py_limit - lightening_ny_limit;
+                // NX's own bound follows the real -X taper edge (see
+                // spine_plate_nx_edge_points()) instead of a flat line, so
+                // it stays a constant distance from the taper's actual
+                // shape - including through its notch - and keeps tracking
+                // it if SPINE_PLATE_TAPER_NX_* is ever re-tuned. lightening_
+                // nx_limit above (flat, at the taper's widest/outer point)
+                // is still exactly right as a size estimate for the tiling
+                // below - the real edge is never wider than that - so it's
+                // left as-is there; only the actual clip shape changes here.
+                lightening_nx_edge_pts = spine_plate_nx_edge_points(SPINE_LIGHTENING_MARGIN_NX);
+                lightening_nx_region = concat(
+                    lightening_nx_edge_pts,
+                    [[100000, lightening_nx_edge_pts[len(lightening_nx_edge_pts) - 1][1]],
+                     [100000, lightening_nx_edge_pts[0][1]]]
+                );
                 translate([0, 0, plate_bot - 0.5])
                     linear_extrude(height = plate_t + 1)
                         intersection() {
-                            offset(delta = -SPINE_LIGHTENING_MARGIN)
-                                polygon(plate_outline);
+                            translate([(lightening_nx_limit + lightening_px_limit)/2, (lightening_ny_limit + lightening_py_limit)/2])
+                                square([lightening_box_w, lightening_box_d], center = true);
+                            polygon(lightening_nx_region);
                             difference() {
-                                translate([plate_x, plate_y])
+                                // centered on the box itself, not plate_x/plate_y -
+                                // with independent per-side margins the box's own
+                                // center can be well off the plate's center, and
+                                // the tiling has to stay centered on what it's
+                                // actually sized to cover
+                                translate([(lightening_nx_limit + lightening_px_limit)/2, (lightening_ny_limit + lightening_py_limit)/2])
                                     if (SPINE_LIGHTENING_MODE == "grid") {
                                         grid_2d(
-                                            plate_w + 2 * SPINE_LIGHTENING_MARGIN,
-                                            plate_d + 2 * SPINE_LIGHTENING_MARGIN,
+                                            lightening_box_w, lightening_box_d,
                                             SPINE_GRID_SLOT_W, SPINE_GRID_SLOT_H, SPINE_GRID_WALL);
                                     } else if (SPINE_LIGHTENING_MODE == "diamond") {
-                                        // oversized (diagonal), rotated 45deg, clipped by the outline intersection above
-                                        diamond_span = sqrt(
-                                            pow(plate_w + 2 * SPINE_LIGHTENING_MARGIN, 2) +
-                                            pow(plate_d + 2 * SPINE_LIGHTENING_MARGIN, 2));
+                                        // oversized (diagonal), rotated 45deg, clipped by the box intersection above
+                                        diamond_span = sqrt(pow(lightening_box_w, 2) + pow(lightening_box_d, 2));
                                         rotate(45)
                                             grid_2d(diamond_span, diamond_span,
                                                 SPINE_GRID_SLOT_W, SPINE_GRID_SLOT_H, SPINE_GRID_WALL);
                                     } else {
                                         honeycomb_2d(
-                                            plate_w + 2 * SPINE_LIGHTENING_MARGIN,
-                                            plate_d + 2 * SPINE_LIGHTENING_MARGIN,
+                                            lightening_box_w, lightening_box_d,
                                             SPINE_HONEYCOMB_HEX_R, SPINE_HONEYCOMB_WALL);
                                     }
                                 for (wp = world_holes(MB_POS, MB_HOLES, MB_ROT[2])) {
@@ -766,7 +891,7 @@ module new_spine(show, col, alpha) {
 
             // HDD standoffs, plus the 2nd O-ring pocket (standoff-to-HDD side)
             difference() {
-                standoffs(HDD_POS, HDD_HOLES, HDD_ROT[2], HDD_STANDOFF_R, HDD_STANDOFF_HOLE_R, plate_bot, hdd_top);
+                standoffs(HDD_POS, HDD_HOLES, HDD_ROT[2], HDD_STANDOFF_R, HDD_STANDOFF_HOLE_R, plate_bot, hdd_top, HDD_STANDOFF_RAMP_CORNER_R);
                 for (wp = world_holes(HDD_POS, HDD_HOLES, HDD_ROT[2])) {
                     wx = wp[0];
                     wy = wp[1];
