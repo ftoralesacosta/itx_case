@@ -532,25 +532,31 @@ module reinforcement_wedge(y1, z1, y2, z2, x0, thickness, dir) {
 
 // 45deg print-support ramp fused to a standoff's +Y side - see README (Print
 // orientation). hull() blends round peg to a square ramp, then runs the
-// square ramp down flush with the plate. Hole is drilled later, through
-// the peg+ramp union, by standoffs() below.
-module standoff_ramp(wx, wy, r, z_from, z_to, plate_z, run) {
+// square ramp down flush with the plate. Clipped to clip_r (a cylinder
+// around the peg) so its far corners can't poke past the lightening
+// pattern's own standoff keepout radius - see README. Hole is drilled
+// later, through the peg+ramp union, by standoffs() below.
+module standoff_ramp(wx, wy, r, z_from, z_to, plate_z, run, clip_r) {
     EPS = 0.02;
     h = abs(z_to - z_from);
     zmin = min(z_from, z_to);
-    union() {
-        hull() {
-            translate([wx, wy, zmin])
-                cylinder(h = h, r = r, $fn = 24);
-            translate([wx - r, wy + r, zmin])
-                cube([2*r, EPS, h]);
+    intersection() {
+        union() {
+            hull() {
+                translate([wx, wy, zmin])
+                    cylinder(h = h, r = r, $fn = 24);
+                translate([wx - r, wy + r, zmin])
+                    cube([2*r, EPS, h]);
+            }
+            hull() {
+                translate([wx - r, wy + r, zmin])
+                    cube([2*r, EPS, h]);
+                translate([wx - r, wy + r + run, plate_z - EPS/2])
+                    cube([2*r, EPS, EPS]);
+            }
         }
-        hull() {
-            translate([wx - r, wy + r, zmin])
-                cube([2*r, EPS, h]);
-            translate([wx - r, wy + r + run, plate_z - EPS/2])
-                cube([2*r, EPS, EPS]);
-        }
+        translate([wx, wy, zmin - EPS])
+            cylinder(h = h + 2*EPS, r = clip_r, $fn = 48);
     }
 }
 
@@ -560,6 +566,7 @@ module standoffs(pos, local_pts, rot_z, r, hole_r, z_from, z_to) {
     h = abs(z_to - z_from);
     run = h * STANDOFF_RAMP_RUN_FACTOR;
     zmin = min(z_from, z_to);
+    clip_r = r + SPINE_LIGHTENING_STANDOFF_CLEARANCE;
     for (p = local_pts) {
         wc = rot2d(p, rot_z);
         wx = pos[0] + wc[0];
@@ -568,7 +575,7 @@ module standoffs(pos, local_pts, rot_z, r, hole_r, z_from, z_to) {
             union() {
                 translate([wx, wy, zmin])
                     cylinder(h = h, r = r, $fn = 24);
-                standoff_ramp(wx, wy, r, z_from, z_to, z_from, run);
+                standoff_ramp(wx, wy, r, z_from, z_to, z_from, run, clip_r);
             }
             translate([wx, wy, zmin - 0.5])
                 cylinder(h = h + 1, r = hole_r, $fn = 24);
