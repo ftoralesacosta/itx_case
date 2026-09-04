@@ -486,22 +486,52 @@ FRONT_VENT_SIZE  = [16, 5];  // [x width, z height] of the grill's overall footp
 FRONT_VENT_SLOT_W = 1.6; // X width of each individual vertical bar
 FRONT_VENT_WALL   = 1.6; // material left between adjacent bars
 
-// Honeycomb lightening/vent pattern through the divider plate itself - the
-// same honeycomb_2d() used for the HDD grill above, cut straight through
-// the plate's own Z thickness instead of extruded through a panel. Two
-// separate safety margins keep it from weakening anything real:
-//   - SPINE_HONEYCOMB_MARGIN insets the pattern from the plate's own real
+// Lightening/vent pattern through the divider plate itself, cut straight
+// through the plate's own Z thickness (not extruded through a panel like
+// the HDD/front grills). Three interchangeable patterns, chosen by
+// SPINE_LIGHTENING_MODE - flip that one string to switch between them,
+// everything else about placement/safety stays the same:
+//   "honeycomb" - the same honeycomb_2d() used for the HDD grill, many
+//     small hex cells. Best airflow/weight savings for a given wall
+//     thickness, but slow to print - lots of small islands means lots of
+//     perimeter loops and travel/retraction moves.
+//   "grid" - a plain rectangular grid of larger square cells (grid_2d()
+//     below), axis-aligned with X/Y. Fewer, bigger openings than the
+//     honeycomb at the same wall thickness, so far fewer perimeter loops
+//     and travels for the same amount of material removed - in a flat
+//     print orientation that would be a straightforward win. But in this
+//     part's actual print orientation (face down, -Y as the vertical/
+//     build axis - see history), each X-running wall row ends up as a
+//     single layer bridging the FULL plate width, resting only on the
+//     narrow column struts below it at each pitch_x interval - real
+//     unsupported spans, confirmed needing supports on every one of those
+//     rows. Left in for reference / for anyone printing this flat, but
+//     not recommended in this part's real orientation.
+//   "diamond" - the same grid_2d() as "grid", just rotated 45 degrees
+//     (SPINE_GRID_SLOT_W/H/WALL still control cell size). No wall segment
+//     runs purely along X or Y anymore - every one is a short diagonal,
+//     same fix the honeycomb's zigzag gets you - so there's no long
+//     full-width bridge for the "grid" mode's support problem to happen
+//     on, while still keeping "grid"'s bigger/faster-printing cells
+//     instead of the honeycomb's small ones. Recommended over "grid" for
+//     this part's real print orientation.
+// All three patterns share the same two safety margins:
+//   - SPINE_LIGHTENING_MARGIN insets the pattern from the plate's own real
 //     outline (via offset(), so it automatically follows the taper edges
 //     too) - keeps the outer rim and taper transitions solid.
-//   - SPINE_HONEYCOMB_STANDOFF_CLEARANCE is kept clear around EVERY
+//   - SPINE_LIGHTENING_STANDOFF_CLEARANCE is kept clear around EVERY
 //     standoff (MB on top, HDD + GaN hanging below - all 12 of them),
 //     beyond that standoff's own real radius (STANDOFF_R or
 //     HDD_STANDOFF_R), so no cell weakens the material a standoff/screw
 //     actually bears load through.
+SPINE_LIGHTENING_MODE = "diamond"; // "honeycomb", "grid", or "diamond"
+SPINE_LIGHTENING_MARGIN = 10;  // solid rim kept in from the plate's real outline (taper edges included)
+SPINE_LIGHTENING_STANDOFF_CLEARANCE = 4; // extra solid ring kept around every standoff, beyond its own real radius
 SPINE_HONEYCOMB_HEX_R  = 4;   // hex circumradius (cell size) - matches HDD_GRILL_HEX_R for a consistent look
 SPINE_HONEYCOMB_WALL   = 1.4; // wall thickness between adjacent hex cells
-SPINE_HONEYCOMB_MARGIN = 10;  // solid rim kept in from the plate's real outline (taper edges included)
-SPINE_HONEYCOMB_STANDOFF_CLEARANCE = 4; // extra solid ring kept around every standoff, beyond its own real radius
+SPINE_GRID_SLOT_W = 8; // X width of each grid cell
+SPINE_GRID_SLOT_H = 8; // Y height of each grid cell
+SPINE_GRID_WALL   = 2.5; // wall thickness between adjacent grid cells - thicker + far fewer cells than the honeycomb is exactly what makes "grid" mode print faster
 
 // HDD ventilation grill - a honeycomb of hex cutouts sized around the HDD's
 // own front-face footprint (its width x height cross-section facing this
@@ -559,6 +589,30 @@ module honeycomb_2d(w, h, hex_r, wall) {
                     y = j * pitch_y + y_off;
                     translate([x, y])
                         circle(r = hex_r, $fn = 6);
+                }
+            }
+        }
+        square([w, h], center = true);
+    }
+}
+
+// A plain rectangular grid of square cells (2D, centered at the origin)
+// tiling a [w,h] rectangle, clipped to a clean straight border - the
+// "grid" SPINE_LIGHTENING_MODE. Same clipped-tiling structure as
+// honeycomb_2d() above, just square cells on a square pitch instead of
+// hexagons, and no r_tile trick needed since a square grid's wall
+// thickness is already uniform on a plain (slot_w+wall) pitch.
+module grid_2d(w, h, slot_w, slot_h, wall) {
+    pitch_x = slot_w + wall;
+    pitch_y = slot_h + wall;
+    n_cols = ceil(w / pitch_x) + 1;
+    n_rows = ceil(h / pitch_y) + 1;
+    intersection() {
+        union() {
+            for (i = [-n_cols : n_cols]) {
+                for (j = [-n_rows : n_rows]) {
+                    translate([i * pitch_x, j * pitch_y])
+                        square([slot_w, slot_h], center = true);
                 }
             }
         }
@@ -1031,36 +1085,53 @@ module new_spine(show, col, alpha) {
                     translate([wx, wy, (plate_top + 0.5) - gan_cs_depth])
                         cylinder(h = gan_cs_depth, r1 = GAN_STANDOFF_HOLE_R, r2 = GAN_STANDOFF_CS_DIA/2, $fn = 48);
                 }
-                // Honeycomb lightening/vent pattern - see SPINE_HONEYCOMB_*
-                // above. Confined inside an inset copy of the plate's own
-                // real outline (follows the taper edges via offset()), with
+                // Lightening/vent pattern - see SPINE_LIGHTENING_* above.
+                // Confined inside an inset copy of the plate's own real
+                // outline (follows the taper edges via offset()), with
                 // every MB/HDD/GaN standoff's own real radius plus a
                 // clearance margin kept solid around it.
                 translate([0, 0, plate_bot - 0.5])
                     linear_extrude(height = plate_t + 1)
                         intersection() {
-                            offset(delta = -SPINE_HONEYCOMB_MARGIN)
+                            offset(delta = -SPINE_LIGHTENING_MARGIN)
                                 polygon(plate_outline);
                             difference() {
                                 translate([plate_x, plate_y])
-                                    honeycomb_2d(
-                                        plate_w + 2 * SPINE_HONEYCOMB_MARGIN,
-                                        plate_d + 2 * SPINE_HONEYCOMB_MARGIN,
-                                        SPINE_HONEYCOMB_HEX_R, SPINE_HONEYCOMB_WALL);
+                                    if (SPINE_LIGHTENING_MODE == "grid") {
+                                        grid_2d(
+                                            plate_w + 2 * SPINE_LIGHTENING_MARGIN,
+                                            plate_d + 2 * SPINE_LIGHTENING_MARGIN,
+                                            SPINE_GRID_SLOT_W, SPINE_GRID_SLOT_H, SPINE_GRID_WALL);
+                                    } else if (SPINE_LIGHTENING_MODE == "diamond") {
+                                        // oversized + rotated 45deg - diag covers the
+                                        // full inset area post-rotation, the intersection
+                                        // with the real outline (above) clips the rest
+                                        diamond_span = sqrt(
+                                            pow(plate_w + 2 * SPINE_LIGHTENING_MARGIN, 2) +
+                                            pow(plate_d + 2 * SPINE_LIGHTENING_MARGIN, 2));
+                                        rotate(45)
+                                            grid_2d(diamond_span, diamond_span,
+                                                SPINE_GRID_SLOT_W, SPINE_GRID_SLOT_H, SPINE_GRID_WALL);
+                                    } else {
+                                        honeycomb_2d(
+                                            plate_w + 2 * SPINE_LIGHTENING_MARGIN,
+                                            plate_d + 2 * SPINE_LIGHTENING_MARGIN,
+                                            SPINE_HONEYCOMB_HEX_R, SPINE_HONEYCOMB_WALL);
+                                    }
                                 for (p = MB_HOLES) {
                                     wc = rot2d(p, MB_ROT[2]);
                                     translate([MB_POS[0] + wc[0], MB_POS[1] + wc[1]])
-                                        circle(r = STANDOFF_R + SPINE_HONEYCOMB_STANDOFF_CLEARANCE, $fn = 24);
+                                        circle(r = STANDOFF_R + SPINE_LIGHTENING_STANDOFF_CLEARANCE, $fn = 24);
                                 }
                                 for (p = HDD_HOLES) {
                                     wc = rot2d(p, HDD_ROT[2]);
                                     translate([HDD_POS[0] + wc[0], HDD_POS[1] + wc[1]])
-                                        circle(r = HDD_STANDOFF_R + SPINE_HONEYCOMB_STANDOFF_CLEARANCE, $fn = 24);
+                                        circle(r = HDD_STANDOFF_R + SPINE_LIGHTENING_STANDOFF_CLEARANCE, $fn = 24);
                                 }
                                 for (p = GAN_PSU_HOLES) {
                                     wc = rot2d(p, GAN_PSU_ROT[2]);
                                     translate([GAN_PSU_POS[0] + wc[0], GAN_PSU_POS[1] + wc[1]])
-                                        circle(r = STANDOFF_R + SPINE_HONEYCOMB_STANDOFF_CLEARANCE, $fn = 24);
+                                        circle(r = STANDOFF_R + SPINE_LIGHTENING_STANDOFF_CLEARANCE, $fn = 24);
                                 }
                             }
                         }
