@@ -35,13 +35,13 @@ ENCLOSURE_EDGE_R = 1.0;             // wireframe rod radius
 /* ---------- motherboard ---------- */
 MB_SIZE = [170, 170, 38];           // existing screw holes assumed on this footprint
 //MB_POS  = [2, -90, 38.66];
-MB_POS  = [4, -90, 34.6];
+MB_POS  = [3, -90, 34.6];
 MB_ROT  = [0, 0, 0];
 
 /* ---------- HDD (replaces GPU) ---------- */
 // Standard 3.5" HDD envelope (damping/grommet screw mount): 101.6 x 146.99 x 26.11 mm
 HDD_SIZE = [101.6, 146.99, 26.11]; // [W, D, H]
-HDD_POS  = [35, -75, -9.98]; // Z lowered 0.98mm from -9 to lengthen the HDD standoff gap to fit a standard 6-32 x 3/8" screw - see HDD_ORING_POCKET_DEPTH comment
+HDD_POS  = [35, -78.5, -9.98]; // Z lowered 0.98mm from -9 to lengthen the HDD standoff gap to fit a standard 6-32 x 3/8" screw - see HDD_ORING_POCKET_DEPTH comment
 HDD_ROT  = [0, 0, 0];
 
 /* ---------- ODD (slim internal Blu-ray drive) ---------- */
@@ -53,7 +53,7 @@ ODD_ROT  = [0, 0, 0];
 /* ---------- GaN PSU (HDPLEX 250W GaN AIO ATX) ---------- */
 // HDPLEX-listed envelope: 170 (D) x 55 (W) x 25 (H) mm
 GAN_PSU_SIZE = [170, 55, 25];       // [D, W, H]
-GAN_PSU_POS  = [-50, -88, -10];
+GAN_PSU_POS  = [-48, -90., -10];
 GAN_PSU_ROT  = [0, 0, 90];
 
 /* ---------- new spine (sandwich-layout divider, per the printables.com design) ---------- */
@@ -92,7 +92,7 @@ GAN_PSU_ROT  = [0, 0, 90];
 // edge, rightmost HDD standoff center + HDD_STANDOFF_R) if either of those
 // ever move.
 SPINE_PLATE_POS  = [2.31, -90, 8.1]; // [x, y, z] - y/z match ENCLOSURE_POS[1] / the layout's original derived Z position (see history)
-SPINE_PLATE_SIZE = [170.62, 174, 3]; // [w, d, t] - w set for the -X-to-front-panel / +X-to-HDD-standoff fit above; d matches ENCLOSURE_SIZE[1], t matches the real spine STL's own material thickness (measured)
+SPINE_PLATE_SIZE = [170.6, 174, 3]; // [w, d, t] - w set for the -X-to-front-panel / +X-to-HDD-standoff fit above; d matches ENCLOSURE_SIZE[1], t matches the real spine STL's own material thickness (measured)
 SPINE_PLATE_MARGIN_X = 0; // X-only inset applied on top of SPINE_PLATE_POS/SIZE above, each side - 0 = the flush fit described above
 
 // +X trapezoidal edge indent, copied from the reference spine STL's own
@@ -103,30 +103,32 @@ SPINE_PLATE_MARGIN_X = 0; // X-only inset applied on top of SPINE_PLATE_POS/SIZE
 // steps from X 96.715 down to 71.487). Reused here as-is: full width (93,
 // flush with the front panel) for SPINE_PLATE_TAPER_PX_BEFORE mm back from
 // the plate's own front edge (plate_y_max), THEN tapering inward over the
-// 17.665mm run until it reaches plate_x_max (87.62, already flush with the
-// HDD standoffs - see SPINE_PLATE_POS/SIZE above), then staying there for
+// run until it reaches (front_x_max - PX_DEPTH), then staying there for
 // the rest of the plate's depth. At the default 0 "before" distance the
 // taper starts right at the front edge, same as the first pass. Confirmed
 // clear of the HDD standoffs themselves (their front-most peg edge sits at
 // Y -67.3) as long as PX_BEFORE + PX_RUN stays under ~64mm.
 SPINE_PLATE_TAPER_PX_BEFORE = 15; // Y run of flat, full-width material before the taper starts, measured back from the plate's front edge
-SPINE_PLATE_TAPER_PX_RUN = 17.665; // Y-run of the +X taper itself, full width to flush-with-HDD-standoffs width
+SPINE_PLATE_TAPER_PX_RUN = 6.665; // Y-run of the +X taper itself, full width to flush-with-HDD-standoffs width
+SPINE_PLATE_TAPER_PX_DEPTH = 5.35; // X-depth of the indent, measured in from the front panel edge (front_x_max) - like NX_DEPTH, a free/adjustable number, not a live formula. Default (6.69) matches today's flush-with-HDD-standoffs width (front_x_max 93 - plate_x_max 86.31); new_spine() warns if that stops being true so a real mismatch doesn't go unnoticed.
 
 // -Y trapezoidal edge indent - second of the reference STL's 3 non-IO-side
 // tapers, same idea as +X above but rotated 90deg: the edge runs along X
 // instead of Y, so it's indexed by X and tapers in Y instead of X. Its
 // "bottom" (deepest indent, matching the flush-width reference on the +X
-// taper) is set to the GaN PSU standoffs' own -Y face - their rearmost peg
-// center (-161) minus STANDOFF_R, giving -164.5 - rather than the plate's
-// current full back edge (-177). Mirrored from both ends (-X corner and
-// +X corner) same as the +X taper's own front/back mirror. RUN is measured
-// from the reference STL's own back-edge taper (the diagonal segment there
-// runs 5mm in X, from local X 64.487/-179.278 to 59.487/-174.278, and
-// symmetrically on the other end) - notably shorter than the +X taper's
-// 17.665mm, because the reference's back edge is a much sharper, more
-// right-angled transition than its side edges, not a long diagonal.
+// taper) defaults to the GaN PSU standoffs' own -Y face - their rearmost
+// peg center (-161) minus STANDOFF_R, giving -164.5 - rather than the
+// plate's current full back edge (-177). Mirrored from both ends (-X
+// corner and +X corner) same as the +X taper's own front/back mirror. RUN
+// is measured from the reference STL's own back-edge taper (the diagonal
+// segment there runs 5mm in X, from local X 64.487/-179.278 to
+// 59.487/-174.278, and symmetrically on the other end) - notably shorter
+// than the +X taper's 17.665mm, because the reference's back edge is a
+// much sharper, more right-angled transition than its side edges, not a
+// long diagonal.
 SPINE_PLATE_TAPER_NY_BEFORE = 20; // X run of flat, full-depth material before the taper starts, measured in from each end of the -Y edge
 SPINE_PLATE_TAPER_NY_RUN = 5; // X-run of the -Y taper itself, full depth to flush-with-GaN-standoffs depth
+SPINE_PLATE_TAPER_NY_DEPTH = 10.5; // Y-depth of the indent, measured in from the plate's full back edge (plate_y_min) - like NX_DEPTH, a free/adjustable number, not a live formula. Matches the flush-with-GaN-standoffs depth (plate_y_min -177 to -166.5) at GAN_PSU_POS's current position; new_spine() warns if that stops being true so a real mismatch doesn't go unnoticed - re-run the check if GAN_PSU_POS moves again.
 
 // -X trapezoidal edge indent - third and last of the reference STL's 3
 // non-IO-side tapers, same idea as +X (indexed by Y, tapers in X), mirrored
@@ -144,24 +146,34 @@ SPINE_PLATE_TAPER_NX_DEPTH = 30; // X-depth of the indent, into the plate from p
 
 // Front panel reinforcement wedges - 4 total, one in each of the 4 corners
 // where the (vertical) front panel meets the (horizontal) divider plate:
-// +X/upper, +X/lower, -X/upper, -X/lower. Each is a simple right-triangle
-// gusset lying in the Y-Z plane (extruded by its own THICKNESS in X): one
-// leg flush against the front panel's back face (at Y1, spanning Z1 to the
-// plate's own Z), the other leg flush against the plate's top or bottom
-// face (at Z2, spanning Y2 to the panel's own Y) - i.e. the right-angle
-// corner sits exactly at (Y1, Z2), the real physical corner where the two
-// parts meet. X position is NOT a free parameter - each wedge sits flush
+// +X/upper, +X/lower, -X/upper, -X/lower (PX/NX = which plate edge it
+// anchors to, same convention as SPINE_PLATE_TAPER_PX/NX_*; UPPER/LOWER =
+// Z, reaching up toward the MB compartment or down toward the HDD/GaN
+// side). Each is a simple right-triangle gusset lying in the Y-Z plane
+// (extruded by its own THICKNESS in X): one leg flush against the front
+// panel's back face (at Y1, spanning Z1 to the plate's own Z), the other
+// leg flush against the plate's top or bottom face (at Z2, spanning Y2 to
+// the panel's own Y) - i.e. the right-angle corner sits exactly at
+// (Y1, Z2), the real physical corner where the two parts meet.
+// X position is auto-anchored, not fully free - each wedge sits flush
 // with the plate's own edge at whatever X that edge is AT the wedge's own
 // Y2 depth (see spine_plate_px_edge()/spine_plate_nx_edge() below), so it
 // stays correctly anchored even if the taper parameters above change
 // later - this is exactly the kind of disconnect the NX depth experiment
-// just found the hard way with the MB standoffs. Y1/Z1/Y2/Z2 given here
-// are genuinely independent per wedge, as asked; only the X side (which
-// edge to anchor to) and thickness are shared in spirit, not value.
-WEDGE_PX_UPPER_Y1 = -5; WEDGE_PX_UPPER_Z1 = 24.6; WEDGE_PX_UPPER_Y2 = -15; WEDGE_PX_UPPER_Z2 = 9.6; WEDGE_PX_UPPER_THICKNESS = 2;
-WEDGE_PX_LOWER_Y1 = -5; WEDGE_PX_LOWER_Z1 = -8.4; WEDGE_PX_LOWER_Y2 = -15; WEDGE_PX_LOWER_Z2 = 6.6; WEDGE_PX_LOWER_THICKNESS = 2;
-WEDGE_NX_UPPER_Y1 = -5; WEDGE_NX_UPPER_Z1 = 24.6; WEDGE_NX_UPPER_Y2 = -5; WEDGE_NX_UPPER_Z2 = 9.6; WEDGE_NX_UPPER_THICKNESS = 0;
-WEDGE_NX_LOWER_Y1 = -5; WEDGE_NX_LOWER_Z1 = -8.4; WEDGE_NX_LOWER_Y2 = -15; WEDGE_NX_LOWER_Z2 = 6.6; WEDGE_NX_LOWER_THICKNESS = 2;
+// found the hard way with the MB standoffs. X_OFFSET is layered on top of
+// that auto-anchor (same pattern as SPINE_PLATE_MARGIN_X) - 0 (default)
+// reproduces the exact flush position above; positive shifts the wedge
+// toward +X, negative toward -X, same sign for every wedge regardless of
+// which edge/dir it's anchored to. Pushing it too far can either bury it
+// inside the plate (harmless, still fused) or pull it away from the real
+// edge into open air (disconnects it, same failure mode as before) -
+// worth a render + connectivity check after changing it, same as any
+// other taper/anchor value here. Y1/Z1/Y2/Z2/THICKNESS/X_OFFSET given here
+// are genuinely independent per wedge, as asked.
+WEDGE_PX_UPPER_Y1 = -5; WEDGE_PX_UPPER_Z1 = 24.6; WEDGE_PX_UPPER_Y2 = -17; WEDGE_PX_UPPER_Z2 = 9.6; WEDGE_PX_UPPER_THICKNESS = 0.7; WEDGE_PX_UPPER_X_OFFSET = -1.0;
+WEDGE_PX_LOWER_Y1 = -5; WEDGE_PX_LOWER_Z1 = -6.0; WEDGE_PX_LOWER_Y2 = -17; WEDGE_PX_LOWER_Z2 = 6.6; WEDGE_PX_LOWER_THICKNESS = 1; WEDGE_PX_LOWER_X_OFFSET = -1.0;
+WEDGE_NX_UPPER_Y1 = -5; WEDGE_NX_UPPER_Z1 = 24.6; WEDGE_NX_UPPER_Y2 = -5; WEDGE_NX_UPPER_Z2 = 9.6; WEDGE_NX_UPPER_THICKNESS = 2; WEDGE_NX_UPPER_X_OFFSET = 0;
+WEDGE_NX_LOWER_Y1 = -5; WEDGE_NX_LOWER_Z1 = -10.0; WEDGE_NX_LOWER_Y2 = -20; WEDGE_NX_LOWER_Z2 = 6.6; WEDGE_NX_LOWER_THICKNESS = 2; WEDGE_NX_LOWER_X_OFFSET = 2;
 
 STANDOFF_R      = 3.5;  // mounting standoff outer radius (7mm OD, ~1.6mm wall around the hole)
 STANDOFF_HOLE_R = 1.9;  // clearance hole radius - matches the 3.8mm dia modeled in the spine's own MB holes (fits M3 loosely)
@@ -340,15 +352,27 @@ FRONT_PANEL_IO_OFFSET = [-72.01, 86.99, -2.83, 41.67]; // [x_min, x_max, z_min, 
 // off cut plane on that pass, not a real asymmetry - 3.25mm is used
 // everywhere here for a consistent groove).
 FRONT_PANEL_IO_COLLAR_DEPTH = 1.51; // Y depth of the flush collar, front face inward
-FRONT_PANEL_IO_GROOVE_WIDEN = 3.25; // how much wider the pocket gets beyond the collar, per side
+// Widen is independent per side (not one shared number) so the +X side can
+// be pulled in without also shrinking the snap groove's real, measured
+// depth on the other 3 sides, which aren't tight against anything. +X is
+// reduced from the real 3.25mm to reclaim clearance to the front panel's
+// own outer edge (was 0.76mm at 3.25mm widen - see the +X overhang
+// breakdown in FRONT_PANEL_IO_OFFSET's comment/history); this does mean
+// the shield's retention lip gets a shallower ~1.25mm bite on that one
+// side instead of the real 3.25mm - fine for a snap-fit, just noting it's
+// no longer the as-measured value there.
+FRONT_PANEL_IO_GROOVE_WIDEN_NX = 3.25; // -X side widen (real measured value)
+FRONT_PANEL_IO_GROOVE_WIDEN_PX = 1.25; // +X side widen (reduced ~2mm from the real 3.25mm to clear the front panel edge)
+FRONT_PANEL_IO_GROOVE_WIDEN_NZ = 3.25; // -Z (bottom) side widen (real measured value)
+FRONT_PANEL_IO_GROOVE_WIDEN_PZ = 3.25; // +Z (top) side widen (real measured value)
 
 // Top corner screw holes (-X +Z and +X +Z) - M3 clearance + countersink,
 // both just plain difference() cuts (a straight cylinder for the shaft, a
 // cone for the countersink), no reinforcement boss. Position is defined as
 // an inset from the panel's own edges, so it's easy to retarget if the panel
 // bounds change.
-FRONT_PANEL_SCREW_X_INSET = 3.5;   // distance from the panel's -X/+X edges to each hole center
-FRONT_PANEL_SCREW_Z_INSET = 3.5;   // distance from the panel's +Z (top) edge to each hole center
+FRONT_PANEL_SCREW_X_INSET = 3.0;   // distance from the panel's -X/+X edges to each hole center
+FRONT_PANEL_SCREW_Z_INSET = 3.0;   // distance from the panel's +Z (top) edge to each hole center
 FRONT_PANEL_SCREW_R       = 1.5; // M3 clearance radius
 FRONT_PANEL_SCREW_CS_DIA   = 6.4; // countersink head diameter, standard M3 flat-head value
 FRONT_PANEL_SCREW_CS_ANGLE = 90;  // countersink included angle
@@ -363,8 +387,8 @@ FRONT_PANEL_SCREW_CS_ANGLE = 90;  // countersink included angle
 // so the slot always overshoots past the panel's real top/bottom edge and
 // opens straight through it, rather than falling short and leaving a
 // pocket with a floor - the shell's tab needs to slide in from that edge.
-FRONT_PANEL_TAB_SLOT_W     = 7.1; // X width, centered on the screw hole
-FRONT_PANEL_TAB_SLOT_H     = 8; // Z height, centered on the screw hole - reaches past the panel's edge on purpose
+FRONT_PANEL_TAB_SLOT_W     = 7.; // X width, centered on the screw hole
+FRONT_PANEL_TAB_SLOT_H     = 7; // Z height, centered on the screw hole - reaches past the panel's edge on purpose
 FRONT_PANEL_TAB_SLOT_DEPTH = 3; // Y depth, cut in from the inside face
 
 module front_panel_upper(show, plate_bot, col, alpha) {
@@ -384,7 +408,10 @@ module front_panel_upper(show, plate_bot, col, alpha) {
         cs_r = FRONT_PANEL_SCREW_CS_DIA / 2;
         cs_depth = (cs_r - FRONT_PANEL_SCREW_R) / tan(FRONT_PANEL_SCREW_CS_ANGLE / 2);
 
-        w = FRONT_PANEL_IO_GROOVE_WIDEN;
+        groove_x0 = io[0] - FRONT_PANEL_IO_GROOVE_WIDEN_NX;
+        groove_x1 = io[1] + FRONT_PANEL_IO_GROOVE_WIDEN_PX;
+        groove_z0 = io[2] - FRONT_PANEL_IO_GROOVE_WIDEN_NZ;
+        groove_z1 = io[3] + FRONT_PANEL_IO_GROOVE_WIDEN_PZ;
 
         color(col, alpha)
             difference() {
@@ -394,11 +421,12 @@ module front_panel_upper(show, plate_bot, col, alpha) {
                 // size - the shield's flat face registers/seats against this.
                 translate([io[0], -FRONT_PANEL_IO_COLLAR_DEPTH, io[2]])
                     cube([io[1] - io[0], FRONT_PANEL_IO_COLLAR_DEPTH + 0.5, io[3] - io[2]]);
-                // Groove: beyond the collar, the pocket widens on all 4 sides
-                // to receive the shield's folded retention flange - this is
-                // the snap-fit groove itself. See FRONT_PANEL_IO_GROOVE_WIDEN.
-                translate([io[0] - w, -FRONT_PANEL_THICKNESS - 1, io[2] - w])
-                    cube([io[1] - io[0] + 2*w, FRONT_PANEL_THICKNESS + 1 - FRONT_PANEL_IO_COLLAR_DEPTH + 0.5, io[3] - io[2] + 2*w]);
+                // Groove: beyond the collar, the pocket widens (independently
+                // per side) to receive the shield's folded retention flange -
+                // this is the snap-fit groove itself. See FRONT_PANEL_IO_
+                // GROOVE_WIDEN_NX/PX/NZ/PZ.
+                translate([groove_x0, -FRONT_PANEL_THICKNESS - 1, groove_z0])
+                    cube([groove_x1 - groove_x0, FRONT_PANEL_THICKNESS + 1 - FRONT_PANEL_IO_COLLAR_DEPTH + 0.5, groove_z1 - groove_z0]);
                 for (screw_x = screw_xs) {
                     // M3 clearance shaft, straight through
                     translate([screw_x, -FRONT_PANEL_THICKNESS - 1, screw_z])
@@ -659,7 +687,7 @@ function rot2d(p, deg) = [p[0]*cos(deg) - p[1]*sin(deg), p[0]*sin(deg) + p[1]*co
 function spine_plate_px_edge(y) =
     let(
         full  = ENCLOSURE_POS[0] + ENCLOSURE_SIZE[0]/2,
-        narrow = SPINE_PLATE_POS[0] + SPINE_PLATE_SIZE[0]/2,
+        narrow = full - SPINE_PLATE_TAPER_PX_DEPTH,
         y_max = SPINE_PLATE_POS[1] + SPINE_PLATE_SIZE[1]/2,
         y_min = SPINE_PLATE_POS[1] - SPINE_PLATE_SIZE[1]/2,
         fbe = y_max - SPINE_PLATE_TAPER_PX_BEFORE,
@@ -689,6 +717,41 @@ function spine_plate_nx_edge(y) =
     (y > bte) ? narrow :
     (y > bbe) ? full + (narrow - full) * (y - bbe) / SPINE_PLATE_TAPER_NX_RUN :
     full;
+
+// Real (MB_POS-aware) footprint of the IO shield snap groove cut into the
+// front panel - [x_min, x_max, z_min, z_max], the exact same bounds
+// front_panel_upper() cuts (see FRONT_PANEL_IO_OFFSET/GROOVE_WIDEN there).
+// Used below so the upper reinforcement wedges stay clear of the groove's
+// real, current position instead of assuming solid backing that a moved
+// MB might have hollowed out - this is exactly the bug the +X +Z wedge hit
+// when MB_POS moved and the groove ate into where it used to have solid
+// material behind it.
+function io_groove_bounds() =
+    let(
+        mb_bottom = MB_POS[2] - MB_SIZE[2]/2,
+        x0 = MB_POS[0] + FRONT_PANEL_IO_OFFSET[0],
+        x1 = MB_POS[0] + FRONT_PANEL_IO_OFFSET[1],
+        z0 = mb_bottom + FRONT_PANEL_IO_OFFSET[2],
+        z1 = mb_bottom + FRONT_PANEL_IO_OFFSET[3]
+    )
+    [x0 - FRONT_PANEL_IO_GROOVE_WIDEN_NX, x1 + FRONT_PANEL_IO_GROOVE_WIDEN_PX,
+     z0 - FRONT_PANEL_IO_GROOVE_WIDEN_NZ, z1 + FRONT_PANEL_IO_GROOVE_WIDEN_PZ];
+
+// Clamps an upper wedge's Z1 (its top, reaching up toward/into the MB
+// compartment) so it never reaches into the IO groove's real Z-range, but
+// only if the wedge's own X-range (x_lo to x_hi) actually overlaps the
+// groove's X-range - a wedge nowhere near the IO opening keeps its full
+// requested height. Returns the clamped Z1; if there's no usable height
+// left at all (groove starts at or below the wedge's own Z2/plate
+// attachment), returns Z2 itself - the wedge degenerates to zero height,
+// and the caller skips building it rather than emit broken geometry.
+function wedge_upper_z1_clamped(z1, z2, x_lo, x_hi) =
+    let(
+        gb = io_groove_bounds(),
+        x_overlaps = (x_hi > gb[0]) && (x_lo < gb[1]),
+        limit = gb[2] - 0.5 // small safety margin below the groove's real floor
+    )
+    (x_overlaps && limit < z1) ? max(z2, limit) : z1;
 
 // Right-triangle gusset in the Y-Z plane, extruded by `thickness` in X,
 // starting at world X = x0. dir=+1 extrudes toward +X (for wedges anchored
@@ -818,17 +881,36 @@ module new_spine(show, col, alpha) {
         // the two tapers, the edge stays at the narrow plate_x_max width
         // (the "waist", same as the reference).
         front_x_max = ENCLOSURE_POS[0] + ENCLOSURE_SIZE[0]/2;
+        // px_narrow_x is the taper/waist target for the +X side - like
+        // nx_inset_x below, driven by SPINE_PLATE_TAPER_PX_DEPTH, a free
+        // number rather than plate_x_max directly (see SPINE_PLATE_TAPER_
+        // PX_DEPTH comment above for why, and the mismatch warning below).
+        px_narrow_x = front_x_max - SPINE_PLATE_TAPER_PX_DEPTH;
+        if (abs(px_narrow_x - plate_x_max) > 0.01) {
+            echo(str("WARNING: SPINE_PLATE_TAPER_PX_DEPTH (", SPINE_PLATE_TAPER_PX_DEPTH,
+                ") no longer matches the flush-with-HDD-standoffs width (plate_x_max = ", plate_x_max,
+                ", would need PX_DEPTH = ", front_x_max - plate_x_max,
+                ") - the +X taper's waist is no longer flush with the HDD standoffs."));
+        }
         taper_start_y = plate_y_max - SPINE_PLATE_TAPER_PX_BEFORE;
         taper_end_y   = taper_start_y - SPINE_PLATE_TAPER_PX_RUN;
         back_taper_start_y = plate_y_min + SPINE_PLATE_TAPER_PX_BEFORE;
         back_taper_end_y   = back_taper_start_y + SPINE_PLATE_TAPER_PX_RUN;
         // -Y trapezoidal taper, mirrored from both ends of the edge (-X
-        // corner and +X corner) - see SPINE_PLATE_TAPER_NY_BEFORE/RUN
-        // above. "Bottom" depth is the GaN PSU standoffs' own -Y face, not
-        // a fixed number - computed the same way the HDD standoffs' +X
-        // face was for the PX taper.
+        // corner and +X corner) - see SPINE_PLATE_TAPER_NY_BEFORE/RUN/DEPTH
+        // above. ny_narrow_y is the taper's "bottom" target, driven by
+        // SPINE_PLATE_TAPER_NY_DEPTH - a free number rather than the GaN
+        // PSU standoffs' own -Y face directly (still computed below, but
+        // only to check for/warn about a real mismatch, same as PX above).
         gan_world_ys  = [for (p = GAN_PSU_HOLES) GAN_PSU_POS[1] + rot2d(p, GAN_PSU_ROT[2])[1]];
         gan_y_min_edge = min(gan_world_ys) - STANDOFF_R;
+        ny_narrow_y = plate_y_min + SPINE_PLATE_TAPER_NY_DEPTH;
+        if (abs(ny_narrow_y - gan_y_min_edge) > 0.01) {
+            echo(str("WARNING: SPINE_PLATE_TAPER_NY_DEPTH (", SPINE_PLATE_TAPER_NY_DEPTH,
+                ") no longer matches the flush-with-GaN-standoffs depth (gan_y_min_edge = ", gan_y_min_edge,
+                ", would need NY_DEPTH = ", gan_y_min_edge - plate_y_min,
+                ") - the -Y taper's waist is no longer flush with the GaN PSU standoffs."));
+        }
         ny_taper_left_start_x  = plate_x_min + SPINE_PLATE_TAPER_NY_BEFORE;
         ny_taper_left_end_x    = ny_taper_left_start_x + SPINE_PLATE_TAPER_NY_RUN;
         ny_taper_right_start_x = front_x_max - SPINE_PLATE_TAPER_NY_BEFORE;
@@ -846,13 +928,13 @@ module new_spine(show, col, alpha) {
         plate_outline = [
             [plate_x_min, plate_y_min],
             [ny_taper_left_start_x, plate_y_min],
-            [ny_taper_left_end_x, gan_y_min_edge],
-            [ny_taper_right_end_x, gan_y_min_edge],
+            [ny_taper_left_end_x, ny_narrow_y],
+            [ny_taper_right_end_x, ny_narrow_y],
             [ny_taper_right_start_x, plate_y_min],
             [front_x_max, plate_y_min],
             [front_x_max, back_taper_start_y],
-            [plate_x_max, back_taper_end_y],
-            [plate_x_max, taper_end_y],
+            [px_narrow_x, back_taper_end_y],
+            [px_narrow_x, taper_end_y],
             [front_x_max, taper_start_y],
             [front_x_max, plate_y_max],
             [plate_x_min, plate_y_max],
@@ -940,15 +1022,37 @@ module new_spine(show, col, alpha) {
             // front panel reinforcement wedges - see WEDGE_* above. +X
             // wedges anchor to the plate's real +X edge at their own Y2
             // (dir=-1: extrude inward, toward -X); -X wedges anchor to the
-            // real -X edge (dir=+1: extrude inward, toward +X).
-            reinforcement_wedge(WEDGE_PX_UPPER_Y1, WEDGE_PX_UPPER_Z1, WEDGE_PX_UPPER_Y2, WEDGE_PX_UPPER_Z2,
-                spine_plate_px_edge(WEDGE_PX_UPPER_Y2), WEDGE_PX_UPPER_THICKNESS, -1);
+            // real -X edge (dir=+1: extrude inward, toward +X). The two
+            // UPPER wedges additionally get their Z1 clamped below the IO
+            // shield groove's real (MB_POS-aware) footprint, so a moved MB
+            // can't leave them anchored to hollowed-out/breached panel
+            // material the way WEDGE_PX_UPPER was found doing - see
+            // wedge_upper_z1_clamped() above. If there's no clearance left
+            // at all (groove starts at or below the wedge's own plate
+            // attachment height), the wedge is skipped rather than built
+            // broken - watch the console for the warning if that happens.
+            px_upper_edge = spine_plate_px_edge(WEDGE_PX_UPPER_Y2) + WEDGE_PX_UPPER_X_OFFSET;
+            px_upper_z1 = wedge_upper_z1_clamped(WEDGE_PX_UPPER_Z1, WEDGE_PX_UPPER_Z2,
+                px_upper_edge - WEDGE_PX_UPPER_THICKNESS, px_upper_edge);
+            if (px_upper_z1 > WEDGE_PX_UPPER_Z2) {
+                reinforcement_wedge(WEDGE_PX_UPPER_Y1, px_upper_z1, WEDGE_PX_UPPER_Y2, WEDGE_PX_UPPER_Z2,
+                    px_upper_edge, WEDGE_PX_UPPER_THICKNESS, -1);
+            } else {
+                echo("WARNING: WEDGE_PX_UPPER skipped - no clearance from the IO groove at the current MB_POS");
+            }
             reinforcement_wedge(WEDGE_PX_LOWER_Y1, WEDGE_PX_LOWER_Z1, WEDGE_PX_LOWER_Y2, WEDGE_PX_LOWER_Z2,
-                spine_plate_px_edge(WEDGE_PX_LOWER_Y2), WEDGE_PX_LOWER_THICKNESS, -1);
-            reinforcement_wedge(WEDGE_NX_UPPER_Y1, WEDGE_NX_UPPER_Z1, WEDGE_NX_UPPER_Y2, WEDGE_NX_UPPER_Z2,
-                spine_plate_nx_edge(WEDGE_NX_UPPER_Y2), WEDGE_NX_UPPER_THICKNESS, 1);
+                spine_plate_px_edge(WEDGE_PX_LOWER_Y2) + WEDGE_PX_LOWER_X_OFFSET, WEDGE_PX_LOWER_THICKNESS, -1);
+            nx_upper_edge = spine_plate_nx_edge(WEDGE_NX_UPPER_Y2) + WEDGE_NX_UPPER_X_OFFSET;
+            nx_upper_z1 = wedge_upper_z1_clamped(WEDGE_NX_UPPER_Z1, WEDGE_NX_UPPER_Z2,
+                nx_upper_edge, nx_upper_edge + WEDGE_NX_UPPER_THICKNESS);
+            if (nx_upper_z1 > WEDGE_NX_UPPER_Z2) {
+                reinforcement_wedge(WEDGE_NX_UPPER_Y1, nx_upper_z1, WEDGE_NX_UPPER_Y2, WEDGE_NX_UPPER_Z2,
+                    nx_upper_edge, WEDGE_NX_UPPER_THICKNESS, 1);
+            } else {
+                echo("WARNING: WEDGE_NX_UPPER skipped - no clearance from the IO groove at the current MB_POS");
+            }
             reinforcement_wedge(WEDGE_NX_LOWER_Y1, WEDGE_NX_LOWER_Z1, WEDGE_NX_LOWER_Y2, WEDGE_NX_LOWER_Z2,
-                spine_plate_nx_edge(WEDGE_NX_LOWER_Y2), WEDGE_NX_LOWER_THICKNESS, 1);
+                spine_plate_nx_edge(WEDGE_NX_LOWER_Y2) + WEDGE_NX_LOWER_X_OFFSET, WEDGE_NX_LOWER_THICKNESS, 1);
         }
     }
 }
