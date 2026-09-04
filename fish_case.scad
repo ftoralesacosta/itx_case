@@ -1024,6 +1024,28 @@ module new_spine(show, col, alpha) {
         nx_taper_front_end_y   = nx_taper_front_start_y - SPINE_PLATE_TAPER_NX_RUN;
         nx_taper_back_start_y  = plate_y_min + SPINE_PLATE_TAPER_NX_BEFORE;
         nx_taper_back_end_y    = nx_taper_back_start_y + SPINE_PLATE_TAPER_NX_RUN;
+        // NX_DEPTH has no real hardware to flush against (unlike PX/NY
+        // above), so there's no single "correct" value to compare it to -
+        // but pushing it too far can still silently disconnect an MB
+        // standoff from the plate, since the standoffs sit on the plate's
+        // top face independent of this taper. This is the exact failure
+        // the NX_DEPTH experiment surfaced once already (see history):
+        // check every MB standoff's own -X extent against the taper's
+        // real edge at that standoff's Y (via spine_plate_nx_edge(), the
+        // same function the wedges use to stay anchored), and warn if the
+        // taper has eaten into it.
+        for (p = MB_HOLES) {
+            mb_wc = rot2d(p, MB_ROT[2]);
+            mb_wx = MB_POS[0] + mb_wc[0];
+            mb_wy = MB_POS[1] + mb_wc[1];
+            nx_edge_here = spine_plate_nx_edge(mb_wy);
+            if (mb_wx - STANDOFF_R < nx_edge_here) {
+                echo(str("WARNING: SPINE_PLATE_TAPER_NX_DEPTH (", SPINE_PLATE_TAPER_NX_DEPTH,
+                    ") cuts past an MB standoff at [", mb_wx, ",", mb_wy, "] - standoff -X edge = ",
+                    mb_wx - STANDOFF_R, ", plate -X edge there = ", nx_edge_here,
+                    " - this standoff may be disconnected from the plate."));
+            }
+        }
         plate_outline = [
             [plate_x_min, plate_y_min],
             [ny_taper_left_start_x, plate_y_min],
