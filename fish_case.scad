@@ -10,7 +10,7 @@ SHOW_ENCLOSURE  = false;
 SHOW_ODD        = false;
 
 
-used_components = true;
+used_components = false;
 
 SHOW_MB         = used_components;
 SHOW_HDD        = used_components;
@@ -485,6 +485,23 @@ FRONT_VENT_POS   = [-48, 2]; // world [x, z] center of the grill (cut straight t
 FRONT_VENT_SIZE  = [16, 5];  // [x width, z height] of the grill's overall footprint - the row below is centered inside this, may end up slightly narrower once rounded to a whole number of slots
 FRONT_VENT_SLOT_W = 1.6; // X width of each individual vertical bar
 FRONT_VENT_WALL   = 1.6; // material left between adjacent bars
+
+// Honeycomb lightening/vent pattern through the divider plate itself - the
+// same honeycomb_2d() used for the HDD grill above, cut straight through
+// the plate's own Z thickness instead of extruded through a panel. Two
+// separate safety margins keep it from weakening anything real:
+//   - SPINE_HONEYCOMB_MARGIN insets the pattern from the plate's own real
+//     outline (via offset(), so it automatically follows the taper edges
+//     too) - keeps the outer rim and taper transitions solid.
+//   - SPINE_HONEYCOMB_STANDOFF_CLEARANCE is kept clear around EVERY
+//     standoff (MB on top, HDD + GaN hanging below - all 12 of them),
+//     beyond that standoff's own real radius (STANDOFF_R or
+//     HDD_STANDOFF_R), so no cell weakens the material a standoff/screw
+//     actually bears load through.
+SPINE_HONEYCOMB_HEX_R  = 4;   // hex circumradius (cell size) - matches HDD_GRILL_HEX_R for a consistent look
+SPINE_HONEYCOMB_WALL   = 1.4; // wall thickness between adjacent hex cells
+SPINE_HONEYCOMB_MARGIN = 10;  // solid rim kept in from the plate's real outline (taper edges included)
+SPINE_HONEYCOMB_STANDOFF_CLEARANCE = 4; // extra solid ring kept around every standoff, beyond its own real radius
 
 // HDD ventilation grill - a honeycomb of hex cutouts sized around the HDD's
 // own front-face footprint (its width x height cross-section facing this
@@ -1014,6 +1031,39 @@ module new_spine(show, col, alpha) {
                     translate([wx, wy, (plate_top + 0.5) - gan_cs_depth])
                         cylinder(h = gan_cs_depth, r1 = GAN_STANDOFF_HOLE_R, r2 = GAN_STANDOFF_CS_DIA/2, $fn = 48);
                 }
+                // Honeycomb lightening/vent pattern - see SPINE_HONEYCOMB_*
+                // above. Confined inside an inset copy of the plate's own
+                // real outline (follows the taper edges via offset()), with
+                // every MB/HDD/GaN standoff's own real radius plus a
+                // clearance margin kept solid around it.
+                translate([0, 0, plate_bot - 0.5])
+                    linear_extrude(height = plate_t + 1)
+                        intersection() {
+                            offset(delta = -SPINE_HONEYCOMB_MARGIN)
+                                polygon(plate_outline);
+                            difference() {
+                                translate([plate_x, plate_y])
+                                    honeycomb_2d(
+                                        plate_w + 2 * SPINE_HONEYCOMB_MARGIN,
+                                        plate_d + 2 * SPINE_HONEYCOMB_MARGIN,
+                                        SPINE_HONEYCOMB_HEX_R, SPINE_HONEYCOMB_WALL);
+                                for (p = MB_HOLES) {
+                                    wc = rot2d(p, MB_ROT[2]);
+                                    translate([MB_POS[0] + wc[0], MB_POS[1] + wc[1]])
+                                        circle(r = STANDOFF_R + SPINE_HONEYCOMB_STANDOFF_CLEARANCE, $fn = 24);
+                                }
+                                for (p = HDD_HOLES) {
+                                    wc = rot2d(p, HDD_ROT[2]);
+                                    translate([HDD_POS[0] + wc[0], HDD_POS[1] + wc[1]])
+                                        circle(r = HDD_STANDOFF_R + SPINE_HONEYCOMB_STANDOFF_CLEARANCE, $fn = 24);
+                                }
+                                for (p = GAN_PSU_HOLES) {
+                                    wc = rot2d(p, GAN_PSU_ROT[2]);
+                                    translate([GAN_PSU_POS[0] + wc[0], GAN_PSU_POS[1] + wc[1]])
+                                        circle(r = STANDOFF_R + SPINE_HONEYCOMB_STANDOFF_CLEARANCE, $fn = 24);
+                                }
+                            }
+                        }
             }
 
             // motherboard standoffs - rise from the plate's top face up to the MB
