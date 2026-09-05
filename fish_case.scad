@@ -73,7 +73,7 @@ SPINE_PLATE_TAPER_NX_DEPTH = 30; // free - no real hardware to flush against; ne
 // which plate edge; UPPER/LOWER = Z. X is auto-anchored to the plate's
 // real edge (see spine_plate_px_edge()/nx_edge() below) + X_OFFSET. See
 // README for why X isn't just a plain number here.
-WEDGE_PX_UPPER_Y1 = -5; WEDGE_PX_UPPER_Z1 = 24.6; WEDGE_PX_UPPER_Y2 = -17; WEDGE_PX_UPPER_Z2 = 9.6; WEDGE_PX_UPPER_THICKNESS = 0.7; WEDGE_PX_UPPER_X_OFFSET = -1.0;
+WEDGE_PX_UPPER_Y1 = -5; WEDGE_PX_UPPER_Z1 = 36; WEDGE_PX_UPPER_Y2 = -17; WEDGE_PX_UPPER_Z2 = 9.6; WEDGE_PX_UPPER_THICKNESS = 0.7; WEDGE_PX_UPPER_X_OFFSET = -1.0;
 WEDGE_PX_LOWER_Y1 = -5; WEDGE_PX_LOWER_Z1 = -6.0; WEDGE_PX_LOWER_Y2 = -17; WEDGE_PX_LOWER_Z2 = 6.6; WEDGE_PX_LOWER_THICKNESS = 1; WEDGE_PX_LOWER_X_OFFSET = -1.0;
 WEDGE_NX_UPPER_Y1 = -5; WEDGE_NX_UPPER_Z1 = 24.6; WEDGE_NX_UPPER_Y2 = -5; WEDGE_NX_UPPER_Z2 = 9.6; WEDGE_NX_UPPER_THICKNESS = 2; WEDGE_NX_UPPER_X_OFFSET = 0;
 WEDGE_NX_LOWER_Y1 = -5; WEDGE_NX_LOWER_Z1 = -10.0; WEDGE_NX_LOWER_Y2 = -20; WEDGE_NX_LOWER_Z2 = 6.6; WEDGE_NX_LOWER_THICKNESS = 2; WEDGE_NX_LOWER_X_OFFSET = 2;
@@ -231,10 +231,10 @@ SPINE_LIGHTENING_MODE = "diamond";
 // PY = the plain +Y edge) - real limits, no shared floor, can go to 0 or
 // negative. A plain axis-aligned box, not an outline offset() - see README
 // ("Divider plate lightening pattern") for why that distinction matters.
-SPINE_LIGHTENING_MARGIN_PX = 8;
+SPINE_LIGHTENING_MARGIN_PX = 3;
 SPINE_LIGHTENING_MARGIN_NX = 3;
 SPINE_LIGHTENING_MARGIN_PY = 0;
-SPINE_LIGHTENING_MARGIN_NY = 14;
+SPINE_LIGHTENING_MARGIN_NY = 3;
 // 16, 16, 18, 22
 
 // Every MB/HDD/GaN standoff + print-support ramp gets its own real
@@ -551,10 +551,47 @@ function spine_plate_nx_edge(y) =
     (y > bbe) ? full + (narrow - full) * (y - bbe) / SPINE_PLATE_TAPER_NX_RUN :
     full;
 
-// spine_plate_nx_edge() above, shifted by `margin` into an explicit
-// polyline following the taper's real shape (not a flat line) - see
-// README. y_pad extends past the plate's real Y extent so callers can
-// safely intersect this against a taller/shorter box.
+function spine_plate_ny_edge(x) =
+    let(
+        full  = SPINE_PLATE_POS[1] - SPINE_PLATE_SIZE[1]/2,
+        narrow = full + SPINE_PLATE_TAPER_NY_DEPTH,
+        x_min = SPINE_PLATE_POS[0] - (SPINE_PLATE_SIZE[0] - 2*SPINE_PLATE_MARGIN_X)/2,
+        x_max = ENCLOSURE_POS[0] + ENCLOSURE_SIZE[0]/2,
+        lbe = x_min + SPINE_PLATE_TAPER_NY_BEFORE,
+        lte = lbe + SPINE_PLATE_TAPER_NY_RUN,
+        rbe = x_max - SPINE_PLATE_TAPER_NY_BEFORE,
+        rte = rbe - SPINE_PLATE_TAPER_NY_RUN
+    )
+    (x < lbe) ? full :
+    (x < lte) ? full + (narrow - full) * (x - lbe) / SPINE_PLATE_TAPER_NY_RUN :
+    (x < rte) ? narrow :
+    (x < rbe) ? full + (narrow - full) * (rbe - x) / SPINE_PLATE_TAPER_NY_RUN :
+    full;
+
+// spine_plate_px_edge()/nx_edge()/ny_edge() above, each shifted by `margin`
+// into an explicit polyline following that taper's real shape (not a flat
+// line) - see README. pad extends past the plate's own real extent so
+// callers can safely intersect these against a taller/shorter box.
+function spine_plate_px_edge_points(margin, y_pad = 50) =
+    let(
+        y_max = SPINE_PLATE_POS[1] + SPINE_PLATE_SIZE[1]/2,
+        y_min = SPINE_PLATE_POS[1] - SPINE_PLATE_SIZE[1]/2,
+        fbe = y_max - SPINE_PLATE_TAPER_PX_BEFORE,
+        fte = fbe - SPINE_PLATE_TAPER_PX_RUN,
+        bbe = y_min + SPINE_PLATE_TAPER_PX_BEFORE,
+        bte = bbe + SPINE_PLATE_TAPER_PX_RUN
+    )
+    [
+        [spine_plate_px_edge(y_max) - margin, y_max + y_pad],
+        [spine_plate_px_edge(y_max) - margin, y_max],
+        [spine_plate_px_edge(fbe) - margin, fbe],
+        [spine_plate_px_edge(fte) - margin, fte],
+        [spine_plate_px_edge(bte) - margin, bte],
+        [spine_plate_px_edge(bbe) - margin, bbe],
+        [spine_plate_px_edge(y_min) - margin, y_min],
+        [spine_plate_px_edge(y_min) - margin, y_min - y_pad],
+    ];
+
 function spine_plate_nx_edge_points(margin, y_pad = 50) =
     let(
         y_max = SPINE_PLATE_POS[1] + SPINE_PLATE_SIZE[1]/2,
@@ -573,6 +610,26 @@ function spine_plate_nx_edge_points(margin, y_pad = 50) =
         [spine_plate_nx_edge(bbe) + margin, bbe],
         [spine_plate_nx_edge(y_min) + margin, y_min],
         [spine_plate_nx_edge(y_min) + margin, y_min - y_pad],
+    ];
+
+function spine_plate_ny_edge_points(margin, x_pad = 50) =
+    let(
+        x_min = SPINE_PLATE_POS[0] - (SPINE_PLATE_SIZE[0] - 2*SPINE_PLATE_MARGIN_X)/2,
+        x_max = ENCLOSURE_POS[0] + ENCLOSURE_SIZE[0]/2,
+        lbe = x_min + SPINE_PLATE_TAPER_NY_BEFORE,
+        lte = lbe + SPINE_PLATE_TAPER_NY_RUN,
+        rbe = x_max - SPINE_PLATE_TAPER_NY_BEFORE,
+        rte = rbe - SPINE_PLATE_TAPER_NY_RUN
+    )
+    [
+        [x_min - x_pad, spine_plate_ny_edge(x_min) + margin],
+        [x_min, spine_plate_ny_edge(x_min) + margin],
+        [lbe, spine_plate_ny_edge(lbe) + margin],
+        [lte, spine_plate_ny_edge(lte) + margin],
+        [rte, spine_plate_ny_edge(rte) + margin],
+        [rbe, spine_plate_ny_edge(rbe) + margin],
+        [x_max, spine_plate_ny_edge(x_max) + margin],
+        [x_max + x_pad, spine_plate_ny_edge(x_max) + margin],
     ];
 
 // The plate's real (taper-aware) outline polygon, in new_spine()'s own
@@ -806,9 +863,9 @@ module new_spine(show, col, alpha) {
                 }
                 // Lightening/vent pattern - see SPINE_LIGHTENING_* above and
                 // README ("Divider plate lightening pattern"). Axis-aligned
-                // box per side (PX/PY/NY flat, NX taper-following below);
-                // every MB/HDD/GaN standoff + ramp kept solid via the
-                // per-cell test in grid_2d()/honeycomb_2d() below.
+                // box per side (PY flat only; PX/NX/NY taper-following
+                // below); every MB/HDD/GaN standoff + ramp kept solid via
+                // the per-cell test in grid_2d()/honeycomb_2d() below.
                 lightening_px_limit = (ENCLOSURE_POS[0] + ENCLOSURE_SIZE[0]/2) - SPINE_LIGHTENING_MARGIN_PX;
                 lightening_nx_limit = (plate_x - plate_w/2) + SPINE_LIGHTENING_MARGIN_NX;
                 lightening_py_limit = (plate_y + plate_d/2) - SPINE_LIGHTENING_MARGIN_PY;
@@ -817,12 +874,26 @@ module new_spine(show, col, alpha) {
                 // margins can go negative, so the box is the only reliable bound
                 lightening_box_w = lightening_px_limit - lightening_nx_limit;
                 lightening_box_d = lightening_py_limit - lightening_ny_limit;
-                // NX clip follows the real taper edge instead - see README
+                // PX/NX/NY clip follow their real taper edges instead - see
+                // README. Each is the edge's own polyline closed off into a
+                // big region on the "allowed" side (away from that edge).
+                lightening_px_edge_pts = spine_plate_px_edge_points(SPINE_LIGHTENING_MARGIN_PX);
+                lightening_px_region = concat(
+                    lightening_px_edge_pts,
+                    [[-100000, lightening_px_edge_pts[len(lightening_px_edge_pts) - 1][1]],
+                     [-100000, lightening_px_edge_pts[0][1]]]
+                );
                 lightening_nx_edge_pts = spine_plate_nx_edge_points(SPINE_LIGHTENING_MARGIN_NX);
                 lightening_nx_region = concat(
                     lightening_nx_edge_pts,
                     [[100000, lightening_nx_edge_pts[len(lightening_nx_edge_pts) - 1][1]],
                      [100000, lightening_nx_edge_pts[0][1]]]
+                );
+                lightening_ny_edge_pts = spine_plate_ny_edge_points(SPINE_LIGHTENING_MARGIN_NY);
+                lightening_ny_region = concat(
+                    lightening_ny_edge_pts,
+                    [[lightening_ny_edge_pts[len(lightening_ny_edge_pts) - 1][0], 100000],
+                     [lightening_ny_edge_pts[0][0], 100000]]
                 );
                 lightening_box_center = [(lightening_nx_limit + lightening_px_limit)/2, (lightening_ny_limit + lightening_py_limit)/2];
                 // see standoff_lightening_protect() above
@@ -839,7 +910,9 @@ module new_spine(show, col, alpha) {
                         intersection() {
                             translate(lightening_box_center)
                                 square([lightening_box_w, lightening_box_d], center = true);
+                            polygon(lightening_px_region);
                             polygon(lightening_nx_region);
+                            polygon(lightening_ny_region);
                             // centered on the box, not plate_x/plate_y - asymmetric
                             // margins can shift the box's own center off-plate
                             if (SPINE_LIGHTENING_MODE == "diamond") {

@@ -316,13 +316,13 @@ so a plain box, which never calls `offset()` at all, sidesteps it entirely
 all 4 corners with a full render (F6), not just Preview** — a
 STL-intersection probe at each corner is the most reliable check.
 
-`SPINE_LIGHTENING_MARGIN_NX` is the one side that isn't a flat line: it
-follows the real -X taper edge (`spine_plate_nx_edge_points()`) instead,
-staying a constant distance from the taper's actual shape through its
-notch, and automatically re-tracking it if `SPINE_PLATE_TAPER_NX_*` is ever
-retuned. PX/PY/NY stay flat for now — `spine_plate_px_edge()` already
-exists if PX ever needs the same treatment; NY would need an analogous
-`spine_plate_ny_edge()` added first.
+`SPINE_LIGHTENING_MARGIN_PX/NX/NY` each follow their own taper's real edge
+(`spine_plate_px_edge_points()`/`nx_edge_points()`/`ny_edge_points()`)
+instead of a flat line, staying a constant distance from that taper's
+actual shape through its notch, and automatically re-tracking it if the
+corresponding `SPINE_PLATE_TAPER_*` params are ever retuned. `PY` stays a
+flat line — the plate's own +Y edge isn't tapered, so there's no real edge
+shape for it to follow.
 
 **Every MB/HDD/GaN standoff keeps the pattern off itself and its
 print-support ramp** — not a plain keepout circle. This part prints **+Y
