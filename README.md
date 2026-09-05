@@ -163,7 +163,9 @@ this orientation, and would need re-checking if you ever print it flat
   45° `standoff_ramp()` fused to each peg's +Y side solves this: material
   builds up gradually layer-by-layer *ahead* of the peg's own mass arriving,
   instead of the peg overhanging with no lead-in. `STANDOFF_RAMP_RUN_FACTOR`
-  controls the ramp's slope (1.0 = 45°, self-supporting).
+  controls the ramp's slope (1.0 = 45°, self-supporting). Built as two
+  `hull()`s: the first blends the round peg into a flat, constant-width bar,
+  the second tapers that bar's height down to flush with the plate over `run`.
 - **Standoff/plate screw holes** (MB + GaN M3 bores, HDD 6-32 bore, the HDD
   O-ring pockets) are likewise Z-axis, so also horizontal in this
   orientation — but all of them are small enough (3.8–7.64mm diameter) to
@@ -365,6 +367,32 @@ standoff rather than tiny fragments.
 |---|---|---|
 | `"honeycomb"` | `SPINE_HONEYCOMB_HEX_R`, `SPINE_HONEYCOMB_WALL` | Best airflow/weight savings per unit wall thickness; slowest to print (many small islands = many perimeter loops + travel moves). Zigzag walls, no support issue in the real print orientation. |
 | `"diamond"` (default) | `SPINE_GRID_SLOT_W/H`, `SPINE_GRID_WALL` | A plain square grid (`grid_2d()`), rotated 45° so no wall runs purely along X or Y (every one is a short diagonal) — no support needed in the real print orientation. Fewer, bigger cells than honeycomb at the same wall thickness. **Recommended default.** |
+
+### Hex/grid tiling helpers (`honeycomb_2d()`/`grid_2d()`)
+
+Both (used by the divider plate pattern above and the HDD grill below)
+share the same shape: an oversized virtual field of cells, intersected
+against a `[w,h]` rectangle for a clean straight border, rather than
+clipping individual cells at the boundary.
+
+`honeycomb_2d()` tiles on an enlarged virtual hex radius
+(`r_tile = hex_r + wall/√3`) and cuts the smaller real `hex_r` inside each
+tile — shrinking each of two hexagons sharing a tiling edge by half the
+wall thickness opens a gap of exactly `wall` between them everywhere, not
+just along one axis, which is why the tiling radius isn't simply
+`hex_r + wall`. `grid_2d()` skips this trick — a square grid's wall
+thickness is already uniform on a plain `(slot_w + wall)` pitch.
+
+`honeycomb_2d()` generates hexes via `circle($fn=6)` at angle 0 (flat-top,
+pointy left/right), which tiles with alternating **columns** offset
+vertically by half a row — not alternating rows offset horizontally, the
+other hex orientation's tiling.
+
+Both take the same `protect_pts`/`protect_rects`/`protect_fudge`/
+`world_rot`/`world_translate` params — see "Divider plate lightening
+pattern" above for what they do; `world_rot`/`world_translate` only exist
+to map each cell's local center into the same world space the protect data
+was computed in (defaults leave the tiling a plain, unprotected shape).
 
 ### HDD ventilation grill (front panel)
 
