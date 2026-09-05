@@ -289,15 +289,74 @@ its whole perimeter.
 `SPINE_LIGHTENING_MODE` (`"honeycomb"`, `"grid"`, or `"diamond"`) selects
 between 3 interchangeable cutout patterns through the plate's own Z
 thickness — same idea as the HDD grill, but cut through the structural
-divider plate instead of a thin panel. All 3 share two safety margins:
+divider plate instead of a thin panel.
 
-- `SPINE_LIGHTENING_MARGIN` insets the pattern from the plate's own real
-  outline via `offset()`, so it automatically follows the taper edges too
-  — keeps the outer rim and taper transitions solid.
-- `SPINE_LIGHTENING_STANDOFF_CLEARANCE` is kept clear around **every**
-  standoff (all 4 MB + 4 HDD + 4 GaN, 12 total), beyond that standoff's own
-  real radius, so no cell weakens the material a standoff/screw bears
-  load through.
+**Where the pattern stops** is independent per side —
+`SPINE_LIGHTENING_MARGIN_PX/NX/PY/NY` (PX/NX/NY = same edges as the taper
+params; PY = the plate's plain, untapered +Y edge). Each is a real,
+independent limit, not layered on a shared floor: any of the 4 can go down
+to 0, or negative (letting the pattern reach past that edge, which the
+plate's own real outline then naturally clips), with no minimum enforced.
+
+That freedom is safe specifically because of *how* the margin is applied:
+as a plain axis-aligned box, not an `offset()` of the plate's own outline.
+That distinction matters for a real reason — an earlier version confined
+the pattern with a uniform `offset()` of the taper-notched outline, and the
+plate's 4 reflex (concave) taper-notch corners turned out to be numerically
+touchy: a diamond/grid line running close to one of those corners could
+leave a razor-thin sliver hole breaching all the way through the plate.
+That turned out to be a numerical artifact of running OpenSCAD's `offset()`
+against those specific corners — not a "needs N mm of clearance" issue —
+so a plain box, which never calls `offset()` at all, sidesteps it entirely
+(confirmed clean at all 4 corners even with every margin pushed down to 5).
+**If you ever reintroduce an outline-following `offset()` here, re-verify
+all 4 corners with a full render (F6), not just Preview** — a
+STL-intersection probe at each corner is the most reliable check.
+
+`SPINE_LIGHTENING_MARGIN_NX` is the one side that isn't a flat line: it
+follows the real -X taper edge (`spine_plate_nx_edge_points()`) instead,
+staying a constant distance from the taper's actual shape through its
+notch, and automatically re-tracking it if `SPINE_PLATE_TAPER_NX_*` is ever
+retuned. PX/PY/NY stay flat for now — `spine_plate_px_edge()` already
+exists if PX ever needs the same treatment; NY would need an analogous
+`spine_plate_ny_edge()` added first.
+
+**Every MB/HDD/GaN standoff keeps the pattern off itself and its
+print-support ramp** — not a plain keepout circle. This part prints **+Y
+face down**, so each standoff's ramp (see "Print orientation") needs real
+solid material to land on where it touches the plate, not just clearance
+around the peg. Every pattern cell is tested against the standoff's real
+footprint — the peg's own circle *and* its ramp's rectangular reach — and
+left un-cut (solid) if it overlaps, rather than just trimmed at the edge.
+OpenSCAD has no way to query "did this boolean produce empty geometry" as a
+condition, so this isn't a CSG operation at all: `grid_2d()` and
+`honeycomb_2d()` (`fish_case.scad`) compute each cell's position with plain
+trigonometry (matching whatever rotation/translation the caller is about to
+place the tiling with) *before* generating it, and skip cells whose center
+comes within `apothem - SPINE_LIGHTENING_STANDOFF_PROTECT_FUDGE` of the
+footprint — `apothem` being that cell's own guaranteed-solid inradius, so
+the test only needs a plain point-to-shape distance, not real polygon
+intersection. `standoff_lightening_protect()` builds one part's footprint
+list; `new_spine()` calls it once per part (MB/HDD/GaN) and concatenates
+the results.
+
+That function also drops any standoff whose whole footprint already falls
+outside the margin box on one side — already guaranteed solid by the flat
+margin there, so the per-cell test doesn't need to touch it too. Without
+this, a standoff sitting in (say) the `PX` rim could still trigger the
+per-cell test right at the margin's own boundary, leaving a small stray jog
+in what should be a clean straight edge — confirmed by a facet-count diff
+between the two, not just eyeballing it, since the artifact was small
+enough to miss in a tight crop.
+
+`SPINE_LIGHTENING_STANDOFF_PROTECT_FUDGE` (default 0.3mm) tunes the
+per-cell threshold: 0 protects a cell the moment it *could* touch the
+footprint at all; positive tolerates that many mm of encroachment first
+(e.g. to not bother filling in a cell over a fraction-of-a-mm sliver);
+negative protects even on near-misses. This deliberately isn't efficient —
+the whole cell gets kept solid, not just the overlapping sliver of it, so
+the result reads as clean, full diamonds/hexes/squares around every
+standoff rather than tiny fragments.
 
 | Mode | Cell size params | Tradeoff |
 |---|---|---|
