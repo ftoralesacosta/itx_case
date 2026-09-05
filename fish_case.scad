@@ -223,18 +223,20 @@ FRONT_VENT_SLOT_W = 1.6;
 FRONT_VENT_WALL   = 1.6;
 
 // Divider plate lightening/vent pattern, cut through the plate's own Z
-// thickness. SPINE_LIGHTENING_MODE = "honeycomb", "grid", or "diamond" -
-// see README for the tradeoffs (grid needs supports in this part's real
-// print orientation; diamond doesn't).
+// thickness. SPINE_LIGHTENING_MODE = "honeycomb" or "diamond" - see README
+// for the tradeoffs. (A plain axis-aligned "grid" mode was tried and
+// dropped - needed print supports in this part's real print orientation.)
 SPINE_LIGHTENING_MODE = "diamond";
 // Where the pattern stops, independent per side (PX/NX/NY = taper edges,
 // PY = the plain +Y edge) - real limits, no shared floor, can go to 0 or
 // negative. A plain axis-aligned box, not an outline offset() - see README
 // ("Divider plate lightening pattern") for why that distinction matters.
-SPINE_LIGHTENING_MARGIN_PX = 16;
-SPINE_LIGHTENING_MARGIN_NX = 16;
-SPINE_LIGHTENING_MARGIN_PY = 18;
-SPINE_LIGHTENING_MARGIN_NY = 22;
+SPINE_LIGHTENING_MARGIN_PX = 8;
+SPINE_LIGHTENING_MARGIN_NX = 3;
+SPINE_LIGHTENING_MARGIN_PY = 0;
+SPINE_LIGHTENING_MARGIN_NY = 14;
+// 16, 16, 18, 22
+
 // Every MB/HDD/GaN standoff + print-support ramp gets its own real
 // footprint tested per-cell (see standoff_lightening_protect()), left
 // un-cut (solid) if a cell overlaps it - not a blanket keepout circle. This
@@ -246,6 +248,7 @@ SPINE_LIGHTENING_MARGIN_NY = 22;
 SPINE_LIGHTENING_STANDOFF_PROTECT_FUDGE = 0.3;
 SPINE_HONEYCOMB_HEX_R  = 4;
 SPINE_HONEYCOMB_WALL   = 1.4;
+// "diamond" mode's own cell size - a square grid (grid_2d()) rotated 45deg
 SPINE_GRID_SLOT_W = 8;
 SPINE_GRID_SLOT_H = 8;
 SPINE_GRID_WALL   = 2.5;
@@ -344,11 +347,12 @@ module honeycomb_2d(w, h, hex_r, wall, protect_pts=[], protect_rects=[], protect
 }
 
 // A plain rectangular grid of square cells (2D, centered at the origin)
-// tiling a [w,h] rectangle, clipped to a clean straight border - the
-// "grid" SPINE_LIGHTENING_MODE. Same clipped-tiling structure as
-// honeycomb_2d() above, just square cells on a square pitch instead of
-// hexagons, and no r_tile trick needed since a square grid's wall
-// thickness is already uniform on a plain (slot_w+wall) pitch.
+// tiling a [w,h] rectangle, clipped to a clean straight border - used
+// rotated 45deg for the "diamond" SPINE_LIGHTENING_MODE. Same
+// clipped-tiling structure as honeycomb_2d() above, just square cells on a
+// square pitch instead of hexagons, and no r_tile trick needed since a
+// square grid's wall thickness is already uniform on a plain
+// (slot_w+wall) pitch.
 // protect_pts/protect_rects/protect_fudge/world_rot/world_translate - see
 // honeycomb_2d() above, same meaning.
 module grid_2d(w, h, slot_w, slot_h, wall, protect_pts=[], protect_rects=[], protect_fudge=0, world_rot=0, world_translate=[0,0]) {
@@ -838,14 +842,7 @@ module new_spine(show, col, alpha) {
                             polygon(lightening_nx_region);
                             // centered on the box, not plate_x/plate_y - asymmetric
                             // margins can shift the box's own center off-plate
-                            if (SPINE_LIGHTENING_MODE == "grid") {
-                                translate(lightening_box_center)
-                                    grid_2d(
-                                        lightening_box_w, lightening_box_d,
-                                        SPINE_GRID_SLOT_W, SPINE_GRID_SLOT_H, SPINE_GRID_WALL,
-                                        lightening_protect_pts, lightening_protect_rects, SPINE_LIGHTENING_STANDOFF_PROTECT_FUDGE,
-                                        0, lightening_box_center);
-                            } else if (SPINE_LIGHTENING_MODE == "diamond") {
+                            if (SPINE_LIGHTENING_MODE == "diamond") {
                                 // oversized (diagonal), rotated 45deg, clipped by the box intersection above
                                 diamond_span = sqrt(pow(lightening_box_w, 2) + pow(lightening_box_d, 2));
                                 translate(lightening_box_center)

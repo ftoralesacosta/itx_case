@@ -46,7 +46,7 @@ and mounting study for the spine only.
 - To export a printable STL: set `SHOW_NEW_SPINE = true`, everything else
   (`SHOW_SPINE`, `SHOW_ENCLOSURE`, `SHOW_ODD`, `used_components`) `false`,
   then **F6 (Render)** before exporting — not F5 (Preview). The divider
-  plate's honeycomb/grid/diamond lightening pattern in particular is slow
+  plate's honeycomb/diamond lightening pattern in particular is slow
   and can render incorrectly in Preview; always confirm on a full Render.
 - After changing any parameter, **check the console output for `WARNING:`
   lines** before trusting the result — see Conventions below.
@@ -123,7 +123,7 @@ anything:
   small vertical-bar ventilation grill between the GaN cable cutout and
   the MB compartment, and 2 more M3 corner mounting screws (matching the
   upper panel).
-- **Divider plate lightening/ventilation pattern** — a honeycomb, grid, or
+- **Divider plate lightening/ventilation pattern** — a honeycomb or
   45°-rotated "diamond" cutout pattern through the plate itself, switchable
   by a single parameter, with automatic clearance around every standoff and
   the plate's own tapered edges.
@@ -178,14 +178,15 @@ this orientation, and would need re-checking if you ever print it flat
   cutout-pattern wall that runs purely along X becomes a single print layer
   spanning the *entire plate width*, resting only on whatever narrow
   vertical struts happen to sit below it — a real, confirmed unsupported
-  bridge. This is why the axis-aligned `"grid"` lightening mode needs
-  supports on every one of those rows, and why `"honeycomb"` (zigzag walls)
-  or `"diamond"` (45°-rotated grid, diagonal walls) are the safe choices —
-  neither has a wall segment running purely along X or Y. See "Divider
-  plate lightening pattern" below.
+  bridge. This is why `"honeycomb"` (zigzag walls) and `"diamond"`
+  (45°-rotated grid, diagonal walls) are the only two lightening modes —
+  neither has a wall segment running purely along X or Y. A plain
+  axis-aligned grid was tried and dropped for exactly this reason: every
+  row needed print supports in this orientation. See "Divider plate
+  lightening pattern" below.
 
 If you ever reorient this part to print flat (Z-up), none of the above
-constraints apply, and `"grid"` mode becomes the fastest safe option instead.
+constraints apply.
 
 ## Technical reference
 
@@ -286,10 +287,12 @@ its whole perimeter.
 
 ### Divider plate lightening pattern
 
-`SPINE_LIGHTENING_MODE` (`"honeycomb"`, `"grid"`, or `"diamond"`) selects
-between 3 interchangeable cutout patterns through the plate's own Z
-thickness — same idea as the HDD grill, but cut through the structural
-divider plate instead of a thin panel.
+`SPINE_LIGHTENING_MODE` (`"honeycomb"` or `"diamond"`) selects between 2
+interchangeable cutout patterns through the plate's own Z thickness — same
+idea as the HDD grill, but cut through the structural divider plate instead
+of a thin panel. A plain axis-aligned `"grid"` mode existed early on and
+was removed - see "Print orientation" above for why (every row would have
+needed print supports in this part's real orientation).
 
 **Where the pattern stops** is independent per side —
 `SPINE_LIGHTENING_MARGIN_PX/NX/PY/NY` (PX/NX/NY = same edges as the taper
@@ -361,8 +364,7 @@ standoff rather than tiny fragments.
 | Mode | Cell size params | Tradeoff |
 |---|---|---|
 | `"honeycomb"` | `SPINE_HONEYCOMB_HEX_R`, `SPINE_HONEYCOMB_WALL` | Best airflow/weight savings per unit wall thickness; slowest to print (many small islands = many perimeter loops + travel moves). Zigzag walls, no support issue in the real print orientation. |
-| `"grid"` | `SPINE_GRID_SLOT_W/H`, `SPINE_GRID_WALL` | Fewer, bigger cells than honeycomb at the same wall thickness — faster to print *in a flat orientation*. **Needs supports in this part's real print orientation** (see "Print orientation" above) — every X-running wall row bridges the full plate width. Kept for reference / flat-print use, not recommended as-is. |
-| `"diamond"` (default) | same `SPINE_GRID_*` params as `"grid"`, rotated 45° | Same cell size/speed advantage as `"grid"`, but no wall runs purely along X or Y (every one is a short diagonal) — no support needed in the real print orientation. **Recommended default.** |
+| `"diamond"` (default) | `SPINE_GRID_SLOT_W/H`, `SPINE_GRID_WALL` | A plain square grid (`grid_2d()`), rotated 45° so no wall runs purely along X or Y (every one is a short diagonal) — no support needed in the real print orientation. Fewer, bigger cells than honeycomb at the same wall thickness. **Recommended default.** |
 
 ### HDD ventilation grill (front panel)
 
@@ -449,9 +451,6 @@ here.
   shell design that doesn't exist yet.
 - Lower front panel's GaN PSU mount screws are a simplified stand-in, not
   the PSU's real mounting rail (see hardware table above).
-- The `"grid"` lightening mode needs print supports in this part's real
-  orientation — left in the model for reference, but `"diamond"` (the
-  default) or `"honeycomb"` are the actually-printable choices.
 - Neither the divider-plate lightening pattern nor the front ventilation
   grill has been thermally validated — both are sized for print
   practicality and a reasonable-looking amount of open area, not against
