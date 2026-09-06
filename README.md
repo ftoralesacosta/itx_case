@@ -436,28 +436,55 @@ the pattern itself (either mode) near the +X/-Z corner screw, guaranteeing
 solid material around that screw regardless of where the
 tiling's walls happen to land.
 
-**`"diamond"` mode only:** up to 4 independent still lifes from Conway's
-Game of Life are kept solid (uncut) on the grill — decorative, not
-structural or airflow-related. Each slot is a `[SHAPE, ANCHOR]` pair,
-`GOL_Grill_1_SHAPE`/`GOL_Grill_1_ANCHOR` through `_4_`; `ANCHOR = []`
-disables that slot. `SHAPE` is one of the `LIFE_*` patterns (`[di,dj]`
-live-cell offset lists, defined just above `HDD_GRILL_MODE`):
-`LIFE_BLOCK` (2×2, simplest), `LIFE_BEEHIVE` (hexagonal, 6 cells),
-`LIFE_LOAF` (7 cells, the one asymmetric/oval-ish shape — no reflective
-symmetry, unlike the other three), `LIFE_POND` (8 cells, a ring/"0"). All
-four are real still lifes (unchanging generation over generation), not
-made up.
+**`"diamond"` mode only:** up to 4 independent shapes are kept solid
+(uncut) on the grill — decorative, not structural or airflow-related.
+Each slot is a `[SHAPE, ANCHOR]` pair, `GOL_Grill_1_SHAPE`/
+`GOL_Grill_1_ANCHOR` through `_4_`. Set `SHAPE` to `GOL_OFF` to turn that
+slot off explicitly (this is the intended way - `ANCHOR = []` also
+disables a slot, kept only so an old anchor value can be commented out
+without touching `SHAPE`). Otherwise `SHAPE` is one of the patterns below
+(`[di,dj]` live-cell offset lists, defined just above `HDD_GRILL_MODE`).
+
+`LIFE_*` are real Game of Life still lifes (unchanging generation over
+generation), not made up: `LIFE_BLOCK` (2×2, simplest), `LIFE_BEEHIVE`
+(hexagonal, 6 cells), `LIFE_LOAF` (7 cells, the one asymmetric/oval-ish
+shape — no reflective symmetry, unlike the other three), `LIFE_POND` (8
+cells, a ring/"0"). `ARROW_*` are **not** still lifes or any real Life
+pattern — just plain `>`/`<` chevrons for decoration: two straight
+index-space lines, one along each grid axis, sharing a corner cell.
+`grid_2d()`'s cells are already tiled on a 45°-rotated square lattice, so
+a plain straight run of cells along either axis *already* renders as a
+diagonal line of diamonds once rotated — no diagonal stepping needed in
+the index data itself. Two such lines meeting at a shared corner render
+as two diagonal lines meeting at a clean point, i.e. a chevron, with the
+corner cell keeping them solidly joined (every cell in each line shares a
+full edge with its neighbor, not just a corner touch). `ARROW_GT_2`/
+`ARROW_LT_2` have 2-cell arms (5 cells total, including the shared
+corner); `ARROW_GT_3`/`ARROW_LT_3` have 3-cell arms (7 cells total).
+
+The default slots currently show `LIFE_POND` (+X side) and `ARROW_GT_2`
+(center-left); slots 2 and 4 are off (`GOL_OFF`). `LIFE_LOAF`,
+`LIFE_BEEHIVE`, `LIFE_BLOCK`, and `ARROW_LT_2`/`ARROW_LT_3`/`ARROW_GT_3`
+are all defined and available but not currently placed in a slot; set
+any `GOL_Grill_N_SHAPE` to one of them to use it.
 
 `ANCHOR` is a `grid_2d()` lattice index `[i0,j0]` in the *pre-rotation*
 square grid — adjacency there is what Game of Life actually cares about,
 the 45° rotation "diamond" mode applies is just a cosmetic render
 transform on top, not a change to which cells are neighbors — with
-lattice step `HDD_GRILL_DIAMOND_SLOT_W/H + HDD_GRILL_WALL`. The 4 default
+lattice step `HDD_GRILL_DIAMOND_SLOT_W/H + HDD_GRILL_WALL`. The default
 anchors were each picked by rotating a target on-grill position back into
-that lattice (pond +X side, loaf -X side, beehive/block spread across the
-center) and rounding to the nearest index; expect to iterate by trial
+that lattice (pond +X side, loaf -X side, the two arrows spread across
+the center) and rounding to the nearest index; expect to iterate by trial
 render if you move one, since the index space isn't the same as the
-rendered space. Implementation: `life_pattern_protect_pts()`
+rendered space, and check the *whole* shape's extent, not just its
+anchor corner — a shape whose corner is safely on-grill can still have
+cells further out that land past the grill's real edge, where there's no
+hole to protect in the first place (silently doing nothing there rather
+than erroring), which is exactly the kind of thing a facet/genus-count
+diff against a known-good render (see "Divider plate lightening pattern"
+above for why that's the reliable check) will catch and eyeballing won't
+always. Implementation: `life_pattern_protect_pts()`
 (`fish_case.scad`) converts a still life's `[di,dj]` live-cell offsets
 into zero-radius world-space `protect_pts` at exactly those cells' real
 rendered positions — reusing `grid_2d()`'s existing standoff-protection

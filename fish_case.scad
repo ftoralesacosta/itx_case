@@ -235,6 +235,17 @@ LIFE_BEEHIVE = [[1,0],[2,0], [0,1],[3,1], [1,2],[2,2]];
 LIFE_LOAF    = [[1,0],[2,0], [0,1],[3,1], [1,2],[3,2], [2,3]];       // oval/asymmetric
 LIFE_POND    = [[1,0],[2,0], [0,1],[3,1], [0,2],[3,2], [1,3],[2,3]]; // ring / "0"
 
+// Not still lifes - plain ">"/"<" chevrons, decorative only, not simulated. The grid
+// is already diagonal (rotated 45deg by the caller), so a plain straight index-space
+// line already renders as a diagonal line of diamonds - two such lines (one along
+// each grid axis) sharing a corner cell is all a chevron needs. _2/_3 = cells per arm.
+ARROW_GT_2 = [[0,0], [0,1],[0,2], [-1,0],[-2,0]];
+ARROW_GT_3 = [[0,0], [0,1],[0,2],[0,3], [-1,0],[-2,0],[-3,0]];
+ARROW_LT_2 = [[0,0], [1,0],[2,0], [0,-1],[0,-2]];
+ARROW_LT_3 = [[0,0], [1,0],[2,0],[3,0], [0,-1],[0,-2],[0,-3]];
+
+GOL_OFF = []; // set a GOL_Grill_*_SHAPE to this to turn that slot off
+
 // HDD ventilation grill (front panel). See README.
 HDD_GRILL_MODE = "diamond"; // "honeycomb" or "diamond"
 HDD_GRILL_MARGIN_LEFT   = 4;
@@ -253,12 +264,12 @@ HDD_GRILL_DIAMOND_SLOT_H = 4;
 // lattice step = SLOT+WALL); [] anchor disables that slot. See README.
 GOL_Grill_1_SHAPE  = LIFE_POND;    // "0" ring, +X side
 GOL_Grill_1_ANCHOR = [4, -7];
-GOL_Grill_2_SHAPE  = LIFE_LOAF;    // oval/asymmetric, -X side
+GOL_Grill_2_SHAPE  = GOL_OFF;    // oval/asymmetric, -X side
 GOL_Grill_2_ANCHOR = [-7, 4];
-GOL_Grill_3_SHAPE  = LIFE_BEEHIVE; // center-left
-GOL_Grill_3_ANCHOR = [-3, 0];
-GOL_Grill_4_SHAPE  = LIFE_BLOCK;   // center-right
-GOL_Grill_4_ANCHOR = [1, -4];
+GOL_Grill_3_SHAPE  = ARROW_GT_2; // ">" chevron, center-left
+GOL_Grill_3_ANCHOR = [-2, 2];
+GOL_Grill_4_SHAPE  = GOL_OFF; // "<" chevron, center-right
+GOL_Grill_4_ANCHOR = [2, -2];
 
 // Guard wedge cut out of the HDD grill pattern near the +X/-Z corner screw
 // so it keeps solid material regardless of where the hex tiling lands.
