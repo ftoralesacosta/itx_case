@@ -424,10 +424,10 @@ subdivision primitive needed.
 around the HDD's own front-face footprint with 4 independent margins
 (`HDD_GRILL_MARGIN_LEFT/RIGHT/TOP/BOTTOM`) rather than one shared value —
 lets the boundary be pushed unevenly (e.g. more clearance along the top
-than the bottom). `"honeycomb"` uses `HDD_GRILL_HEX_R`/`WALL`; `"diamond"`
-uses its own independent `HDD_GRILL_DIAMOND_SLOT_W/H`/`WALL` (defaults
-match the divider plate's own main cell size, `SPINE_GRID_SLOT_W/H`/
-`SPINE_GRID_WALL`, but the two are tuned separately — this grill isn't
+than the bottom). `HDD_GRILL_WALL` is the wall thickness for **either**
+mode; cell size is per-mode: `"honeycomb"` uses `HDD_GRILL_HEX_R`,
+`"diamond"` uses its own independent `HDD_GRILL_DIAMOND_SLOT_W/H` (not
+tied to the divider plate's `SPINE_GRID_SLOT_W/H` — this grill isn't
 structural, so it can run a finer/coarser pattern than the plate) via a
 plain rotated `grid_2d()`, oversized then clipped to the grill's own
 `[grill_w, grill_h]` rectangle the same way `new_spine()` clips its own
@@ -435,6 +435,36 @@ diamond field. `FRONT_PANEL_CORNER_INFILL_X/Z` cuts a guard wedge out of
 the pattern itself (either mode) near the +X/-Z corner screw, guaranteeing
 solid material around that screw regardless of where the
 tiling's walls happen to land.
+
+**`"diamond"` mode only:** up to 4 independent still lifes from Conway's
+Game of Life are kept solid (uncut) on the grill — decorative, not
+structural or airflow-related. Each slot is a `[SHAPE, ANCHOR]` pair,
+`GOL_Grill_1_SHAPE`/`GOL_Grill_1_ANCHOR` through `_4_`; `ANCHOR = []`
+disables that slot. `SHAPE` is one of the `LIFE_*` patterns (`[di,dj]`
+live-cell offset lists, defined just above `HDD_GRILL_MODE`):
+`LIFE_BLOCK` (2×2, simplest), `LIFE_BEEHIVE` (hexagonal, 6 cells),
+`LIFE_LOAF` (7 cells, the one asymmetric/oval-ish shape — no reflective
+symmetry, unlike the other three), `LIFE_POND` (8 cells, a ring/"0"). All
+four are real still lifes (unchanging generation over generation), not
+made up.
+
+`ANCHOR` is a `grid_2d()` lattice index `[i0,j0]` in the *pre-rotation*
+square grid — adjacency there is what Game of Life actually cares about,
+the 45° rotation "diamond" mode applies is just a cosmetic render
+transform on top, not a change to which cells are neighbors — with
+lattice step `HDD_GRILL_DIAMOND_SLOT_W/H + HDD_GRILL_WALL`. The 4 default
+anchors were each picked by rotating a target on-grill position back into
+that lattice (pond +X side, loaf -X side, beehive/block spread across the
+center) and rounding to the nearest index; expect to iterate by trial
+render if you move one, since the index space isn't the same as the
+rendered space. Implementation: `life_pattern_protect_pts()`
+(`fish_case.scad`) converts a still life's `[di,dj]` live-cell offsets
+into zero-radius world-space `protect_pts` at exactly those cells' real
+rendered positions — reusing `grid_2d()`'s existing standoff-protection
+mechanism (see "Divider plate lightening pattern" above) to leave
+precisely those cells solid, nothing more. The 4 slots are collected into
+one list and flattened with a single list comprehension in
+`front_panel_lower()` — trivial to extend to a 5th slot if wanted.
 
 ### Front panel ventilation grill (MB ↔ GaN PSU airflow)
 

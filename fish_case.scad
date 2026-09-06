@@ -228,17 +228,37 @@ SPINE_GRID_WALL   = 2.5;
 // Diamonds along the -Y margin get subdivided to this scale (0 disables). See README.
 SPINE_LIGHTENING_NY_INLAY_SCALE = 0.3;
 
+// Conway's Game of Life still lifes - [di,dj] live-cell offsets on a square lattice,
+// used by GOL_Grill_*_SHAPE below. See README ("HDD ventilation grill").
+LIFE_BLOCK   = [[0,0],[1,0], [0,1],[1,1]];
+LIFE_BEEHIVE = [[1,0],[2,0], [0,1],[3,1], [1,2],[2,2]];
+LIFE_LOAF    = [[1,0],[2,0], [0,1],[3,1], [1,2],[3,2], [2,3]];       // oval/asymmetric
+LIFE_POND    = [[1,0],[2,0], [0,1],[3,1], [0,2],[3,2], [1,3],[2,3]]; // ring / "0"
+
 // HDD ventilation grill (front panel). See README.
 HDD_GRILL_MODE = "diamond"; // "honeycomb" or "diamond"
 HDD_GRILL_MARGIN_LEFT   = 4;
 HDD_GRILL_MARGIN_RIGHT  = 5.2;
 HDD_GRILL_MARGIN_TOP    = 6;
 HDD_GRILL_MARGIN_BOTTOM = 0;
+
 HDD_GRILL_HEX_R  = 4;
-HDD_GRILL_WALL   = 1.2;
+HDD_GRILL_WALL   = 1.25; // shared by both modes
 HDD_GRILL_DIAMOND_SLOT_W = 4;
 HDD_GRILL_DIAMOND_SLOT_H = 4;
-HDD_GRILL_DIAMOND_WALL   = 1.5;
+
+// "diamond" mode only: up to 4 Game of Life still lifes kept solid on the
+// grill, each an independent [SHAPE, ANCHOR] pair - SHAPE is one of the
+// LIFE_* patterns below, ANCHOR a grid_2d index [i0,j0] (pre-rotation
+// lattice step = SLOT+WALL); [] anchor disables that slot. See README.
+GOL_Grill_1_SHAPE  = LIFE_POND;    // "0" ring, +X side
+GOL_Grill_1_ANCHOR = [4, -7];
+GOL_Grill_2_SHAPE  = LIFE_LOAF;    // oval/asymmetric, -X side
+GOL_Grill_2_ANCHOR = [-7, 4];
+GOL_Grill_3_SHAPE  = LIFE_BEEHIVE; // center-left
+GOL_Grill_3_ANCHOR = [-3, 0];
+GOL_Grill_4_SHAPE  = LIFE_BLOCK;   // center-right
+GOL_Grill_4_ANCHOR = [1, -4];
 
 // Guard wedge cut out of the HDD grill pattern near the +X/-Z corner screw
 // so it keeps solid material regardless of where the hex tiling lands.
@@ -262,6 +282,15 @@ function point_seg_dist(p, a, b) =
 
 function point_polyline_dist(p, pts) =
     min([for (i = [0 : len(pts) - 2]) point_seg_dist(p, pts[i], pts[i + 1])]);
+
+// World-space (zero-radius) protect_pts for a Game of Life still life (list of [di,dj]
+// live-cell offsets) anchored at grid_2d index [i0,j0], so grid_2d() leaves exactly
+// those cells solid instead of cut. pitch_x/y and world_rot must match the grid_2d()
+// call this feeds - see README.
+function life_pattern_protect_pts(cells, anchor, pitch_x, pitch_y, world_rot) =
+    [for (c = cells)
+        let(x = (anchor[0] + c[0]) * pitch_x, y = (anchor[1] + c[1]) * pitch_y)
+        [cos(world_rot)*x - sin(world_rot)*y, sin(world_rot)*x + cos(world_rot)*y, 0]];
 
 // One part's standoff+ramp footprints as world-space [protect_pts, protect_rects].
 // Drops standoffs already covered by the flat margin box. See README.
@@ -424,10 +453,18 @@ module front_panel_lower(show, plate_top, col, alpha) {
                             difference() {
                                 if (HDD_GRILL_MODE == "diamond") {
                                     grill_diamond_span = sqrt(pow(grill_w, 2) + pow(grill_h, 2));
+                                    grill_life_pitch = [HDD_GRILL_DIAMOND_SLOT_W + HDD_GRILL_WALL, HDD_GRILL_DIAMOND_SLOT_H + HDD_GRILL_WALL];
+                                    gol_grill_slots = [
+                                        [GOL_Grill_1_SHAPE, GOL_Grill_1_ANCHOR], [GOL_Grill_2_SHAPE, GOL_Grill_2_ANCHOR],
+                                        [GOL_Grill_3_SHAPE, GOL_Grill_3_ANCHOR], [GOL_Grill_4_SHAPE, GOL_Grill_4_ANCHOR],
+                                    ];
+                                    grill_life_protect = [for (s = gol_grill_slots) if (len(s[1]) > 0)
+                                        for (p = life_pattern_protect_pts(s[0], s[1], grill_life_pitch[0], grill_life_pitch[1], 45)) p];
                                     intersection() {
                                         rotate(45)
                                             grid_2d(grill_diamond_span, grill_diamond_span,
-                                                HDD_GRILL_DIAMOND_SLOT_W, HDD_GRILL_DIAMOND_SLOT_H, HDD_GRILL_DIAMOND_WALL);
+                                                HDD_GRILL_DIAMOND_SLOT_W, HDD_GRILL_DIAMOND_SLOT_H, HDD_GRILL_WALL,
+                                                grill_life_protect, [], 0, 45);
                                         square([grill_w, grill_h], center = true);
                                     }
                                 } else {
