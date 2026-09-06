@@ -363,6 +363,20 @@ the whole cell gets kept solid, not just the overlapping sliver of it, so
 the result reads as clean, full diamonds/hexes/squares around every
 standoff rather than tiny fragments.
 
+**The row of "diamond"-mode cells nearest the -Y margin gets subdivided**
+instead of left full-size (`SPINE_LIGHTENING_NY_INLAY_SCALE`, default 0.4;
+0 disables it and reproduces a plain uniform grid). A full-size diamond
+straddling the NY margin/taper boundary gets sliced by the clip into a
+large, awkward partial shape — hard to print cleanly. Any cut-out
+(non-protected) cell whose own circumscribed radius could reach that real,
+taper-following boundary line gets replaced with a smaller self-similar
+`grid_2d()` tiling at `INLAY_SCALE` (both cell size and wall scale
+uniformly) instead of one big square — so if it does get clipped, only a
+small diamond is cut in half, not a full-size one. This only ever applies
+inside the branch that already decided a cell is a real cut-out; protected
+(standoff) cells are never touched by it. Only `"diamond"` mode has this —
+`honeycomb_2d()` doesn't take these params.
+
 | Mode | Cell size params | Tradeoff |
 |---|---|---|
 | `"honeycomb"` | `SPINE_HONEYCOMB_HEX_R`, `SPINE_HONEYCOMB_WALL` | Best airflow/weight savings per unit wall thickness; slowest to print (many small islands = many perimeter loops + travel moves). Zigzag walls, no support issue in the real print orientation. |
@@ -393,6 +407,16 @@ Both take the same `protect_pts`/`protect_rects`/`protect_fudge`/
 pattern" above for what they do; `world_rot`/`world_translate` only exist
 to map each cell's local center into the same world space the protect data
 was computed in (defaults leave the tiling a plain, unprotected shape).
+
+`grid_2d()` additionally takes `inlay_edge_pts`/`inlay_scale` (see the -Y
+row subdivision described above). `point_seg_dist()`/`point_polyline_dist()`
+give the world-space distance from a cell center to that boundary polyline,
+the same "how close is this cell to X" idea as `lightening_protect_dist()`
+but against a line instead of circles/rects. When a cell is close enough
+(within its own circumscribed radius of the line), `grid_2d()` calls itself
+once to tile that cell's own `[slot_w,slot_h]` footprint with smaller
+`inlay_scale`-sized cells instead of emitting one square — no separate
+subdivision primitive needed.
 
 ### HDD ventilation grill (front panel)
 

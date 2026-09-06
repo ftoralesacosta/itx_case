@@ -225,6 +225,8 @@ SPINE_HONEYCOMB_WALL   = 1.4;
 SPINE_GRID_SLOT_W = 8;
 SPINE_GRID_SLOT_H = 8;
 SPINE_GRID_WALL   = 2.5;
+// Diamonds along the -Y margin get subdivided to this scale (0 disables). See README.
+SPINE_LIGHTENING_NY_INLAY_SCALE = 0.3;
 
 // HDD ventilation grill (front panel). See README.
 HDD_GRILL_MARGIN_LEFT   = 4;
@@ -248,6 +250,14 @@ function lightening_protect_dist(wp, protect_pts, protect_rects) =
             norm([max(r[0] - wp[0], wp[0] - r[2], 0), max(r[1] - wp[1], wp[1] - r[3], 0)])],
         [1e9]
     ));
+
+// Distance from p to the nearest segment of a polyline. See README ("Hex/grid tiling helpers").
+function point_seg_dist(p, a, b) =
+    let(ab = b - a, t = (ab*ab > 0) ? max(0, min(1, ((p - a)*ab) / (ab*ab))) : 0)
+    norm(p - (a + t*ab));
+
+function point_polyline_dist(p, pts) =
+    min([for (i = [0 : len(pts) - 2]) point_seg_dist(p, pts[i], pts[i + 1])]);
 
 // One part's standoff+ramp footprints as world-space [protect_pts, protect_rects].
 // Drops standoffs already covered by the flat margin box. See README.
@@ -296,13 +306,19 @@ module honeycomb_2d(w, h, hex_r, wall, protect_pts=[], protect_rects=[], protect
 }
 
 // Square grid (2D, centered at origin) tiling [w,h], clipped to a straight border -
-// used rotated 45deg for "diamond" mode. Same params as honeycomb_2d() above.
-module grid_2d(w, h, slot_w, slot_h, wall, protect_pts=[], protect_rects=[], protect_fudge=0, world_rot=0, world_translate=[0,0]) {
+// used rotated 45deg for "diamond" mode. Same params as honeycomb_2d() above, plus
+// inlay_edge_pts (world-space polyline, [] disables): any cut cell whose footprint
+// could reach it gets subdivided into smaller self-similar cells (inlay_scale) instead
+// of one full-size square, so a cell the caller later clips at that edge only loses a
+// small diamond, not a big one. See README ("Divider plate lightening pattern").
+module grid_2d(w, h, slot_w, slot_h, wall, protect_pts=[], protect_rects=[], protect_fudge=0, world_rot=0, world_translate=[0,0],
+                inlay_edge_pts=[], inlay_scale=1) {
     pitch_x = slot_w + wall;
     pitch_y = slot_h + wall;
     n_cols = ceil(w / pitch_x) + 1;
     n_rows = ceil(h / pitch_y) + 1;
     apothem = min(slot_w, slot_h) / 2;
+    inlay_reach = sqrt(pow(slot_w, 2) + pow(slot_h, 2)) / 2; // cell's own circumradius
     intersection() {
         union() {
             for (i = [-n_cols : n_cols]) {
@@ -311,8 +327,13 @@ module grid_2d(w, h, slot_w, slot_h, wall, protect_pts=[], protect_rects=[], pro
                     y = j * pitch_y;
                     wp = [cos(world_rot)*x - sin(world_rot)*y, sin(world_rot)*x + cos(world_rot)*y] + world_translate;
                     if (lightening_protect_dist(wp, protect_pts, protect_rects) >= apothem - protect_fudge) {
-                        translate([x, y])
-                            square([slot_w, slot_h], center = true);
+                        translate([x, y]) {
+                            if (len(inlay_edge_pts) >= 2 && point_polyline_dist(wp, inlay_edge_pts) < inlay_reach) {
+                                grid_2d(slot_w, slot_h, slot_w * inlay_scale, slot_h * inlay_scale, wall * inlay_scale);
+                            } else {
+                                square([slot_w, slot_h], center = true);
+                            }
+                        }
                     }
                 }
             }
@@ -838,7 +859,9 @@ module new_spine(show, col, alpha) {
                                         grid_2d(diamond_span, diamond_span,
                                             SPINE_GRID_SLOT_W, SPINE_GRID_SLOT_H, SPINE_GRID_WALL,
                                             lightening_protect_pts, lightening_protect_rects, SPINE_LIGHTENING_STANDOFF_PROTECT_FUDGE,
-                                            45, lightening_box_center);
+                                            45, lightening_box_center,
+                                            SPINE_LIGHTENING_NY_INLAY_SCALE > 0 ? lightening_ny_edge_pts : [],
+                                            SPINE_LIGHTENING_NY_INLAY_SCALE);
                             } else {
                                 translate(lightening_box_center)
                                     honeycomb_2d(
