@@ -420,14 +420,21 @@ subdivision primitive needed.
 
 ### HDD ventilation grill (front panel)
 
-Honeycomb pattern (`HDD_GRILL_HEX_R`/`WALL`) sized around the HDD's own
-front-face footprint, with 4 independent margins
+`HDD_GRILL_MODE` (`"honeycomb"` or `"diamond"`) picks the pattern, sized
+around the HDD's own front-face footprint with 4 independent margins
 (`HDD_GRILL_MARGIN_LEFT/RIGHT/TOP/BOTTOM`) rather than one shared value —
 lets the boundary be pushed unevenly (e.g. more clearance along the top
-than the bottom). `FRONT_PANEL_CORNER_INFILL_X/Z` cuts a guard wedge out
-of the honeycomb pattern itself near the +X/-Z corner screw, guaranteeing
-solid material around that screw regardless of where the hex tiling's
-walls happen to land.
+than the bottom). `"honeycomb"` uses `HDD_GRILL_HEX_R`/`WALL`; `"diamond"`
+uses its own independent `HDD_GRILL_DIAMOND_SLOT_W/H`/`WALL` (defaults
+match the divider plate's own main cell size, `SPINE_GRID_SLOT_W/H`/
+`SPINE_GRID_WALL`, but the two are tuned separately — this grill isn't
+structural, so it can run a finer/coarser pattern than the plate) via a
+plain rotated `grid_2d()`, oversized then clipped to the grill's own
+`[grill_w, grill_h]` rectangle the same way `new_spine()` clips its own
+diamond field. `FRONT_PANEL_CORNER_INFILL_X/Z` cuts a guard wedge out of
+the pattern itself (either mode) near the +X/-Z corner screw, guaranteeing
+solid material around that screw regardless of where the
+tiling's walls happen to land.
 
 ### Front panel ventilation grill (MB ↔ GaN PSU airflow)
 

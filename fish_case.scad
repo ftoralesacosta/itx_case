@@ -229,12 +229,16 @@ SPINE_GRID_WALL   = 2.5;
 SPINE_LIGHTENING_NY_INLAY_SCALE = 0.3;
 
 // HDD ventilation grill (front panel). See README.
+HDD_GRILL_MODE = "diamond"; // "honeycomb" or "diamond"
 HDD_GRILL_MARGIN_LEFT   = 4;
 HDD_GRILL_MARGIN_RIGHT  = 5.2;
 HDD_GRILL_MARGIN_TOP    = 6;
 HDD_GRILL_MARGIN_BOTTOM = 0;
 HDD_GRILL_HEX_R  = 4;
 HDD_GRILL_WALL   = 1.2;
+HDD_GRILL_DIAMOND_SLOT_W = 4;
+HDD_GRILL_DIAMOND_SLOT_H = 4;
+HDD_GRILL_DIAMOND_WALL   = 1.5;
 
 // Guard wedge cut out of the HDD grill pattern near the +X/-Z corner screw
 // so it keeps solid material regardless of where the hex tiling lands.
@@ -418,7 +422,17 @@ module front_panel_lower(show, plate_top, col, alpha) {
                     rotate([-90, 0, 0])
                         linear_extrude(height = FRONT_PANEL_THICKNESS + 2)
                             difference() {
-                                honeycomb_2d(grill_w, grill_h, HDD_GRILL_HEX_R, HDD_GRILL_WALL);
+                                if (HDD_GRILL_MODE == "diamond") {
+                                    grill_diamond_span = sqrt(pow(grill_w, 2) + pow(grill_h, 2));
+                                    intersection() {
+                                        rotate(45)
+                                            grid_2d(grill_diamond_span, grill_diamond_span,
+                                                HDD_GRILL_DIAMOND_SLOT_W, HDD_GRILL_DIAMOND_SLOT_H, HDD_GRILL_DIAMOND_WALL);
+                                        square([grill_w, grill_h], center = true);
+                                    }
+                                } else {
+                                    honeycomb_2d(grill_w, grill_h, HDD_GRILL_HEX_R, HDD_GRILL_WALL);
+                                }
                                 polygon(corner_guard);
                             }
             }
