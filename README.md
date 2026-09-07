@@ -1,5 +1,7 @@
 # Game of Life ITX Case — ITX Layout Study
 
+![Render of the divider plate/spine, showing the diamond lightening pattern and HDD grill](render.png)
+
 A parametric OpenSCAD model built around the ["4.7L Mini ITX case, easily
 printable (2 major pieces)"](https://www.printables.com/model/143897-47l-mini-itx-case-easily-printable-2-major-pieces)
 design. The original case pairs a fish-shaped **spine** (structural divider +
@@ -103,6 +105,8 @@ anything:
   arbitrary.
 
 ## What's modeled
+
+<img src="render_with_component_blocks.png" alt="Render with MB (blue), GaN PSU (black), and HDD (red) placeholder blocks shown" width="500">
 
 - **Divider plate**, shaped to match the reference STL's own outline (not a
   plain rectangle) — trapezoidal taper cuts on all 3 non-I/O edges, flush
