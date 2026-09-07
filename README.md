@@ -1,4 +1,4 @@
-# Fish Case — ITX Layout Study
+# Game of Life ITX Case — ITX Layout Study
 
 A parametric OpenSCAD model built around the ["4.7L Mini ITX case, easily
 printable (2 major pieces)"](https://www.printables.com/model/143897-47l-mini-itx-case-easily-printable-2-major-pieces)
@@ -18,7 +18,7 @@ and mounting study for the spine only.
 
 | File | Purpose |
 |---|---|
-| `fish_case.scad` | The working model — everything described below. |
+| `game_of_life_itx_case.scad` | The working model — everything described below. |
 | `basic_layout.scad` | An early snapshot, kept for reference. |
 | `4.7-Fish_-_spine.stl` | Original spine reference geometry (source: printables.com link above). Its front I/O opening dimensions, retention-groove geometry, mounting-hole layout, and outer-edge taper shape were all measured from this file; the new spine is otherwise built from scratch. |
 | `4.7-Fish_-_case.stl` | Original outer shell reference geometry — not yet used in the model. |
@@ -28,7 +28,7 @@ and mounting study for the spine only.
 
 - Requires OpenSCAD **≥ 2019.05** (uses `offset()`, needed for the divider
   plate's lightening pattern).
-- `used_components = false` near the top of `fish_case.scad` toggles
+- `used_components = false` near the top of `game_of_life_itx_case.scad` toggles
   `SHOW_MB`/`SHOW_HDD`/`SHOW_GAN_PSU` together — flip it to `true` to show
   translucent reference boxes for the actual hardware footprints alongside
   the printed geometry, useful when checking clearances. Leave it `false`
@@ -144,7 +144,7 @@ anything:
 Most dimensions and hole patterns are pulled from real sources (datasheets,
 official spec whitepapers, or — for the GaN PSU — the manufacturer's own
 published STEP CAD file) rather than guessed. See the comments in
-`fish_case.scad` for exactly where each number came from and how confident
+`game_of_life_itx_case.scad` for exactly where each number came from and how confident
 it is; a few (the GaN PSU's front-panel cable/mount cutout, most notably)
 are explicitly flagged as simplified placeholders, not verified hardware.
 
@@ -193,7 +193,7 @@ constraints apply.
 ## Technical reference
 
 Parameter-level detail that's genuinely useful to have somewhere other than
-inline comments — the comments in `fish_case.scad` are the authoritative
+inline comments — the comments in `game_of_life_itx_case.scad` are the authoritative
 source for the *exact* current values and any edge-case caveats, but the
 *why* behind each system is collected here so it isn't spread across
 hundreds of scattered comment blocks.
@@ -335,7 +335,7 @@ footprint — the peg's own circle *and* its ramp's rectangular reach — and
 left un-cut (solid) if it overlaps, rather than just trimmed at the edge.
 OpenSCAD has no way to query "did this boolean produce empty geometry" as a
 condition, so this isn't a CSG operation at all: `grid_2d()` and
-`honeycomb_2d()` (`fish_case.scad`) compute each cell's position with plain
+`honeycomb_2d()` (`game_of_life_itx_case.scad`) compute each cell's position with plain
 trigonometry (matching whatever rotation/translation the caller is about to
 place the tiling with) *before* generating it, and skip cells whose center
 comes within `apothem - SPINE_LIGHTENING_STANDOFF_PROTECT_FUDGE` of the
@@ -505,7 +505,7 @@ than erroring), which is exactly the kind of thing a facet/genus-count
 diff against a known-good render (see "Divider plate lightening pattern"
 above for why that's the reliable check) will catch and eyeballing won't
 always. Implementation: `life_pattern_protect_pts()`
-(`fish_case.scad`) converts a still life's `[di,dj]` live-cell offsets
+(`game_of_life_itx_case.scad`) converts a still life's `[di,dj]` live-cell offsets
 into zero-radius world-space `protect_pts` at exactly those cells' real
 rendered positions — reusing `grid_2d()`'s existing standoff-protection
 mechanism (see "Divider plate lightening pattern" above) to leave
@@ -540,11 +540,11 @@ except the HDD, which uses the drive industry's standard **6-32 UNC**
 † A real stack-up calculation, not a rule of thumb: plate thickness (3mm) +
 standoff gap + ~3mm thread engagement (WD SFF-8301's own minimum) needs to
 land exactly on a standard screw length. The HDD's own Z position
-(`HDD_POS[2]` in `fish_case.scad`) was adjusted specifically to make that
+(`HDD_POS[2]` in `game_of_life_itx_case.scad`) was adjusted specifically to make that
 land on 3/8" - the next standard size down (5/16") leaves only 0.38mm of
 printed wall around the O-ring pocket (too thin to print reliably), and the
 next size up (7/16") pushes the drive past the enclosure's own floor. See
-the `HDD_ORING_POCKET_DEPTH` comment in `fish_case.scad` for the full math.
+the `HDD_ORING_POCKET_DEPTH` comment in `game_of_life_itx_case.scad` for the full math.
 
 ‡ Assumes ~4.5mm of M3 thread engagement into the PSU's aluminum body (a
 general engineering guideline — the PSU's tapped-hole *depth* wasn't
@@ -574,7 +574,7 @@ here.
   that range covers 10-15% compression on both O-rings together. (A single
   O-ring reaching 15% alone would only take about 1/3 turn - it's the
   two-in-series setup that doubles it.)
-- `HDD_ORING_POCKET_DEPTH` in `fish_case.scad` targets 12.5% (the middle of
+- `HDD_ORING_POCKET_DEPTH` in `game_of_life_itx_case.scad` targets 12.5% (the middle of
   that range) assuming the O-ring's free height matches the AS568-007 spec
   exactly (1.78mm cross-section) - real parts vary a little from nominal,
   so treat the 1/2-2/3 turn instruction as the actual install reference,

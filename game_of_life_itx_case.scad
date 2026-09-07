@@ -1,4 +1,4 @@
-// Fish Case - ITX layout study. See README.md for context/conventions.
+// Game of Life ITX Case - ITX layout study. See README.md for context/conventions.
 
 /* ---------- global toggles ---------- */
 SHOW_SPINE      = false;          // original reference STL
