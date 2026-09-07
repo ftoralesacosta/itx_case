@@ -14,8 +14,8 @@ SHOW_GAN_PSU    = used_components;
 
 
 SHOW_NEW_SPINE  = true;
-SHOW_FRONT_PANEL = true;   // upper (MB-side) portion of the spine's front I/O panel, copied from the STL
-SHOW_FRONT_PANEL_LOWER = true; // lower (HDD/GaN PSU-side) portion - simple flat plate, PSU cable opening + mount screws
+SHOW_FRONT_PANEL = true;   // upper (MB-side) I/O panel
+SHOW_FRONT_PANEL_LOWER = true; // lower (HDD/GaN) panel
 
 SPINE_ALPHA     = 0.9;
 ENCLOSURE_ALPHA = 0.55;
@@ -215,9 +215,7 @@ SPINE_LIGHTENING_MARGIN_NX = 3;
 SPINE_LIGHTENING_MARGIN_PY = 0;
 SPINE_LIGHTENING_MARGIN_NY = 3;
 
-// Keeps every standoff + print-support ramp footprint solid per-cell. Fudge tunes
-// the threshold: 0 = protect on any touch, + tolerates encroachment, - protects
-// near-misses. See README.
+// Per-cell standoff+ramp protection threshold (0 = protect on any touch). See README.
 SPINE_LIGHTENING_STANDOFF_PROTECT_FUDGE = 0.3;
 SPINE_HONEYCOMB_HEX_R  = 4;
 SPINE_HONEYCOMB_WALL   = 1.4;
@@ -228,27 +226,15 @@ SPINE_GRID_WALL   = 2.5;
 // Diamonds along the -Y margin get subdivided to this scale (0 disables). See README.
 SPINE_LIGHTENING_NY_INLAY_SCALE = 0.3;
 
-// Conway's Game of Life still lifes - [di,dj] live-cell offsets on a square lattice,
-// used by GOL_Grill_*_SHAPE below. See README ("HDD ventilation grill").
-// Real Game of Life still lifes rely on diagonal (Moore) adjacency, which - like the
-// arrows above - only touches at a single corner point once rendered as solid cells,
-// not a full edge: BEEHIVE/LOAF/POND below each add one bridge cell per diagonal
-// junction (toward the shape's outside, not its hollow) so every cell shares a full
-// edge with its neighbor. This means they're no longer verified-stable if actually
-// simulated - decorative silhouettes inspired by the real still lifes, not exact ones.
+// Game of Life-inspired shapes for GOL_Grill_*_SHAPE below - [di,dj] live-cell
+// offsets on a square lattice. See README ("HDD ventilation grill").
 LIFE_BLOCK   = [[0,0],[1,0], [0,1],[1,1]]; // solid 2x2 - already fully edge-connected
 LIFE_BEEHIVE = [[1,0],[2,0], [0,1],[3,1], [1,2],[2,2], [0,0],[3,0],[0,2],[3,2]];
 LIFE_POND    = [[1,0],[2,0], [0,1],[3,1], [0,2],[3,2], [1,3],[2,3]]; // ring / "0"
-// Beehive's own hex outline, kept hollow instead of bridged solid - a second, hex-shaped
-// "0" (asymmetric relative to POND's square). Deliberately NOT bridged at its 4 diagonal
-// corners (unlike BEEHIVE/POND above): the thin corner-touch joints from real diagonal
-// (Moore) adjacency, same caveat as an un-fixed still life - see README.
-LIFE_HEX_RING = [[1,0],[2,0], [0,1],[3,1], [1,2],[2,2]];
+LIFE_HEX_RING = [[1,0],[2,0], [0,1],[3,1], [1,2],[2,2]]; // hex "0", unbridged
 
-// Not still lifes - plain ">"/"<" chevrons, decorative only, not simulated. The grid
-// is already diagonal (rotated 45deg by the caller), so a plain straight index-space
-// line already renders as a diagonal line of diamonds - two such lines (one along
-// each grid axis) sharing a corner cell is all a chevron needs. _2/_3 = cells per arm.
+// Not still lifes - plain ">"/"<" chevrons, two straight lines sharing a corner
+// cell (the grid's own 45deg rotation makes them diagonal). _2/_3 = arm length.
 ARROW_GT_2 = [[0,0], [0,1], [-1,0]];
 ARROW_GT_3 = [[0,0], [0,1],[0,2], [-1,0],[-2,0]];
 ARROW_LT_2 = [[0,0], [1,0], [0,-1]];
@@ -268,17 +254,15 @@ HDD_GRILL_WALL   = 1.25; // shared by both modes
 HDD_GRILL_DIAMOND_SLOT_W = 4;
 HDD_GRILL_DIAMOND_SLOT_H = 4;
 
-// "diamond" mode only: up to 4 Game of Life still lifes kept solid on the
-// grill, each an independent [SHAPE, ANCHOR] pair - SHAPE is one of the
-// LIFE_* patterns below, ANCHOR a grid_2d index [i0,j0] (pre-rotation
-// lattice step = SLOT+WALL); [] anchor disables that slot. See README.
-GOL_Grill_1_SHAPE  = LIFE_HEX_RING;     // "0" ring, +X side
+// "diamond" mode only: up to 4 [SHAPE, ANCHOR] slots kept solid on the grill.
+// ANCHOR is a grid_2d index [i0,j0], lattice step = SLOT+WALL. See README.
+GOL_Grill_1_SHAPE  = LIFE_HEX_RING; // "0" ring, +X side
 GOL_Grill_1_ANCHOR = [4, -6];
-GOL_Grill_2_SHAPE  = GOL_OFF; // hex "0", -X side
+GOL_Grill_2_SHAPE  = GOL_OFF;
 GOL_Grill_2_ANCHOR = [0, -2];
-GOL_Grill_3_SHAPE  = GOL_OFF; // "<" chevron, center-left
+GOL_Grill_3_SHAPE  = GOL_OFF;
 GOL_Grill_3_ANCHOR = [-6, 6];
-GOL_Grill_4_SHAPE  = GOL_OFF; // "<" chevron, center-right
+GOL_Grill_4_SHAPE  = GOL_OFF;
 GOL_Grill_4_ANCHOR = [-3, 3];
 
 // Guard wedge cut out of the HDD grill pattern near the +X/-Z corner screw
@@ -304,10 +288,8 @@ function point_seg_dist(p, a, b) =
 function point_polyline_dist(p, pts) =
     min([for (i = [0 : len(pts) - 2]) point_seg_dist(p, pts[i], pts[i + 1])]);
 
-// World-space (zero-radius) protect_pts for a Game of Life still life (list of [di,dj]
-// live-cell offsets) anchored at grid_2d index [i0,j0], so grid_2d() leaves exactly
-// those cells solid instead of cut. pitch_x/y and world_rot must match the grid_2d()
-// call this feeds - see README.
+// World-space protect_pts for a [di,dj] shape anchored at grid_2d index [i0,j0];
+// pitch_x/y and world_rot must match the grid_2d() call this feeds. See README.
 function life_pattern_protect_pts(cells, anchor, pitch_x, pitch_y, world_rot) =
     [for (c = cells)
         let(x = (anchor[0] + c[0]) * pitch_x, y = (anchor[1] + c[1]) * pitch_y)
@@ -329,8 +311,7 @@ function standoff_lightening_protect(pos, local_pts, rot_z, r, z_from, z_to, nx_
             [pts[i][0] - r, pts[i][1] + r, pts[i][0] + r, pts[i][1] + r + run]]
     ];
 
-// Hex field (2D, centered at origin) tiling [w,h], clipped to a straight border.
-// protect_pts/protect_rects/protect_fudge/world_rot/world_translate keep cells
+// Hex field tiling [w,h], clipped to a straight border. protect_* keep cells
 // over a footprint solid instead of generated. See README ("Hex/grid tiling helpers").
 module honeycomb_2d(w, h, hex_r, wall, protect_pts=[], protect_rects=[], protect_fudge=0, world_rot=0, world_translate=[0,0]) {
     r_tile = hex_r + wall / sqrt(3);
@@ -359,12 +340,8 @@ module honeycomb_2d(w, h, hex_r, wall, protect_pts=[], protect_rects=[], protect
     }
 }
 
-// Square grid (2D, centered at origin) tiling [w,h], clipped to a straight border -
-// used rotated 45deg for "diamond" mode. Same params as honeycomb_2d() above, plus
-// inlay_edge_pts (world-space polyline, [] disables): any cut cell whose footprint
-// could reach it gets subdivided into smaller self-similar cells (inlay_scale) instead
-// of one full-size square, so a cell the caller later clips at that edge only loses a
-// small diamond, not a big one. See README ("Divider plate lightening pattern").
+// Square grid, used rotated 45deg for "diamond" mode. Same params as honeycomb_2d()
+// above, plus inlay_edge_pts/inlay_scale (subdivide cells near an edge). See README.
 module grid_2d(w, h, slot_w, slot_h, wall, protect_pts=[], protect_rects=[], protect_fudge=0, world_rot=0, world_translate=[0,0],
                 inlay_edge_pts=[], inlay_scale=1) {
     pitch_x = slot_w + wall;

@@ -481,12 +481,11 @@ full edge with its neighbor, not just a corner touch). `ARROW_GT_2`/
 `ARROW_LT_2` have 2-cell arms (5 cells total, including the shared
 corner); `ARROW_GT_3`/`ARROW_LT_3` have 3-cell arms (7 cells total).
 
-The active slots currently show `LIFE_POND` (+X side), `LIFE_HEX_RING`
-(-X side), and `ARROW_LT_2` (center, both slots 3 and 4). `LIFE_BEEHIVE`,
-`LIFE_BLOCK`, `ARROW_GT_2`, and `ARROW_GT_3`/`ARROW_LT_3` are all defined
-and available but not currently placed in a slot; set any
-`GOL_Grill_N_SHAPE` to one of them to use it. This changes often
-during tuning - treat the code's own `GOL_Grill_*` values as the source
+Only slot 1 (`LIFE_HEX_RING`, +X side) is currently active; slots 2-4 are
+off. Every other `LIFE_*`/`ARROW_*` pattern is still defined and
+available - set any `GOL_Grill_N_SHAPE` to one of them to use it. This
+changes often during tuning - treat the code's own `GOL_Grill_*` values
+as the source
 of truth over this paragraph if they ever disagree.
 
 `ANCHOR` is a `grid_2d()` lattice index `[i0,j0]` in the *pre-rotation*
