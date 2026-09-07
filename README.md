@@ -445,11 +445,30 @@ disables a slot, kept only so an old anchor value can be commented out
 without touching `SHAPE`). Otherwise `SHAPE` is one of the patterns below
 (`[di,dj]` live-cell offset lists, defined just above `HDD_GRILL_MODE`).
 
-`LIFE_*` are real Game of Life still lifes (unchanging generation over
-generation), not made up: `LIFE_BLOCK` (2×2, simplest), `LIFE_BEEHIVE`
-(hexagonal, 6 cells), `LIFE_LOAF` (7 cells, the one asymmetric/oval-ish
-shape — no reflective symmetry, unlike the other three), `LIFE_POND` (8
-cells, a ring/"0"). `ARROW_*` are **not** still lifes or any real Life
+`LIFE_*` are silhouettes of the named Game of Life still lifes, not exact
+copies: `LIFE_BLOCK` (2×2, simplest - a solid square, so it's the one
+exact copy, already fully edge-connected on its own), `LIFE_BEEHIVE`
+(hexagonal, 10 cells), `LIFE_POND` (12 cells, a square ring/"0"). The
+real BEEHIVE/POND still lifes rely on diagonal (Moore) adjacency for
+their Game of Life stability, which - like the arrows below - only
+touches at a single corner point once rendered as solid grid cells, not
+a full edge, and reads as a thin, weak pinch there rather than a joined
+shape. BEEHIVE/POND each have one bridge cell added at every such
+diagonal junction (toward the shape's *outside*, not into its hollow) so
+every cell shares a full edge with its neighbor; this means they're no
+longer verified-stable if actually simulated, but the added cells keep
+the silhouette recognizable while making it print/render as one solid,
+clearly joined shape rather than corner-connected fragments.
+
+`LIFE_HEX_RING` (6 cells) is BEEHIVE's own hex outline again, but this
+time deliberately left *without* the bridge cells - a second, hex-shaped
+"0" distinct from POND's square one. It keeps the thin corner-touch
+joints described above (a deliberate choice for this shape, not an
+oversight); everywhere else on this grill favors the bridged/joined
+version, so treat this one as the exception if you're looking for a
+model of "how not to do it."
+
+`ARROW_*` are **not** still lifes or any real Life
 pattern — just plain `>`/`<` chevrons for decoration: two straight
 index-space lines, one along each grid axis, sharing a corner cell.
 `grid_2d()`'s cells are already tiled on a 45°-rotated square lattice, so
@@ -462,11 +481,13 @@ full edge with its neighbor, not just a corner touch). `ARROW_GT_2`/
 `ARROW_LT_2` have 2-cell arms (5 cells total, including the shared
 corner); `ARROW_GT_3`/`ARROW_LT_3` have 3-cell arms (7 cells total).
 
-The default slots currently show `LIFE_POND` (+X side) and `ARROW_GT_2`
-(center-left); slots 2 and 4 are off (`GOL_OFF`). `LIFE_LOAF`,
-`LIFE_BEEHIVE`, `LIFE_BLOCK`, and `ARROW_LT_2`/`ARROW_LT_3`/`ARROW_GT_3`
-are all defined and available but not currently placed in a slot; set
-any `GOL_Grill_N_SHAPE` to one of them to use it.
+The active slots currently show `LIFE_POND` (+X side), `LIFE_HEX_RING`
+(-X side), and `ARROW_LT_2` (center, both slots 3 and 4). `LIFE_BEEHIVE`,
+`LIFE_BLOCK`, `ARROW_GT_2`, and `ARROW_GT_3`/`ARROW_LT_3` are all defined
+and available but not currently placed in a slot; set any
+`GOL_Grill_N_SHAPE` to one of them to use it. This changes often
+during tuning - treat the code's own `GOL_Grill_*` values as the source
+of truth over this paragraph if they ever disagree.
 
 `ANCHOR` is a `grid_2d()` lattice index `[i0,j0]` in the *pre-rotation*
 square grid — adjacency there is what Game of Life actually cares about,

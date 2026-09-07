@@ -230,10 +230,20 @@ SPINE_LIGHTENING_NY_INLAY_SCALE = 0.3;
 
 // Conway's Game of Life still lifes - [di,dj] live-cell offsets on a square lattice,
 // used by GOL_Grill_*_SHAPE below. See README ("HDD ventilation grill").
-LIFE_BLOCK   = [[0,0],[1,0], [0,1],[1,1]];
-LIFE_BEEHIVE = [[1,0],[2,0], [0,1],[3,1], [1,2],[2,2]];
-LIFE_LOAF    = [[1,0],[2,0], [0,1],[3,1], [1,2],[3,2], [2,3]];       // oval/asymmetric
-LIFE_POND    = [[1,0],[2,0], [0,1],[3,1], [0,2],[3,2], [1,3],[2,3]]; // ring / "0"
+// Real Game of Life still lifes rely on diagonal (Moore) adjacency, which - like the
+// arrows above - only touches at a single corner point once rendered as solid cells,
+// not a full edge: BEEHIVE/LOAF/POND below each add one bridge cell per diagonal
+// junction (toward the shape's outside, not its hollow) so every cell shares a full
+// edge with its neighbor. This means they're no longer verified-stable if actually
+// simulated - decorative silhouettes inspired by the real still lifes, not exact ones.
+LIFE_BLOCK   = [[0,0],[1,0], [0,1],[1,1]]; // solid 2x2 - already fully edge-connected
+LIFE_BEEHIVE = [[1,0],[2,0], [0,1],[3,1], [1,2],[2,2], [0,0],[3,0],[0,2],[3,2]];
+LIFE_POND    = [[1,0],[2,0], [0,1],[3,1], [0,2],[3,2], [1,3],[2,3], [0,0],[3,0],[0,3],[3,3]]; // ring / "0"
+// Beehive's own hex outline, kept hollow instead of bridged solid - a second, hex-shaped
+// "0" (asymmetric relative to POND's square). Deliberately NOT bridged at its 4 diagonal
+// corners (unlike BEEHIVE/POND above): the thin corner-touch joints from real diagonal
+// (Moore) adjacency, same caveat as an un-fixed still life - see README.
+LIFE_HEX_RING = [[1,0],[2,0], [0,1],[3,1], [1,2],[2,2]];
 
 // Not still lifes - plain ">"/"<" chevrons, decorative only, not simulated. The grid
 // is already diagonal (rotated 45deg by the caller), so a plain straight index-space
@@ -262,14 +272,14 @@ HDD_GRILL_DIAMOND_SLOT_H = 4;
 // grill, each an independent [SHAPE, ANCHOR] pair - SHAPE is one of the
 // LIFE_* patterns below, ANCHOR a grid_2d index [i0,j0] (pre-rotation
 // lattice step = SLOT+WALL); [] anchor disables that slot. See README.
-GOL_Grill_1_SHAPE  = LIFE_POND;    // "0" ring, +X side
+GOL_Grill_1_SHAPE  = LIFE_POND;     // "0" ring, +X side
 GOL_Grill_1_ANCHOR = [4, -7];
-GOL_Grill_2_SHAPE  = GOL_OFF;    // oval/asymmetric, -X side
+GOL_Grill_2_SHAPE  = LIFE_HEX_RING; // hex "0", -X side
 GOL_Grill_2_ANCHOR = [-7, 4];
-GOL_Grill_3_SHAPE  = ARROW_GT_2; // ">" chevron, center-left
+GOL_Grill_3_SHAPE  = ARROW_LT_2; // "<" chevron, center-left
 GOL_Grill_3_ANCHOR = [-2, 2];
-GOL_Grill_4_SHAPE  = GOL_OFF; // "<" chevron, center-right
-GOL_Grill_4_ANCHOR = [2, -2];
+GOL_Grill_4_SHAPE  = ARROW_LT_2; // "<" chevron, center-right
+GOL_Grill_4_ANCHOR = [1, -1];
 
 // Guard wedge cut out of the HDD grill pattern near the +X/-Z corner screw
 // so it keeps solid material regardless of where the hex tiling lands.
