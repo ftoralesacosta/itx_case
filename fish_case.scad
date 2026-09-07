@@ -249,10 +249,10 @@ LIFE_HEX_RING = [[1,0],[2,0], [0,1],[3,1], [1,2],[2,2]];
 // is already diagonal (rotated 45deg by the caller), so a plain straight index-space
 // line already renders as a diagonal line of diamonds - two such lines (one along
 // each grid axis) sharing a corner cell is all a chevron needs. _2/_3 = cells per arm.
-ARROW_GT_2 = [[0,0], [0,1],[0,2], [-1,0],[-2,0]];
-ARROW_GT_3 = [[0,0], [0,1],[0,2],[0,3], [-1,0],[-2,0],[-3,0]];
-ARROW_LT_2 = [[0,0], [1,0],[2,0], [0,-1],[0,-2]];
-ARROW_LT_3 = [[0,0], [1,0],[2,0],[3,0], [0,-1],[0,-2],[0,-3]];
+ARROW_GT_2 = [[0,0], [0,1], [-1,0]];
+ARROW_GT_3 = [[0,0], [0,1],[0,2], [-1,0],[-2,0]];
+ARROW_LT_2 = [[0,0], [1,0], [0,-1]];
+ARROW_LT_3 = [[0,0], [1,0],[2,0], [0,-1],[0,-2]];
 
 GOL_OFF = []; // set a GOL_Grill_*_SHAPE to this to turn that slot off
 
@@ -272,13 +272,13 @@ HDD_GRILL_DIAMOND_SLOT_H = 4;
 // grill, each an independent [SHAPE, ANCHOR] pair - SHAPE is one of the
 // LIFE_* patterns below, ANCHOR a grid_2d index [i0,j0] (pre-rotation
 // lattice step = SLOT+WALL); [] anchor disables that slot. See README.
-GOL_Grill_1_SHAPE  = LIFE_POND;     // "0" ring, +X side
-GOL_Grill_1_ANCHOR = [4, -7];
-GOL_Grill_2_SHAPE  = LIFE_HEX_RING; // hex "0", -X side
+GOL_Grill_1_SHAPE  = LIFE_HEX_RING;     // "0" ring, +X side
+GOL_Grill_1_ANCHOR = [4, -6];
+GOL_Grill_2_SHAPE  = GOL_OFF; // hex "0", -X side
 GOL_Grill_2_ANCHOR = [0, -2];
-GOL_Grill_3_SHAPE  = ARROW_LT_2; // "<" chevron, center-left
+GOL_Grill_3_SHAPE  = GOL_OFF; // "<" chevron, center-left
 GOL_Grill_3_ANCHOR = [-6, 6];
-GOL_Grill_4_SHAPE  = ARROW_LT_2; // "<" chevron, center-right
+GOL_Grill_4_SHAPE  = GOL_OFF; // "<" chevron, center-right
 GOL_Grill_4_ANCHOR = [-3, 3];
 
 // Guard wedge cut out of the HDD grill pattern near the +X/-Z corner screw
