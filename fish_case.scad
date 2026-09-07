@@ -238,7 +238,7 @@ SPINE_LIGHTENING_NY_INLAY_SCALE = 0.3;
 // simulated - decorative silhouettes inspired by the real still lifes, not exact ones.
 LIFE_BLOCK   = [[0,0],[1,0], [0,1],[1,1]]; // solid 2x2 - already fully edge-connected
 LIFE_BEEHIVE = [[1,0],[2,0], [0,1],[3,1], [1,2],[2,2], [0,0],[3,0],[0,2],[3,2]];
-LIFE_POND    = [[1,0],[2,0], [0,1],[3,1], [0,2],[3,2], [1,3],[2,3], [0,0],[3,0],[0,3],[3,3]]; // ring / "0"
+LIFE_POND    = [[1,0],[2,0], [0,1],[3,1], [0,2],[3,2], [1,3],[2,3]]; // ring / "0"
 // Beehive's own hex outline, kept hollow instead of bridged solid - a second, hex-shaped
 // "0" (asymmetric relative to POND's square). Deliberately NOT bridged at its 4 diagonal
 // corners (unlike BEEHIVE/POND above): the thin corner-touch joints from real diagonal
@@ -275,11 +275,11 @@ HDD_GRILL_DIAMOND_SLOT_H = 4;
 GOL_Grill_1_SHAPE  = LIFE_POND;     // "0" ring, +X side
 GOL_Grill_1_ANCHOR = [4, -7];
 GOL_Grill_2_SHAPE  = LIFE_HEX_RING; // hex "0", -X side
-GOL_Grill_2_ANCHOR = [-7, 4];
+GOL_Grill_2_ANCHOR = [0, -2];
 GOL_Grill_3_SHAPE  = ARROW_LT_2; // "<" chevron, center-left
-GOL_Grill_3_ANCHOR = [-2, 2];
+GOL_Grill_3_ANCHOR = [-6, 6];
 GOL_Grill_4_SHAPE  = ARROW_LT_2; // "<" chevron, center-right
-GOL_Grill_4_ANCHOR = [1, -1];
+GOL_Grill_4_ANCHOR = [-3, 3];
 
 // Guard wedge cut out of the HDD grill pattern near the +X/-Z corner screw
 // so it keeps solid material regardless of where the hex tiling lands.
