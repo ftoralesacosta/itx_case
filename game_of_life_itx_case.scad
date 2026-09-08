@@ -60,7 +60,7 @@ SPINE_PLATE_MARGIN_X = 0; // X-only inset applied on top of POS/SIZE, each side
 // 3 trapezoidal edge tapers (+X, -Y, -X), copied from the reference STL. See README.
 SPINE_PLATE_TAPER_PX_BEFORE = 15;
 SPINE_PLATE_TAPER_PX_RUN = 6.665;
-SPINE_PLATE_TAPER_PX_DEPTH = 5.35; // flush-with-HDD-standoffs target; new_spine() warns on drift
+SPINE_PLATE_TAPER_PX_DEPTH = 5.38; // flush-with-HDD-standoffs target; new_spine() warns on drift
 
 SPINE_PLATE_TAPER_NY_BEFORE = 20;
 SPINE_PLATE_TAPER_NY_RUN = 5;
