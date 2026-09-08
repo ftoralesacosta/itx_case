@@ -537,7 +537,8 @@ except the HDD, which uses the drive industry's standard **6-32 UNC**
 | Motherboard → standoffs | 4 | M3 | ~6mm | pan/socket | Standard mITX standoff screw length. The standoffs themselves are printed plastic with a plain clearance bore — they need **M3 heat-set threaded inserts**, or M3 thread-forming ("PT"/plastic) screws, since there's no metal thread to bite into. |
 | HDD → standoffs (from MB side) | 4 | **6-32 UNC** | 3/8" (9.53mm)† | pan/button (flat underside) | Threads directly into the drive's own tapped bottom-mount holes. Vibration-isolated (see below) — the screw touches nothing but the two O-rings and the drive's threads the whole way through the plate and standoff. **Not** flat/countersunk — a countersunk head has no flat face to compress an O-ring evenly against. |
 | HDD standoff isolation O-rings | 8 | — | AS568-007 (ID 0.145"/3.68mm, OD 0.285"/7.24mm, CS 0.070"/1.78mm) | silicone (VMQ), 70A | Two per standoff — one under the screw head, one between the standoff and the HDD's mounting boss. This is what actually isolates HDD vibration from the plate; the screw and standoff themselves never touch each other rigidly. See "HDD vibration isolation" below for install compression. |
-| GaN PSU → standoffs (from MB side) | 4 | M3 | 16mm‡ | flat/countersunk, 90° | Threads directly into the PSU's own tapped mounting holes (verified from HDPLEX's STEP file, "same as HDPLEX 200W ACDC / 400W ACDC" pattern). Same access-from-above arrangement as the HDD. |
+| GaN PSU → standoffs (from MB side) | 4 | M3 | 16-18mm‡ | pan/socket (flat underside) | Threads directly into the PSU's own tapped mounting holes (verified from HDPLEX's STEP file, "same as HDPLEX 200W ACDC / 400W ACDC" pattern). Same access-from-above arrangement as the HDD. **Not** flat/countersunk — same reason as the HDD: needs a flat face to compress an O-ring evenly. |
+| GaN standoff isolation O-rings | 8 | — | 5/32" ID × 9/32" OD × 1/16" CS (ID 3.97mm, OD 7.14mm, CS 1.59mm) | silicone, 70A | Two per standoff — one under the screw head, one between the standoff and the PSU's aluminum body. A **thermal** break (the GaN PSU's case runs meaningfully warmer than PETG's heat-deflection point under sustained load), not vibration isolation like the HDD's — see "GaN PSU thermal isolation" below. |
 | Front panel → case shell (all 4 corners, upper + lower) | 4 | M3 | TBD | flat/countersunk, 90° | Attaches the spine assembly to the outer case shell. Each hole also has a shell-mating tab slot cut into the panel's inside face — the eventual shell gets a matching tab that this same screw clamps in place. Length depends on the shell's own screw boss depth, which hasn't been designed yet. |
 | GaN PSU → front panel (cable-side mounts) | 4 | M3 | TBD | flat/countersunk, 90° | **Placeholder, not verified real hardware** — the GaN PSU's actual front-mounting bracket is a length-wise rail (177×35mm hole spacing, confirmed M3) rather than a small end-cap plate like this cutout assumes. Keep these for now, but don't treat the spacing as matching the real PSU rail. |
 
@@ -552,8 +553,46 @@ the `HDD_ORING_POCKET_DEPTH` comment in `game_of_life_itx_case.scad` for the ful
 
 ‡ Assumes ~4.5mm of M3 thread engagement into the PSU's aluminum body (a
 general engineering guideline — the PSU's tapped-hole *depth* wasn't
-extracted from the STEP file, only hole position and diameter). If 16mm
-screws bottom out, drop to 14mm.
+extracted from the STEP file, only hole position and diameter), plus the
+standoff run and plate thickness the screw passes through — the two O-ring
+pockets are recesses cut *into* that existing material, not added height,
+so they don't change this length by themselves. The range instead comes
+from the screw head itself: it sits in a shallow 1.43mm pocket, and most
+M3 pan/socket heads are taller than that, so expect it to stand a bit
+proud of the plate rather than sitting flush - go with 18mm if the head
+looks tall, 16mm if it's a low-profile one. Verify once real screws are
+in hand.
+
+### GaN PSU thermal isolation - install notes
+
+Same two-O-rings-in-series arrangement as the HDD (see below), but for a
+different reason: this joint's screws thread straight into the GaN PSU's
+aluminum body, and a stress-tested HDPLEX 250W GaN unit was measured at up
+to 58°C at the case surface - within reach of PETG's heat-deflection
+point, especially at a point under constant clamping load for years. The
+O-rings are a thermal break, not a vibration isolator, so the target
+compression here is much lighter than the HDD's - just enough to
+guarantee metal never touches PETG directly, not enough to actually damp
+anything.
+
+- **Target: ~5-10% compression per O-ring** (vs. the HDD's 10-15% - this
+  joint doesn't need to absorb energy, just not conduct heat/touch
+  directly).
+- Same series-doubling logic as the HDD: two O-rings per screw split the
+  compression, so hand-thread to first resistance (both O-rings just
+  touching), then turn an additional **1/3 to 2/3 turn** past that - M3's
+  0.5mm/turn pitch covers 5-10% compression on both O-rings together over
+  that range.
+- `GAN_ORING_POCKET_DEPTH` in `game_of_life_itx_case.scad` targets 10% (assuming
+  the O-ring's free height matches the 1/16" nominal cross-section
+  exactly) - treat the turn-count instruction as the real install
+  reference, same caveat as the HDD's own pocket depth.
+- The screw itself still conducts *some* heat straight through the O-rings
+  (a solid metal fastener is a much better conductor than silicone even at
+  a small cross-section) - stainless screws over plain/zinc-plated steel
+  meaningfully reduce this, at no extra cost or complexity.
+
+### HDD vibration isolation - install notes
 
 ### HDD vibration isolation - install notes
 
@@ -595,3 +634,6 @@ here.
   grill has been thermally validated — both are sized for print
   practicality and a reasonable-looking amount of open area, not against
   any actual airflow/thermal target.
+- GaN PSU standoff screw length (16-18mm‡) is a stack-up estimate, not
+  verified against real screws - depends on the actual head height once
+  hardware is bought (see the hardware table's `‡` note).

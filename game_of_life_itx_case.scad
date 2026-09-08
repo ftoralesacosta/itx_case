@@ -6,7 +6,7 @@ SHOW_ENCLOSURE  = false;
 SHOW_ODD        = false;
 
 
-used_components = true;
+used_components = false;
 
 SHOW_MB         = used_components;
 SHOW_HDD        = used_components;
@@ -46,6 +46,11 @@ GAN_PSU_SIZE = [170, 55, 25]; // [D, W, H]
 GAN_PSU_POS  = [-48, -90, -10];
 GAN_PSU_ROT  = [0, 0, 90];
 
+// Dummy fit-check block, not used elsewhere - HDPLEX 500W GaN AIO ATX (hdplex.com),
+// same POS/ROT slot as the 250W above for a direct size comparison.
+SHOW_GAN_PSU_500W = false;
+GAN_PSU_500W_SIZE = [200.2, 55, 40]; // [D, W, H]
+
 /* ---------- new spine (see README for design background) ---------- */
 // Plate footprint is separate from standoff POS - see README.
 SPINE_PLATE_POS  = [2.31, -90, 8.1]; // [x, y, z]
@@ -59,7 +64,7 @@ SPINE_PLATE_TAPER_PX_DEPTH = 5.35; // flush-with-HDD-standoffs target; new_spine
 
 SPINE_PLATE_TAPER_NY_BEFORE = 20;
 SPINE_PLATE_TAPER_NY_RUN = 5;
-SPINE_PLATE_TAPER_NY_DEPTH = 10.5; // flush-with-GaN-standoffs target; new_spine() warns on drift
+SPINE_PLATE_TAPER_NY_DEPTH = 9.5; // flush-with-GaN-standoffs target; new_spine() warns on drift
 
 SPINE_PLATE_TAPER_NX_BEFORE = 25;
 SPINE_PLATE_TAPER_NX_RUN = 30;
@@ -109,8 +114,17 @@ GAN_PSU_HOLES = [
     [-73, -16.65],
 ];
 GAN_STANDOFF_HOLE_R = 1.9; // M3 clearance
-GAN_STANDOFF_CS_DIA   = 6.4;
-GAN_STANDOFF_CS_ANGLE = 90;
+// Widened from the shared STANDOFF_R (like HDD_STANDOFF_R) so both O-ring pockets
+// below fit inside the peg with a real wall margin, not just the screw clearance hole.
+GAN_STANDOFF_R = 5;
+// O-ring at both standoff faces (PSU side + screw-head/plate side) as a thermal
+// break from the GaN PSU's aluminum body - see README. Light compression on
+// purpose (not a seal): ~10% of GAN_ORING_CS.
+GAN_ORING_OD = 7.14; // 9/32"
+GAN_ORING_CS = 1.59; // 1/16"
+GAN_ORING_POCKET_CLEARANCE = 0.4;
+GAN_ORING_POCKET_DIA   = GAN_ORING_OD + GAN_ORING_POCKET_CLEARANCE;
+GAN_ORING_POCKET_DEPTH = 1.43;
 
 /* ---------- front panel ---------- */
 FRONT_PANEL_TOP_Z    = 68.28; // measured off the reference STL
@@ -700,7 +714,7 @@ module spine_plate_taper_warnings() {
             ") - the +X taper's waist is no longer flush with the HDD standoffs."));
     }
     gan_world_ys  = [for (wp = world_holes(GAN_PSU_POS, GAN_PSU_HOLES, GAN_PSU_ROT[2])) wp[1]];
-    gan_y_min_edge = min(gan_world_ys) - STANDOFF_R;
+    gan_y_min_edge = min(gan_world_ys) - GAN_STANDOFF_R;
     ny_narrow_y = plate_y_min + SPINE_PLATE_TAPER_NY_DEPTH;
     if (abs(ny_narrow_y - gan_y_min_edge) > 0.01) {
         echo(str("WARNING: SPINE_PLATE_TAPER_NY_DEPTH (", SPINE_PLATE_TAPER_NY_DEPTH,
@@ -830,7 +844,6 @@ module new_spine(show, col, alpha) {
 
         color(col, alpha) {
             // divider plate, with HDD/GaN screw access holes drilled through. See README.
-            gan_cs_depth = countersink_depth(GAN_STANDOFF_HOLE_R, GAN_STANDOFF_CS_DIA, GAN_STANDOFF_CS_ANGLE);
             difference() {
                 translate([0, 0, plate_z])
                     linear_extrude(height = plate_t, center = true)
@@ -849,8 +862,9 @@ module new_spine(show, col, alpha) {
                     wy = wp[1];
                     translate([wx, wy, plate_bot - 0.5])
                         cylinder(h = plate_t + 1, r = GAN_STANDOFF_HOLE_R, $fn = 24);
-                    translate([wx, wy, (plate_top + 0.5) - gan_cs_depth])
-                        cylinder(h = gan_cs_depth, r1 = GAN_STANDOFF_HOLE_R, r2 = GAN_STANDOFF_CS_DIA/2, $fn = 48);
+                    // O-ring pocket for the screw head, MB side (was a countersink)
+                    translate([wx, wy, plate_top - GAN_ORING_POCKET_DEPTH])
+                        cylinder(h = GAN_ORING_POCKET_DEPTH + 0.5, r = GAN_ORING_POCKET_DIA/2, $fn = 48);
                 }
                 // Lightening/vent pattern - see SPINE_LIGHTENING_* above, README.
                 lightening_px_limit = (ENCLOSURE_POS[0] + ENCLOSURE_SIZE[0]/2) - SPINE_LIGHTENING_MARGIN_PX;
@@ -886,7 +900,7 @@ module new_spine(show, col, alpha) {
                     lightening_nx_limit, lightening_px_limit, lightening_ny_limit, lightening_py_limit);
                 hdd_lightening_protect = standoff_lightening_protect(HDD_POS, HDD_HOLES, HDD_ROT[2], HDD_STANDOFF_R, plate_bot, hdd_top,
                     lightening_nx_limit, lightening_px_limit, lightening_ny_limit, lightening_py_limit);
-                gan_lightening_protect = standoff_lightening_protect(GAN_PSU_POS, GAN_PSU_HOLES, GAN_PSU_ROT[2], STANDOFF_R, plate_bot, gan_top,
+                gan_lightening_protect = standoff_lightening_protect(GAN_PSU_POS, GAN_PSU_HOLES, GAN_PSU_ROT[2], GAN_STANDOFF_R, plate_bot, gan_top,
                     lightening_nx_limit, lightening_px_limit, lightening_ny_limit, lightening_py_limit);
                 lightening_protect_pts = concat(mb_lightening_protect[0], hdd_lightening_protect[0], gan_lightening_protect[0]);
                 lightening_protect_rects = concat(mb_lightening_protect[1], hdd_lightening_protect[1], gan_lightening_protect[1]);
@@ -936,8 +950,16 @@ module new_spine(show, col, alpha) {
                 }
             }
 
-            // GaN PSU standoffs
-            standoffs(GAN_PSU_POS, GAN_PSU_HOLES, GAN_PSU_ROT[2], STANDOFF_R, GAN_STANDOFF_HOLE_R, plate_bot, gan_top);
+            // GaN PSU standoffs, plus the O-ring pocket (standoff-to-PSU side)
+            difference() {
+                standoffs(GAN_PSU_POS, GAN_PSU_HOLES, GAN_PSU_ROT[2], GAN_STANDOFF_R, GAN_STANDOFF_HOLE_R, plate_bot, gan_top);
+                for (wp = world_holes(GAN_PSU_POS, GAN_PSU_HOLES, GAN_PSU_ROT[2])) {
+                    wx = wp[0];
+                    wy = wp[1];
+                    translate([wx, wy, gan_top - 0.5])
+                        cylinder(h = GAN_ORING_POCKET_DEPTH + 0.5, r = GAN_ORING_POCKET_DIA/2, $fn = 48);
+                }
+            }
 
             front_panel_upper(SHOW_FRONT_PANEL, plate_bot, col, alpha);
             front_panel_lower(SHOW_FRONT_PANEL_LOWER, plate_top, col, alpha);
@@ -990,3 +1012,4 @@ labeled_box(MB_SIZE,  MB_POS,  MB_ROT,  SHOW_MB,  "Blue");
 labeled_box(HDD_SIZE, HDD_POS, HDD_ROT, SHOW_HDD, "Red");
 labeled_box(ODD_SIZE, ODD_POS, ODD_ROT, SHOW_ODD, "Cyan");
 labeled_box(GAN_PSU_SIZE, GAN_PSU_POS, GAN_PSU_ROT, SHOW_GAN_PSU, "Black");
+labeled_box(GAN_PSU_500W_SIZE, GAN_PSU_POS, GAN_PSU_ROT, SHOW_GAN_PSU_500W, "Purple", 0.5);
