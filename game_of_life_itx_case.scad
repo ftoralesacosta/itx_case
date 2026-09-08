@@ -64,7 +64,7 @@ SPINE_PLATE_TAPER_PX_DEPTH = 5.35; // flush-with-HDD-standoffs target; new_spine
 
 SPINE_PLATE_TAPER_NY_BEFORE = 20;
 SPINE_PLATE_TAPER_NY_RUN = 5;
-SPINE_PLATE_TAPER_NY_DEPTH = 9.5; // flush-with-GaN-standoffs target; new_spine() warns on drift
+SPINE_PLATE_TAPER_NY_DEPTH = 9.0; // flush-with-GaN-standoffs target; new_spine() warns on drift
 
 SPINE_PLATE_TAPER_NX_BEFORE = 25;
 SPINE_PLATE_TAPER_NX_RUN = 30;
