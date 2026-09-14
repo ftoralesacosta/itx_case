@@ -10,7 +10,13 @@ used_components = false;
 
 SHOW_MB         = used_components;
 SHOW_HDD        = used_components;
+SHOW_HDD2       = used_components;
 SHOW_GAN_PSU    = used_components;
+SHOW_GAN_STANDOFFS = false; // the real mounting pegs, not the GAN_PSU_POS reference box above
+// Front-panel cutout for the (old, spine-mounted) GaN PSU: the AC inlet through-hole +
+// mounting pocket/screws, and the small vertical-bar MB<->GaN airflow grill above it.
+// Off by default now that the GaN PSU mounts to a different part - see README.
+SHOW_GAN_CABLE = false;
 
 
 SHOW_NEW_SPINE  = true;
@@ -21,20 +27,41 @@ SPINE_ALPHA     = 0.9;
 ENCLOSURE_ALPHA = 0.55;
 
 /* ---------- enclosure (outer volume budget) ---------- */
-ENCLOSURE_SIZE = [176, 178, 85];   // [W, D, H]
+// W grown from 176 to 178.5 specifically to give the IO shield groove's +X side full
+// clearance for the real measured widen (3.25mm, matching the other 3 sides) instead of
+// the previous 2.5mm compromise - see FRONT_PANEL_IO_GROOVE_WIDEN_PX and README ("IO
+// shield retention groove"). IO shield fit takes priority over keeping this at 176.
+ENCLOSURE_SIZE = [178.5, 220, 85];   // [W, D, H]
 ENCLOSURE_POS  = [5, -90, 18];
 ENCLOSURE_ROT  = [0, 0, 0];
 ENCLOSURE_EDGE_R = 1.0;
 
 /* ---------- motherboard ---------- */
 MB_SIZE = [170, 170, 38];
-MB_POS  = [3, -90, 34.6];
+// Y validated against the official Mini-ITX Addendum v2.0 (to the microATX spec) +
+// the ATX spec's own Fig.5 connector-placement rule, not guessed: mounting hole "C" sits
+// 10.16mm in from the board's rear/IO edge, and the spec's rear-IO connector face sits
+// 11.30mm from that same hole reference - i.e. the connector face is 1.14mm BEYOND the
+// board's physical edge. The old Y (-90) put that connector face 2.35mm behind the front
+// panel's IO collar registration plane (FRONT_PANEL_IO_COLLAR_DEPTH) - real print/assembly
+// testing confirmed the board sat too recessed from the IO shield by about that much.
+// Moved 2.35mm toward the front panel (was -90) so the connector face lands on the collar
+// plane instead. See README.
+MB_POS  = [3, -87.65, 34.6];
 MB_ROT  = [0, 0, 0];
 
 /* ---------- HDD (replaces GPU) ---------- */
 HDD_SIZE = [101.6, 146.99, 26.11]; // 3.5" HDD envelope [W, D, H]
-HDD_POS  = [35, -78.5, -9.98];
-HDD_ROT  = [0, 0, 0];
+HDD_POS  = [-5, -56.5, -9.98];
+HDD_ROT  = [0, 0, 90];
+// 2nd drive, same model/hardware (HDD_SIZE/HOLES/ROT/standoffs all shared) - just offset
+// in Y, stacked behind HDD1 away from the front panel. 5mm gap from HDD1's far edge:
+// HDD1's -Y face is at HDD_POS.y - HDD_SIZE[0]/2 = -107.8; HDD2's +Y face needs to land
+// 5mm behind that, so HDD2_POS.y = -107.8 - 5 - HDD_SIZE[0]/2 = -163.6.
+// NOTE: at the current ENCLOSURE_SIZE[1] (198mm) this pushes HDD2's far edge ~25mm past
+// the enclosure's back wall (Y=-189) - the enclosure needs to grow further in Y (or HDD2
+// needs to move) before this is print-ready. See README.
+HDD2_POS = [HDD_POS[0], -159, HDD_POS[2]];
 
 /* ---------- ODD (unused placeholder, see README) ---------- */
 ODD_SIZE = [128, 129, 12.7];
@@ -43,8 +70,8 @@ ODD_ROT  = [0, 0, 0];
 
 /* ---------- GaN PSU (HDPLEX 250W GaN AIO ATX) ---------- */
 GAN_PSU_SIZE = [170, 55, 25]; // [D, W, H]
-GAN_PSU_POS  = [-48, -90, -10];
-GAN_PSU_ROT  = [0, 0, 90];
+GAN_PSU_POS  = [3, -186, 38];
+GAN_PSU_ROT  = [90, 0, 00];
 
 // Dummy fit-check block, not used elsewhere - HDPLEX 500W GaN AIO ATX (hdplex.com),
 // same POS/ROT slot as the 250W above for a direct size comparison.
@@ -53,21 +80,23 @@ GAN_PSU_500W_SIZE = [200.2, 55, 40]; // [D, W, H]
 
 /* ---------- new spine (see README for design background) ---------- */
 // Plate footprint is separate from standoff POS - see README.
-SPINE_PLATE_POS  = [2.31, -90, 8.1]; // [x, y, z]
-SPINE_PLATE_SIZE = [170.6, 174, 3]; // [w, d, t]
+SPINE_PLATE_POS  = [2.31, -109, 8.1]; // [x, y, z]
+SPINE_PLATE_SIZE = [170.6, 212, 3]; // [w, d, t]
 SPINE_PLATE_MARGIN_X = 0; // X-only inset applied on top of POS/SIZE, each side
 
 // 3 trapezoidal edge tapers (+X, -Y, -X), copied from the reference STL. See README.
-SPINE_PLATE_TAPER_PX_BEFORE = 15;
-SPINE_PLATE_TAPER_PX_RUN = 6.665;
-SPINE_PLATE_TAPER_PX_DEPTH = 5.38; // flush-with-HDD-standoffs target; new_spine() warns on drift
+SPINE_PLATE_TAPER_PX_BEFORE = 10;
+SPINE_PLATE_TAPER_PX_RUN = 30;
+SPINE_PLATE_TAPER_PX_AFTER = 100; // narrow flat run in the middle, measured from the front taper's end - see README
+SPINE_PLATE_TAPER_PX_DEPTH = 30; // flush-with-HDD-standoffs target; new_spine() warns on drift
 
-SPINE_PLATE_TAPER_NY_BEFORE = 20;
-SPINE_PLATE_TAPER_NY_RUN = 5;
-SPINE_PLATE_TAPER_NY_DEPTH = 9.0; // flush-with-GaN-standoffs target; new_spine() warns on drift
+SPINE_PLATE_TAPER_NY_BEFORE = 10;
+SPINE_PLATE_TAPER_NY_RUN = 1;
+SPINE_PLATE_TAPER_NY_DEPTH = 3; // flush-with-GaN-standoffs target; new_spine() warns on drift
 
-SPINE_PLATE_TAPER_NX_BEFORE = 25;
+SPINE_PLATE_TAPER_NX_BEFORE = 10;
 SPINE_PLATE_TAPER_NX_RUN = 30;
+SPINE_PLATE_TAPER_NX_AFTER = 85; // narrow flat run in the middle, measured from the front taper's end - see README
 SPINE_PLATE_TAPER_NX_DEPTH = 30; // free - no real hardware to flush against; new_spine() warns if it cuts an MB standoff loose
 
 // 4 reinforcement wedges, front panel to plate, one per corner. X is
@@ -83,29 +112,55 @@ STANDOFF_MARGIN = 8;    // fallback corner inset where no real hole spec is know
 STANDOFF_RAMP_RUN_FACTOR = 1.0; // ramp horizontal run = peg height x this (1.0 = 45 degree self-supporting slope)
 
 // Real screw-hole patterns, local [x,y] offsets. See README for sourcing.
+// Spec-derived (official Mini-ITX Addendum v2.0, Fig. 3/Table 3), re-derived from scratch
+// and triple-checked directly against the primary-source dimensioned drawing (not just a
+// summary) - datum at hole C = 6.35mm/10.16mm from the board's rear-left corner, others
+// follow from the drawing's own dimensioned spans (C-F = 152.40mm/6.00in exactly, etc).
+// A prior version reverted to a different, real-board-measured set after a print reportedly
+// screwed together fine - but that fit turned out to require force and warped the spine
+// slightly, i.e. it wasn't actually a clean fit either. Back on the spec values now; these
+// have NOT yet been print-tested at this exact revision, so re-check fit on the next print.
+// See README.
 MB_HOLES = [
-    [-79.16,  75.47],
-    [ 78.14,  52.57],
-    [-79.13, -79.13],
-    [ 78.14, -79.13],
+    [-78.65,  74.84], // hole C - spec datum, 6.35mm/10.16mm from the rear-left corner
+    [ 73.75,  62.14], // hole F
+    [-78.65, -80.10], // hole H
+    [ 73.75, -80.10], // hole J
 ];
 
-HDD_HOLE_X_INSET  = 3.18;   // SFF-8301 A5
-HDD_HOLE_Y_FRONT  = 41.28;  // SFF-8301 A7
-HDD_HOLE_Y_REAR   = 76.20;  // SFF-8301 A13
+// Re-verified directly against the Seagate Exos X20 SATA Product Manual (Rev. B),
+// Figure 4 bottom-mounting-hole drawing. The first read of this drawing (which produced
+// the old 41.28/76.20-from-one-edge numbers below) mis-chained the dimensions; the manual
+// actually gives hole-to-hole SPACING (A13) plus a hole-to-EDGE offset (A7), not two
+// offsets from the same edge. Re-deriving from the drawing's actual chain matches the
+// user's own tape-measure numbers (~1"/~1.5") almost exactly. See README.
+HDD_HOLE_X_INSET       = 3.18;  // SFF-8301 A5 - 0.125in from the side edge, unchanged
+HDD_HOLE_Y_SPACING      = 76.20; // SFF-8301 A13 - "2X 3.000in" hole-to-hole spacing (front row to rear row)
+HDD_HOLE_Y_SATA_OFFSET  = 41.28; // SFF-8301 A7  - "2X 1.625in" from the connector-end edge to the near hole row
+// Which world direction the SATA/power-connector end faces. true = -X, false = +X.
+// (This assumes the current HDD_ROT = [0,0,90]; if that rotation changes, re-check the
+// sign against rot2d() before trusting this toggle.)
+HDD_SATA_FACING_NEG_X = true;
 HDD_HOLES = let(
         hx = HDD_SIZE[0]/2 - HDD_HOLE_X_INSET,
-        y1 = -HDD_SIZE[1]/2 + HDD_HOLE_Y_FRONT,
-        y2 = -HDD_SIZE[1]/2 + HDD_HOLE_Y_REAR
-    ) [[hx,y1], [hx,y2], [-hx,y1], [-hx,y2]];
+        // rot2d(p, 90) maps local Y to world X as: world_x = HDD_POS.x - local_y.
+        // So a *positive* local Y is what lands on the world -X side.
+        sata_sign = HDD_SATA_FACING_NEG_X ? 1 : -1,
+        sata_y    = sata_sign * (HDD_SIZE[1]/2 - HDD_HOLE_Y_SATA_OFFSET),
+        nonsata_y = sata_y - sata_sign * HDD_HOLE_Y_SPACING
+    ) [[hx,sata_y], [hx,nonsata_y], [-hx,sata_y], [-hx,nonsata_y]];
 // 6-32 UNC, not M3 - see README hardware table + vibration-isolation notes.
 HDD_STANDOFF_HOLE_R = 2.3;
 HDD_STANDOFF_R = 5;
 HDD_ORING_OD = 7.24; // AS568-007
 HDD_ORING_CS = 1.78;
-HDD_ORING_POCKET_CLEARANCE = 0.4;
-HDD_ORING_POCKET_DIA   = HDD_ORING_OD + HDD_ORING_POCKET_CLEARANCE;
-HDD_ORING_POCKET_DEPTH = 1.56; // ~12.5% O-ring compression - see README
+// No locating pocket - flat faces on both sides. An earlier version cut a recessed pocket
+// (first 1.56mm, later 0.35mm) but even a shallow pocket eats into the O-ring's own
+// compressible height for no real benefit: radial location doesn't need a depth cut at
+// all, since the O-ring gets threaded onto the screw shaft like a washer during assembly
+// (the shaft itself centers it). A pocket's only upside was keeping the ring from
+// wandering before the screw goes in, and that's not worth trading compressible height
+// for. See README ("HDD vibration isolation - install notes").
 
 GAN_PSU_HOLES = [
     [ 71,  16.65],
@@ -114,29 +169,40 @@ GAN_PSU_HOLES = [
     [-73, -16.65],
 ];
 GAN_STANDOFF_HOLE_R = 1.9; // M3 clearance
-// Widened from the shared STANDOFF_R (like HDD_STANDOFF_R) so both O-ring pockets
-// below fit inside the peg with a real wall margin, not just the screw clearance hole.
+// Widened from the shared STANDOFF_R (like HDD_STANDOFF_R) so the O-rings (OD 7.14mm)
+// have a full flat face to rest on at both ends, with a real wall margin around them -
+// not just enough for the screw clearance hole.
 GAN_STANDOFF_R = 5;
 // O-ring at both standoff faces (PSU side + screw-head/plate side) as a thermal
-// break from the GaN PSU's aluminum body - see README. Light compression on
-// purpose (not a seal): ~10% of GAN_ORING_CS.
+// break from the GaN PSU's aluminum body - see README.
 GAN_ORING_OD = 7.14; // 9/32"
 GAN_ORING_CS = 1.59; // 1/16"
-GAN_ORING_POCKET_CLEARANCE = 0.4;
-GAN_ORING_POCKET_DIA   = GAN_ORING_OD + GAN_ORING_POCKET_CLEARANCE;
-GAN_ORING_POCKET_DEPTH = 1.43;
+// No locating pocket - same reasoning as HDD_ORING_OD/CS above. See README ("GaN PSU
+// thermal isolation - install notes").
 
 /* ---------- front panel ---------- */
 FRONT_PANEL_TOP_Z    = 68.28; // measured off the reference STL
 FRONT_PANEL_THICKNESS = 5; // Y depth, front face at Y=0
 
 // MB rear-IO rectangle, offset from MB_POS/mb_bottom so it moves with the board.
+// Width/height validated against the official ATX Specification 2.01 Sec 3.3.5: nominal
+// I/O cutout is 158.75 x 44.45mm (6.25in x 1.75in, +-0.20mm) - NOT 160.0 x 44.45mm as an
+// earlier pass here guessed. This rectangle's own 159.00 x 44.50mm is already within a
+// hair of that spec (slightly larger, which is the right direction for clearance), so it
+// was left as-is - the real fit problem turned out to be the groove widen below, not this.
 FRONT_PANEL_IO_OFFSET = [-72.01, 86.99, -2.83, 41.67]; // [x_min, x_max, z_min, z_max]
 
 // IO shield retention groove - real measured geometry. See README.
 FRONT_PANEL_IO_COLLAR_DEPTH = 1.51;
 FRONT_PANEL_IO_GROOVE_WIDEN_NX = 3.25;
-FRONT_PANEL_IO_GROOVE_WIDEN_PX = 1.25;
+// Real print/assembly testing showed the shield doesn't fully seat on this side - the
+// prior 1.25mm value (cut down from the real measured 3.25mm solely to avoid breaching
+// the panel's own +X edge) was leaving too shallow a bite for the shield's folded lip.
+// Rather than compromise the IO shield fit, ENCLOSURE_SIZE[0] was grown (176 -> 178.5,
+// see above) specifically to give this side room for the FULL real measured value -
+// matching the other 3 sides now, with a safe ~1mm wall to the panel's own edge. Re-check
+// this margin if ENCLOSURE_SIZE/MB_POS/FRONT_PANEL_IO_OFFSET change.
+FRONT_PANEL_IO_GROOVE_WIDEN_PX = 3.25;
 FRONT_PANEL_IO_GROOVE_WIDEN_NZ = 3.25;
 FRONT_PANEL_IO_GROOVE_WIDEN_PZ = 3.25;
 
@@ -151,6 +217,14 @@ FRONT_PANEL_SCREW_CS_ANGLE = 90;
 FRONT_PANEL_TAB_SLOT_W     = 7.;
 FRONT_PANEL_TAB_SLOT_H     = 7;
 FRONT_PANEL_TAB_SLOT_DEPTH = 3;
+
+// 2D rounded rectangle (hull of 4 corner circles), centered on the origin.
+module rounded_rect_2d(w, h, r) {
+    hull()
+        for (sx = [-1, 1], sy = [-1, 1])
+            translate([sx * (w/2 - r), sy * (h/2 - r)])
+                circle(r = r, $fn = 32);
+}
 
 // Clearance shaft + countersink through the panel, optional tab slot (tab_w=0 skips it).
 module panel_screw_hole(x, z, r, cs_dia, cs_angle, tab_w=0, tab_h=0, tab_depth=0) {
@@ -207,13 +281,34 @@ module front_panel_upper(show, plate_bot, col, alpha) {
 }
 
 /* ---------- front panel, lower portion (HDD/GaN PSU side) ---------- */
-// GaN cable cutout + front-mount screws are unverified placeholders - see README.
-GAN_CABLE_CUTOUT_W = 20;
-GAN_CABLE_CUTOUT_H = 15;
-GAN_FRONT_MOUNT_MARGIN = 6;
-GAN_FRONT_MOUNT_R = 1.5;
-GAN_FRONT_MOUNT_CS_DIA   = 6.4;
-GAN_FRONT_MOUNT_CS_ANGLE = 90;
+// GaN PSU AC inlet (the real 3-pin IEC C14 power-cord socket, not the DC output side).
+// Real physical part (see photo): a 2-screw, no-fuse C14 flange inlet - closely matches
+// the Bulgin PX0580/28 "Flange Mount Inlet" family (EN60320-1 Sheet C14 Class I), whose
+// datasheet (Bulgin/Farnell "IEC Connectors" catalog, doc 311707, p.51/PDF p.7) gives an
+// actual dimensioned drawing: the flange is a plain 40.0 x 19.8mm rounded rectangle
+// (R5.0 corners), NOT the elongated hexagon guessed from the photo alone - the 2x Ø3.4
+// screw holes sit exactly at the two ends (40mm apart, matching the flange's full length).
+// The plug-face opening itself isn't dimensioned on this sheet, so that still uses the
+// separately-corroborated IEC 60320-2-2 figure (~27-28 x 19-20mm, agreeing across two
+// independent listings). Fixed on the front face, independent of GAN_PSU_POS - see README.
+GAN_CABLE_POS = [-55, -10]; // [x, z]
+GAN_CABLE_CUTOUT_W = 29;   // front through-hole, flush with the panel face - plug face
+GAN_CABLE_CUTOUT_H = 21;   // is ~27-28 x 19-20mm (IEC 60320-2-2) + print clearance
+GAN_CABLE_CUTOUT_R = 3;    // front hole corner rounding - the real plug face is rounded too
+// Rear pocket for the flange - a real rounded rectangle now (Bulgin PX0580/28: 40.0 x
+// 19.8mm, R5.0), not the oversized hexagon-hull guess from before. Sized with ~1-1.5mm
+// clearance per side over the real flange so it seats without a fight.
+GAN_CABLE_POCKET_W = 42;      // flange 40.0mm + clearance
+GAN_CABLE_POCKET_H = 22;      // flange 19.8mm + clearance
+GAN_CABLE_POCKET_R  = 5.5;    // flange corner R5.0 + clearance
+// Recessed so the plug face sits flush with the panel front despite FRONT_PANEL_THICKNESS
+// being thicker than the connector's own front boss. Depth = panel thickness minus your
+// own ~1.5mm (middle of the 1-2mm range you estimated) boss-height guess - the Bulgin sheet
+// doesn't give this either (only overall depth "A" by termination type, not boss height
+// specifically), so this part is still your estimate, not a datasheet figure.
+GAN_CABLE_POCKET_DEPTH = FRONT_PANEL_THICKNESS - 1.5;
+GAN_CABLE_SCREW_SPACING = 40; // 2x M3 (Ø3.4 clearance per Bulgin PX0580/28), 40mm apart
+GAN_CABLE_SCREW_R = 1.75;     // M3 clearance
 
 // Front panel MB<->GaN airflow grill, cut through the panel's Y thickness. See README.
 FRONT_VENT_POS   = [-48, 2];
@@ -253,15 +348,17 @@ ARROW_GT_2 = [[0,0], [0,1], [-1,0]];
 ARROW_GT_3 = [[0,0], [0,1],[0,2], [-1,0],[-2,0]];
 ARROW_LT_2 = [[0,0], [1,0], [0,-1]];
 ARROW_LT_3 = [[0,0], [1,0],[2,0], [0,-1],[0,-2]];
-
 GOL_OFF = []; // set a GOL_Grill_*_SHAPE to this to turn that slot off
 
-// HDD ventilation grill (front panel). See README.
+// HDD ventilation grill (front panel). Untethered from HDD_POS/HDD_SIZE - move/resize
+// freely. Defaults below reproduce the old HDD-tethered footprint (margins L4/R5.2/T6/B0
+// around the drive envelope at its old position) so this change doesn't shift anything.
 HDD_GRILL_MODE = "diamond"; // "honeycomb" or "diamond"
-HDD_GRILL_MARGIN_LEFT   = 4;
-HDD_GRILL_MARGIN_RIGHT  = 5.2;
-HDD_GRILL_MARGIN_TOP    = 6;
-HDD_GRILL_MARGIN_BOTTOM = 0;
+// Left edge pulled in to -15 (from -39.2) to clear the GaN cable pocket's right tip
+// (-26 at the current GAN_CABLE_POS/SCREW_SPACING/POCKET_END_R) with an 11mm margin -
+// right edge unchanged. Re-check this gap if either position moves again.
+HDD_GRILL_POS  = [10, -6.5];   // [x, z] center, front panel local coords
+HDD_GRILL_SIZE = [160, 32.0];  // [w, h]
 
 HDD_GRILL_HEX_R  = 4;
 HDD_GRILL_WALL   = 1.25; // shared by both modes
@@ -393,57 +490,58 @@ module front_panel_lower(show, plate_top, col, alpha) {
         x_max = ENCLOSURE_POS[0] + ENCLOSURE_SIZE[0]/2;
         z_min = ENCLOSURE_POS[2] - ENCLOSURE_SIZE[2]/2;
 
-        cable_w = GAN_CABLE_CUTOUT_W;
-        cable_h = GAN_CABLE_CUTOUT_H;
-        cable_x = GAN_PSU_POS[0];
-        cable_z = GAN_PSU_POS[2];
-
-        mount_hx = GAN_PSU_SIZE[1]/2 - GAN_FRONT_MOUNT_MARGIN;
-        mount_hz = GAN_PSU_SIZE[2]/2 - GAN_FRONT_MOUNT_MARGIN;
-        mount_pts = [
-            [GAN_PSU_POS[0] + mount_hx, GAN_PSU_POS[2] + mount_hz],
-            [GAN_PSU_POS[0] + mount_hx, GAN_PSU_POS[2] - mount_hz],
-            [GAN_PSU_POS[0] - mount_hx, GAN_PSU_POS[2] + mount_hz],
-            [GAN_PSU_POS[0] - mount_hx, GAN_PSU_POS[2] - mount_hz],
-        ];
+        cable_x = GAN_CABLE_POS[0];
+        cable_z = GAN_CABLE_POS[1];
 
         // lower corner case-mounting screws, same treatment as the upper panel's
         corner_screw_xs = [x_min + FRONT_PANEL_SCREW_X_INSET, x_max - FRONT_PANEL_SCREW_X_INSET];
         corner_screw_z = z_min + FRONT_PANEL_SCREW_Z_INSET;
 
-        grill_x_min = HDD_POS[0] - HDD_SIZE[0]/2 - HDD_GRILL_MARGIN_LEFT;
-        grill_x_max = HDD_POS[0] + HDD_SIZE[0]/2 + HDD_GRILL_MARGIN_RIGHT;
-        grill_z_min = HDD_POS[2] - HDD_SIZE[2]/2 - HDD_GRILL_MARGIN_BOTTOM;
-        grill_z_max = HDD_POS[2] + HDD_SIZE[2]/2 + HDD_GRILL_MARGIN_TOP;
-        grill_w = grill_x_max - grill_x_min;
-        grill_h = grill_z_max - grill_z_min;
-        grill_x = (grill_x_min + grill_x_max) / 2;
-        grill_z = (grill_z_min + grill_z_max) / 2;
+        grill_w = HDD_GRILL_SIZE[0];
+        grill_h = HDD_GRILL_SIZE[1];
+        grill_x = HDD_GRILL_POS[0];
+        grill_z = HDD_GRILL_POS[1];
 
         color(col, alpha)
             difference() {
                 translate([x_min, -FRONT_PANEL_THICKNESS, z_min])
                     cube([x_max - x_min, FRONT_PANEL_THICKNESS, plate_top - z_min]);
-                // GaN PSU power cable opening
-                translate([cable_x - cable_w/2, -FRONT_PANEL_THICKNESS - 1, cable_z - cable_h/2])
-                    cube([cable_w, FRONT_PANEL_THICKNESS + 2, cable_h]);
-                // GaN PSU front-mounting screws
-                for (p = mount_pts) {
-                    panel_screw_hole(p[0], p[1], GAN_FRONT_MOUNT_R,
-                        GAN_FRONT_MOUNT_CS_DIA, GAN_FRONT_MOUNT_CS_ANGLE);
-                }
-                // front ventilation grill - see FRONT_VENT_* above
-                fvent_cols = floor(FRONT_VENT_SIZE[0] / (FRONT_VENT_SLOT_W + FRONT_VENT_WALL));
-                fvent_grid_w = fvent_cols * FRONT_VENT_SLOT_W + (fvent_cols - 1) * FRONT_VENT_WALL;
-                fvent_x0 = FRONT_VENT_POS[0] - fvent_grid_w/2;
-                fvent_z0 = FRONT_VENT_POS[1] - FRONT_VENT_SIZE[1]/2;
-                for (c = [0 : fvent_cols - 1]) {
-                    translate([
-                        fvent_x0 + c * (FRONT_VENT_SLOT_W + FRONT_VENT_WALL),
-                        -FRONT_PANEL_THICKNESS - 1,
-                        fvent_z0
-                    ])
-                        cube([FRONT_VENT_SLOT_W, FRONT_PANEL_THICKNESS + 2, FRONT_VENT_SIZE[1]]);
+                // GaN PSU AC inlet cutout (through-hole + pocket + screws) and the small
+                // vertical-bar MB<->GaN airflow grill above it - one toggle for all 3,
+                // since they're only meaningful together (see SHOW_GAN_CABLE above/README).
+                if (SHOW_GAN_CABLE) {
+                    // front through-hole for the connector body/plug face, rounded rect
+                    // (real plug face has rounded corners too)
+                    translate([cable_x, -FRONT_PANEL_THICKNESS - 1, cable_z])
+                        rotate([-90, 0, 0])
+                            linear_extrude(height = FRONT_PANEL_THICKNESS + 2)
+                                rounded_rect_2d(GAN_CABLE_CUTOUT_W, GAN_CABLE_CUTOUT_H, GAN_CABLE_CUTOUT_R);
+                    // ...plus a recessed rear pocket for the mounting flange, so the plug
+                    // face lands flush with the panel front - see GAN_CABLE_POCKET_DEPTH above.
+                    // Real flange shape (Bulgin PX0580/28): a plain rounded rectangle.
+                    translate([cable_x, -FRONT_PANEL_THICKNESS - 1, cable_z])
+                        rotate([-90, 0, 0])
+                            linear_extrude(height = GAN_CABLE_POCKET_DEPTH + 1)
+                                rounded_rect_2d(GAN_CABLE_POCKET_W, GAN_CABLE_POCKET_H, GAN_CABLE_POCKET_R);
+                    // AC inlet mounting screws (2x M3, 40mm apart - not 4)
+                    for (sx = [cable_x - GAN_CABLE_SCREW_SPACING/2, cable_x + GAN_CABLE_SCREW_SPACING/2]) {
+                        translate([sx, -FRONT_PANEL_THICKNESS - 1, cable_z])
+                            rotate([-90, 0, 0])
+                                cylinder(h = FRONT_PANEL_THICKNESS + 2, r = GAN_CABLE_SCREW_R, $fn = 24);
+                    }
+                    // front ventilation grill - see FRONT_VENT_* above
+                    fvent_cols = floor(FRONT_VENT_SIZE[0] / (FRONT_VENT_SLOT_W + FRONT_VENT_WALL));
+                    fvent_grid_w = fvent_cols * FRONT_VENT_SLOT_W + (fvent_cols - 1) * FRONT_VENT_WALL;
+                    fvent_x0 = FRONT_VENT_POS[0] - fvent_grid_w/2;
+                    fvent_z0 = FRONT_VENT_POS[1] - FRONT_VENT_SIZE[1]/2;
+                    for (c = [0 : fvent_cols - 1]) {
+                        translate([
+                            fvent_x0 + c * (FRONT_VENT_SLOT_W + FRONT_VENT_WALL),
+                            -FRONT_PANEL_THICKNESS - 1,
+                            fvent_z0
+                        ])
+                            cube([FRONT_VENT_SLOT_W, FRONT_PANEL_THICKNESS + 2, FRONT_VENT_SIZE[1]]);
+                    }
                 }
                 // lower corner case-mounting screws
                 for (screw_x = corner_screw_xs) {
@@ -545,11 +643,10 @@ function spine_plate_px_edge(y) =
         full  = ENCLOSURE_POS[0] + ENCLOSURE_SIZE[0]/2,
         narrow = full - SPINE_PLATE_TAPER_PX_DEPTH,
         y_max = SPINE_PLATE_POS[1] + SPINE_PLATE_SIZE[1]/2,
-        y_min = SPINE_PLATE_POS[1] - SPINE_PLATE_SIZE[1]/2,
         fbe = y_max - SPINE_PLATE_TAPER_PX_BEFORE,
         fte = fbe - SPINE_PLATE_TAPER_PX_RUN,
-        bbe = y_min + SPINE_PLATE_TAPER_PX_BEFORE,
-        bte = bbe + SPINE_PLATE_TAPER_PX_RUN
+        bte = fte - SPINE_PLATE_TAPER_PX_AFTER,
+        bbe = bte - SPINE_PLATE_TAPER_PX_RUN
     )
     (y > fbe) ? full :
     (y > fte) ? full - (full - narrow) * (fbe - y) / SPINE_PLATE_TAPER_PX_RUN :
@@ -562,11 +659,10 @@ function spine_plate_nx_edge(y) =
         full  = SPINE_PLATE_POS[0] - SPINE_PLATE_SIZE[0]/2,
         narrow = full + SPINE_PLATE_TAPER_NX_DEPTH,
         y_max = SPINE_PLATE_POS[1] + SPINE_PLATE_SIZE[1]/2,
-        y_min = SPINE_PLATE_POS[1] - SPINE_PLATE_SIZE[1]/2,
         fbe = y_max - SPINE_PLATE_TAPER_NX_BEFORE,
         fte = fbe - SPINE_PLATE_TAPER_NX_RUN,
-        bbe = y_min + SPINE_PLATE_TAPER_NX_BEFORE,
-        bte = bbe + SPINE_PLATE_TAPER_NX_RUN
+        bte = fte - SPINE_PLATE_TAPER_NX_AFTER,
+        bbe = bte - SPINE_PLATE_TAPER_NX_RUN
     )
     (y > fbe) ? full :
     (y > fte) ? full + (narrow - full) * (fbe - y) / SPINE_PLATE_TAPER_NX_RUN :
@@ -599,8 +695,8 @@ function spine_plate_px_edge_points(margin, y_pad = 50) =
         y_min = SPINE_PLATE_POS[1] - SPINE_PLATE_SIZE[1]/2,
         fbe = y_max - SPINE_PLATE_TAPER_PX_BEFORE,
         fte = fbe - SPINE_PLATE_TAPER_PX_RUN,
-        bbe = y_min + SPINE_PLATE_TAPER_PX_BEFORE,
-        bte = bbe + SPINE_PLATE_TAPER_PX_RUN
+        bte = fte - SPINE_PLATE_TAPER_PX_AFTER,
+        bbe = bte - SPINE_PLATE_TAPER_PX_RUN
     )
     [
         [spine_plate_px_edge(y_max) - margin, y_max + y_pad],
@@ -619,8 +715,8 @@ function spine_plate_nx_edge_points(margin, y_pad = 50) =
         y_min = SPINE_PLATE_POS[1] - SPINE_PLATE_SIZE[1]/2,
         fbe = y_max - SPINE_PLATE_TAPER_NX_BEFORE,
         fte = fbe - SPINE_PLATE_TAPER_NX_RUN,
-        bbe = y_min + SPINE_PLATE_TAPER_NX_BEFORE,
-        bte = bbe + SPINE_PLATE_TAPER_NX_RUN
+        bte = fte - SPINE_PLATE_TAPER_NX_AFTER,
+        bbe = bte - SPINE_PLATE_TAPER_NX_RUN
     )
     [
         [spine_plate_nx_edge(y_max) + margin, y_max + y_pad],
@@ -669,8 +765,8 @@ function spine_plate_outline() =
         px_narrow_x = front_x_max - SPINE_PLATE_TAPER_PX_DEPTH,
         taper_start_y = plate_y_max - SPINE_PLATE_TAPER_PX_BEFORE,
         taper_end_y   = taper_start_y - SPINE_PLATE_TAPER_PX_RUN,
-        back_taper_start_y = plate_y_min + SPINE_PLATE_TAPER_PX_BEFORE,
-        back_taper_end_y   = back_taper_start_y + SPINE_PLATE_TAPER_PX_RUN,
+        back_taper_end_y   = taper_end_y - SPINE_PLATE_TAPER_PX_AFTER,
+        back_taper_start_y = back_taper_end_y - SPINE_PLATE_TAPER_PX_RUN,
         ny_narrow_y = plate_y_min + SPINE_PLATE_TAPER_NY_DEPTH,
         ny_taper_left_start_x  = plate_x_min + SPINE_PLATE_TAPER_NY_BEFORE,
         ny_taper_left_end_x    = ny_taper_left_start_x + SPINE_PLATE_TAPER_NY_RUN,
@@ -679,8 +775,8 @@ function spine_plate_outline() =
         nx_inset_x = plate_x_min + SPINE_PLATE_TAPER_NX_DEPTH,
         nx_taper_front_start_y = plate_y_max - SPINE_PLATE_TAPER_NX_BEFORE,
         nx_taper_front_end_y   = nx_taper_front_start_y - SPINE_PLATE_TAPER_NX_RUN,
-        nx_taper_back_start_y  = plate_y_min + SPINE_PLATE_TAPER_NX_BEFORE,
-        nx_taper_back_end_y    = nx_taper_back_start_y + SPINE_PLATE_TAPER_NX_RUN
+        nx_taper_back_end_y    = nx_taper_front_end_y - SPINE_PLATE_TAPER_NX_AFTER,
+        nx_taper_back_start_y  = nx_taper_back_end_y - SPINE_PLATE_TAPER_NX_RUN
     )
     [
         [plate_x_min, plate_y_min],
@@ -713,14 +809,19 @@ module spine_plate_taper_warnings() {
             ", would need PX_DEPTH = ", front_x_max - plate_x_max,
             ") - the +X taper's waist is no longer flush with the HDD standoffs."));
     }
-    gan_world_ys  = [for (wp = world_holes(GAN_PSU_POS, GAN_PSU_HOLES, GAN_PSU_ROT[2])) wp[1]];
-    gan_y_min_edge = min(gan_world_ys) - GAN_STANDOFF_R;
-    ny_narrow_y = plate_y_min + SPINE_PLATE_TAPER_NY_DEPTH;
-    if (abs(ny_narrow_y - gan_y_min_edge) > 0.01) {
-        echo(str("WARNING: SPINE_PLATE_TAPER_NY_DEPTH (", SPINE_PLATE_TAPER_NY_DEPTH,
-            ") no longer matches the flush-with-GaN-standoffs depth (gan_y_min_edge = ", gan_y_min_edge,
-            ", would need NY_DEPTH = ", gan_y_min_edge - plate_y_min,
-            ") - the -Y taper's waist is no longer flush with the GaN PSU standoffs."));
+    // Gated on SHOW_GAN_STANDOFFS - with the GaN PSU mounting to a different part
+    // entirely (see README), this plate's -Y taper has nothing GaN-related to stay
+    // flush with, so the drift check is meaningless noise until that changes.
+    if (SHOW_GAN_STANDOFFS) {
+        gan_world_ys  = [for (wp = world_holes(GAN_PSU_POS, GAN_PSU_HOLES, GAN_PSU_ROT[2])) wp[1]];
+        gan_y_min_edge = min(gan_world_ys) - GAN_STANDOFF_R;
+        ny_narrow_y = plate_y_min + SPINE_PLATE_TAPER_NY_DEPTH;
+        if (abs(ny_narrow_y - gan_y_min_edge) > 0.01) {
+            echo(str("WARNING: SPINE_PLATE_TAPER_NY_DEPTH (", SPINE_PLATE_TAPER_NY_DEPTH,
+                ") no longer matches the flush-with-GaN-standoffs depth (gan_y_min_edge = ", gan_y_min_edge,
+                ", would need NY_DEPTH = ", gan_y_min_edge - plate_y_min,
+                ") - the -Y taper's waist is no longer flush with the GaN PSU standoffs."));
+        }
     }
     // warn if the -X taper cuts an MB standoff loose from the plate
     for (wp = world_holes(MB_POS, MB_HOLES, MB_ROT[2])) {
@@ -804,24 +905,42 @@ module standoff_ramp(wx, wy, r, z_from, z_to, plate_z, run) {
     }
 }
 
-// Standoffs at [x,y] local hole points, each with a drilled through-hole
-// and a +Y ramp. z_from is always the plate-contact end.
-module standoffs(pos, local_pts, rot_z, r, hole_r, z_from, z_to) {
+// Just the solid pegs+ramps, no holes cut yet - see standoffs()/standoff_holes() below.
+module standoff_pegs(pos, local_pts, rot_z, r, z_from, z_to) {
     h = abs(z_to - z_from);
     run = h * STANDOFF_RAMP_RUN_FACTOR;
     zmin = min(z_from, z_to);
     for (wp = world_holes(pos, local_pts, rot_z)) {
         wx = wp[0];
         wy = wp[1];
-        difference() {
-            union() {
-                translate([wx, wy, zmin])
-                    cylinder(h = h, r = r, $fn = 24);
-                standoff_ramp(wx, wy, r, z_from, z_to, z_from, run);
-            }
-            translate([wx, wy, zmin - 0.5])
-                cylinder(h = h + 1, r = hole_r, $fn = 24);
-        }
+        translate([wx, wy, zmin])
+            cylinder(h = h, r = r, $fn = 24);
+        standoff_ramp(wx, wy, r, z_from, z_to, z_from, run);
+    }
+}
+
+// Just the through-holes, sized to pair with standoff_pegs() above.
+module standoff_holes(pos, local_pts, rot_z, hole_r, z_from, z_to) {
+    h = abs(z_to - z_from);
+    zmin = min(z_from, z_to);
+    for (wp = world_holes(pos, local_pts, rot_z)) {
+        translate([wp[0], wp[1], zmin - 0.5])
+            cylinder(h = h + 1, r = hole_r, $fn = 24);
+    }
+}
+
+// Standoffs at [x,y] local hole points, each with a drilled through-hole
+// and a +Y ramp. z_from is always the plate-contact end.
+// NOTE: when standoffs from two different components sit close together (e.g. two HDDs
+// a few mm apart), don't call this per-component - a ramp from one can reach far enough
+// in +Y to bury an adjacent component's hole, since this cuts holes only against its own
+// pegs. Instead union() all the standoff_pegs() calls together first, then subtract every
+// component's standoff_holes() in one combined difference() - see the HDD/HDD2/GaN group
+// in new_spine() for the pattern.
+module standoffs(pos, local_pts, rot_z, r, hole_r, z_from, z_to) {
+    difference() {
+        standoff_pegs(pos, local_pts, rot_z, r, z_from, z_to);
+        standoff_holes(pos, local_pts, rot_z, hole_r, z_from, z_to);
     }
 }
 
@@ -829,6 +948,7 @@ module new_spine(show, col, alpha) {
     if (show) {
         mb_bottom = MB_POS[2] - MB_SIZE[2]/2;
         hdd_top   = HDD_POS[2] + HDD_SIZE[2]/2;
+        hdd2_top  = HDD2_POS[2] + HDD_SIZE[2]/2;
         gan_top   = GAN_PSU_POS[2] + GAN_PSU_SIZE[2]/2;
         // SPINE_PLATE_MARGIN_X insets plate_w symmetrically - plate_x doesn't move.
         plate_x   = SPINE_PLATE_POS[0];
@@ -853,19 +973,23 @@ module new_spine(show, col, alpha) {
                     wy = wp[1];
                     translate([wx, wy, plate_bot - 0.5])
                         cylinder(h = plate_t + 1, r = HDD_STANDOFF_HOLE_R, $fn = 24);
-                    // O-ring pocket for the screw head, MB side
-                    translate([wx, wy, plate_top - HDD_ORING_POCKET_DEPTH])
-                        cylinder(h = HDD_ORING_POCKET_DEPTH + 0.5, r = HDD_ORING_POCKET_DIA/2, $fn = 48);
                 }
-                for (wp = world_holes(GAN_PSU_POS, GAN_PSU_HOLES, GAN_PSU_ROT[2])) {
+                for (wp = world_holes(HDD2_POS, HDD_HOLES, HDD_ROT[2])) {
                     wx = wp[0];
                     wy = wp[1];
                     translate([wx, wy, plate_bot - 0.5])
-                        cylinder(h = plate_t + 1, r = GAN_STANDOFF_HOLE_R, $fn = 24);
-                    // O-ring pocket for the screw head, MB side (was a countersink)
-                    translate([wx, wy, plate_top - GAN_ORING_POCKET_DEPTH])
-                        cylinder(h = GAN_ORING_POCKET_DEPTH + 0.5, r = GAN_ORING_POCKET_DIA/2, $fn = 48);
+                        cylinder(h = plate_t + 1, r = HDD_STANDOFF_HOLE_R, $fn = 24);
                 }
+                // Gated like the pegs/lightening-protect below - with SHOW_GAN_STANDOFFS
+                // off, the GaN PSU isn't mounting to this plate at all (see README), so no
+                // clearance hole should appear here either.
+                if (SHOW_GAN_STANDOFFS)
+                    for (wp = world_holes(GAN_PSU_POS, GAN_PSU_HOLES, GAN_PSU_ROT[2])) {
+                        wx = wp[0];
+                        wy = wp[1];
+                        translate([wx, wy, plate_bot - 0.5])
+                            cylinder(h = plate_t + 1, r = GAN_STANDOFF_HOLE_R, $fn = 24);
+                    }
                 // Lightening/vent pattern - see SPINE_LIGHTENING_* above, README.
                 lightening_px_limit = (ENCLOSURE_POS[0] + ENCLOSURE_SIZE[0]/2) - SPINE_LIGHTENING_MARGIN_PX;
                 lightening_nx_limit = (plate_x - plate_w/2) + SPINE_LIGHTENING_MARGIN_NX;
@@ -900,10 +1024,16 @@ module new_spine(show, col, alpha) {
                     lightening_nx_limit, lightening_px_limit, lightening_ny_limit, lightening_py_limit);
                 hdd_lightening_protect = standoff_lightening_protect(HDD_POS, HDD_HOLES, HDD_ROT[2], HDD_STANDOFF_R, plate_bot, hdd_top,
                     lightening_nx_limit, lightening_px_limit, lightening_ny_limit, lightening_py_limit);
-                gan_lightening_protect = standoff_lightening_protect(GAN_PSU_POS, GAN_PSU_HOLES, GAN_PSU_ROT[2], GAN_STANDOFF_R, plate_bot, gan_top,
+                hdd2_lightening_protect = standoff_lightening_protect(HDD2_POS, HDD_HOLES, HDD_ROT[2], HDD_STANDOFF_R, plate_bot, hdd2_top,
                     lightening_nx_limit, lightening_px_limit, lightening_ny_limit, lightening_py_limit);
-                lightening_protect_pts = concat(mb_lightening_protect[0], hdd_lightening_protect[0], gan_lightening_protect[0]);
-                lightening_protect_rects = concat(mb_lightening_protect[1], hdd_lightening_protect[1], gan_lightening_protect[1]);
+                // No standoffs there means no material needs protecting - let the
+                // lightening pattern cut straight through instead of leaving solid cells.
+                gan_lightening_protect = SHOW_GAN_STANDOFFS
+                    ? standoff_lightening_protect(GAN_PSU_POS, GAN_PSU_HOLES, GAN_PSU_ROT[2], GAN_STANDOFF_R, plate_bot, gan_top,
+                        lightening_nx_limit, lightening_px_limit, lightening_ny_limit, lightening_py_limit)
+                    : [[], []];
+                lightening_protect_pts = concat(mb_lightening_protect[0], hdd_lightening_protect[0], hdd2_lightening_protect[0], gan_lightening_protect[0]);
+                lightening_protect_rects = concat(mb_lightening_protect[1], hdd_lightening_protect[1], hdd2_lightening_protect[1], gan_lightening_protect[1]);
                 translate([0, 0, plate_bot - 0.5])
                     linear_extrude(height = plate_t + 1)
                         intersection() {
@@ -939,26 +1069,25 @@ module new_spine(show, col, alpha) {
             // MB standoffs
             standoffs(MB_POS, MB_HOLES, MB_ROT[2], STANDOFF_R, STANDOFF_HOLE_R, plate_top, mb_bottom);
 
-            // HDD standoffs, plus the 2nd O-ring pocket (standoff-to-HDD side)
+            // HDD + 2nd HDD + GaN standoffs, all flat-face (no O-ring pocket - see README).
+            // Built as one combined union-then-difference, not 3 separate standoffs()
+            // calls: HDD/HDD2 sit close enough together that one standoff's +Y print
+            // ramp can reach into the next one's hole position - cutting each hole only
+            // against its own peg (like standoffs() does standalone) can leave that
+            // ramp material plugging a neighboring standoff's hole. Doing every hole as
+            // one difference() against the whole unioned peg group avoids that regardless
+            // of how close two standoffs end up.
             difference() {
-                standoffs(HDD_POS, HDD_HOLES, HDD_ROT[2], HDD_STANDOFF_R, HDD_STANDOFF_HOLE_R, plate_bot, hdd_top);
-                for (wp = world_holes(HDD_POS, HDD_HOLES, HDD_ROT[2])) {
-                    wx = wp[0];
-                    wy = wp[1];
-                    translate([wx, wy, hdd_top - 0.5])
-                        cylinder(h = HDD_ORING_POCKET_DEPTH + 0.5, r = HDD_ORING_POCKET_DIA/2, $fn = 48);
+                union() {
+                    standoff_pegs(HDD_POS, HDD_HOLES, HDD_ROT[2], HDD_STANDOFF_R, plate_bot, hdd_top);
+                    standoff_pegs(HDD2_POS, HDD_HOLES, HDD_ROT[2], HDD_STANDOFF_R, plate_bot, hdd2_top);
+                    if (SHOW_GAN_STANDOFFS)
+                        standoff_pegs(GAN_PSU_POS, GAN_PSU_HOLES, GAN_PSU_ROT[2], GAN_STANDOFF_R, plate_bot, gan_top);
                 }
-            }
-
-            // GaN PSU standoffs, plus the O-ring pocket (standoff-to-PSU side)
-            difference() {
-                standoffs(GAN_PSU_POS, GAN_PSU_HOLES, GAN_PSU_ROT[2], GAN_STANDOFF_R, GAN_STANDOFF_HOLE_R, plate_bot, gan_top);
-                for (wp = world_holes(GAN_PSU_POS, GAN_PSU_HOLES, GAN_PSU_ROT[2])) {
-                    wx = wp[0];
-                    wy = wp[1];
-                    translate([wx, wy, gan_top - 0.5])
-                        cylinder(h = GAN_ORING_POCKET_DEPTH + 0.5, r = GAN_ORING_POCKET_DIA/2, $fn = 48);
-                }
+                standoff_holes(HDD_POS, HDD_HOLES, HDD_ROT[2], HDD_STANDOFF_HOLE_R, plate_bot, hdd_top);
+                standoff_holes(HDD2_POS, HDD_HOLES, HDD_ROT[2], HDD_STANDOFF_HOLE_R, plate_bot, hdd2_top);
+                if (SHOW_GAN_STANDOFFS)
+                    standoff_holes(GAN_PSU_POS, GAN_PSU_HOLES, GAN_PSU_ROT[2], GAN_STANDOFF_HOLE_R, plate_bot, gan_top);
             }
 
             front_panel_upper(SHOW_FRONT_PANEL, plate_bot, col, alpha);
@@ -1010,6 +1139,7 @@ enclosure_ref(ENCLOSURE_SIZE, ENCLOSURE_POS, ENCLOSURE_ROT, SHOW_ENCLOSURE, "Gra
 
 labeled_box(MB_SIZE,  MB_POS,  MB_ROT,  SHOW_MB,  "Blue");
 labeled_box(HDD_SIZE, HDD_POS, HDD_ROT, SHOW_HDD, "Red");
+labeled_box(HDD_SIZE, HDD2_POS, HDD_ROT, SHOW_HDD2, "Red");
 labeled_box(ODD_SIZE, ODD_POS, ODD_ROT, SHOW_ODD, "Cyan");
 labeled_box(GAN_PSU_SIZE, GAN_PSU_POS, GAN_PSU_ROT, SHOW_GAN_PSU, "Black");
 labeled_box(GAN_PSU_500W_SIZE, GAN_PSU_POS, GAN_PSU_ROT, SHOW_GAN_PSU_500W, "Purple", 0.5);

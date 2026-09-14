@@ -122,11 +122,10 @@ anything:
   two-depth **retention groove** (a snug collar the shield's face seats
   against, then a wider recessed pocket the shield's folded lip snaps
   into), plus 2 M3 corner mounting screws with shell-mating tab slots.
-- **Front I/O panel, lower portion**: a GaN PSU power-cable opening, the
-  PSU's own front-mounting screws, an HDD honeycomb ventilation grill, a
-  small vertical-bar ventilation grill between the GaN cable cutout and
-  the MB compartment, and 2 more M3 corner mounting screws (matching the
-  upper panel).
+- **Front I/O panel, lower portion**: a GaN PSU power-cable opening, an HDD
+  honeycomb/diamond ventilation grill, a small vertical-bar ventilation
+  grill between the GaN cable cutout and the MB compartment, and 2 more M3
+  corner mounting screws (matching the upper panel).
 - **Divider plate lightening/ventilation pattern** — a honeycomb or
   45°-rotated "diamond" cutout pattern through the plate itself, switchable
   by a single parameter, with automatic clearance around every standoff and
@@ -170,12 +169,13 @@ this orientation, and would need re-checking if you ever print it flat
   controls the ramp's slope (1.0 = 45°, self-supporting). Built as two
   `hull()`s: the first blends the round peg into a flat, constant-width bar,
   the second tapers that bar's height down to flush with the plate over `run`.
-- **Standoff/plate screw holes** (MB + GaN M3 bores, HDD 6-32 bore, the HDD
-  O-ring pockets) are likewise Z-axis, so also horizontal in this
-  orientation — but all of them are small enough (3.8–7.64mm diameter) to
-  self-bridge cleanly without dedicated supports; the O-ring pocket
-  (7.64mm) is the largest and the one worth test-printing first.
-- **Front panel screw holes** (corner mounts + GaN front-mount screws) are
+- **Standoff/plate screw holes** (MB + GaN M3 bores, HDD 6-32 bore) are
+  likewise Z-axis, so also horizontal in this orientation — but all of
+  them are small enough (3.8–4.6mm diameter) to self-bridge cleanly
+  without dedicated supports. (There's no O-ring pocket anymore — see
+  "HDD vibration isolation" / "GaN PSU thermal isolation" below - the
+  O-rings sit on flat standoff/plate faces instead.)
+- **Front panel screw holes** (corner mounts) are
   cut with `rotate([-90,0,0])`, putting their axis along Y — which is
   **vertical** in this orientation. These print as plain round holes with
   zero overhang concern regardless of size.
@@ -214,19 +214,34 @@ current 0 margin, the plate's -X edge is flush with the front panel's own
 
 The plate's outline is **not a plain rectangle** — it copies the reference
 STL's own trapezoidal taper on all 3 non-I/O edges (+X, -Y, -X), each
-controlled by 3 independent parameters:
+controlled by independent parameters:
 
-| | `*_BEFORE` | `*_RUN` | `*_DEPTH` |
-|---|---|---|---|
-| **+X** (`SPINE_PLATE_TAPER_PX_*`) | flat full-width run before the taper starts | Y-run of the taper itself | X-depth of the indent, measured in from the front panel edge |
-| **-Y** (`SPINE_PLATE_TAPER_NY_*`) | flat full-depth run before the taper starts | X-run of the taper itself | Y-depth of the indent, measured in from the plate's full back edge |
-| **-X** (`SPINE_PLATE_TAPER_NX_*`) | flat full-width run before the taper starts | Y-run of the taper itself | X-depth of the indent, into the plate from its -X edge |
+| | `*_BEFORE` | `*_RUN` | `*_AFTER` | `*_DEPTH` |
+|---|---|---|---|---|
+| **+X** (`SPINE_PLATE_TAPER_PX_*`) | flat full-width run before the taper starts | Y-run of the taper itself | flat narrow run in the middle | X-depth of the indent, measured in from the front panel edge |
+| **-Y** (`SPINE_PLATE_TAPER_NY_*`) | flat full-depth run before the taper starts | X-run of the taper itself | — (not exposed for this edge) | Y-depth of the indent, measured in from the plate's full back edge |
+| **-X** (`SPINE_PLATE_TAPER_NX_*`) | flat full-width run before the taper starts | Y-run of the taper itself | flat narrow run in the middle | X-depth of the indent, into the plate from its -X edge |
 
 `BEFORE` and `RUN` are mirrored from both ends of their edge (front/back or
 left/right). All 3 `RUN` values were measured directly from the reference
 STL's own outline (DXF projection); `BEFORE` values are free/adjustable
 (no real reference — the reference STL doesn't have a "before" flat run at
 all, it tapers immediately).
+
+`AFTER` (+X and -X only) is the flat run at the narrow width, in the
+middle of the edge — geometrically it's just what's left over once both
+`BEFORE`s and both `RUN`s are accounted for
+(`plate_d - 2*BEFORE - 2*RUN`), but rather than being computed as a
+leftover, it's a real parameter: the back-side breakpoints are derived
+from the front side's own breakpoints minus `AFTER`, not mirrored
+independently from the plate's far edge. That means `BEFORE`/`RUN` still
+apply identically from both ends, but the two tapers can end up an equal
+distance from the plate's true center only if `2*BEFORE + 2*RUN + AFTER`
+actually equals the plate's own depth — there's no enforcement of that,
+same as everywhere else in this taper system (see `DEPTH`'s own drift
+warnings below for the general philosophy). Each default value was set to
+exactly reproduce what the old implicit-leftover version already built,
+so introducing the parameter didn't move any geometry by itself.
 
 `DEPTH` is where the +X/-Y tapers differ from -X: the +X taper's depth
 defaults to whatever keeps it flush with the **HDD standoffs**, and the -Y
@@ -284,12 +299,76 @@ perimeter lip. The shield's flat face registers against a snug **collar**
 recessed just behind it — like a picture frame's rabbet. The widen amount
 is independent **per side** (`FRONT_PANEL_IO_GROOVE_WIDEN_NX/PX/NZ/PZ`),
 not one shared number: 3 sides are at the real measured value (3.25mm),
-but `PX` is intentionally reduced (currently 1.25mm) to reclaim clearance
-to the front panel's own outer edge — the real geometry there put the
-groove within under 1mm of breaching straight through the panel face. That
-gives the shield's lip a shallower bite on that one side only; still
-expected to hold since a stamped shield doesn't need uniform grip around
-its whole perimeter.
+but `PX` was intentionally reduced (to 1.25mm) early on to reclaim
+clearance to the front panel's own outer edge.
+
+The collar's own size (`FRONT_PANEL_IO_OFFSET`, 159.00 x 44.50mm) is
+validated against the official **ATX Specification 2.01, Sec 3.3.5**:
+nominal I/O cutout = 158.75 x 44.45mm (6.25in x 1.75in, ±0.20mm) — our
+value is already within a hair of that (slightly larger, the safe
+direction), so it was left alone.
+
+A real print + assembly test showed the shield not fully seating on the
++X side, though — that turned out to be the `PX` groove widen, not the
+collar. Recomputed the actual available margin at the current geometry
+(panel edge at world x=93, groove reaching x=91.24 at the old 1.25mm)
+and found room to grow it to **2.5mm** while still leaving a safe ~0.5mm
+wall, closing most of the gap back to the real 3.25mm value. Re-check this
+margin if `ENCLOSURE_SIZE`, `MB_POS`, or `FRONT_PANEL_IO_OFFSET` change.
+
+### Motherboard front-to-back position (`MB_POS[1]`)
+
+Validated against the official **Mini-ITX Addendum v2.0** (to the
+microATX Motherboard Interface Specification) and the ATX spec's own
+connector-placement rule, not guessed: mounting hole "C" sits 10.16mm in
+from the board's rear/IO edge, and the ATX spec's Fig. 5 states the rear
+I/O connector face sits 11.30mm from that same hole reference — i.e. the
+real connector face sits **1.14mm beyond** the board's physical edge, not
+flush with it.
+
+Working through that against this model's own geometry: the old `MB_POS`
+put the board's edge exactly at the front panel's inner face, which placed
+the (spec-derived) connector-face plane 2.35mm behind
+`FRONT_PANEL_IO_COLLAR_DEPTH` — i.e. behind where this design's own IO
+groove treats "the shield's face" as sitting. A real print/assembly test
+confirmed the board sat too recessed from the IO shield by about that
+much. `MB_POS[1]` was moved from -90 to **-87.65** (+2.35mm, toward the
+front panel) so the spec-derived connector-face plane lands on the collar
+plane instead. Side effect: this ate the print clearance one of the
+front-panel reinforcement wedges relied on — see `WEDGE_PX_UPPER` in
+"Front panel reinforcement wedges" above; it's now skipped (with a console
+warning) rather than built broken.
+
+### Motherboard mounting holes (`MB_HOLES`)
+
+Spec-derived, from the official **Mini-ITX Addendum v2.0** (Fig. 3/Table
+3) - standard 4 holes C, F, H, J (reusing ATX/microATX's own naming),
+datum at hole C = 6.35mm/10.16mm from the board's rear-left corner, the
+other 3 following from the drawing's own dimensioned spans (C-F =
+152.40mm/6.00in exactly, etc). Re-derived from scratch and triple-checked
+directly against the primary-source dimensioned drawing itself (not just
+a summary of it) - each number traced to a specific labeled dimension.
+
+```
+[-78.65,  74.84]  // hole C - spec datum
+[ 73.75,  62.14]  // hole F
+[-78.65, -80.10]  // hole H
+[ 73.75, -80.10]  // hole J
+```
+
+(`+Y` here = toward the case front panel/IO edge, opposite the spec's own
+`+Y`.)
+
+This went back and forth once: after a print, these were briefly replaced
+with a different, real-board-measured set (differing by up to ~9.6mm on
+hole F) on the reasoning that a physically-tested fit beats an untested
+spec derivation. But that "fit" turned out to require force and warp the
+spine slightly - not actually a clean fit, just a fight the screws won.
+Back on the spec values now. **Not yet print-tested at this exact
+revision** - re-check fit on the next print, and if a real board's
+standoffs still don't land cleanly, that's a real signal to re-measure
+the physical board rather than trust the spec blindly (some boards do add
+non-standard holes beyond the form factor's minimum).
 
 ### Divider plate lightening pattern
 
@@ -424,11 +503,12 @@ subdivision primitive needed.
 
 ### HDD ventilation grill (front panel)
 
-`HDD_GRILL_MODE` (`"honeycomb"` or `"diamond"`) picks the pattern, sized
-around the HDD's own front-face footprint with 4 independent margins
-(`HDD_GRILL_MARGIN_LEFT/RIGHT/TOP/BOTTOM`) rather than one shared value —
-lets the boundary be pushed unevenly (e.g. more clearance along the top
-than the bottom). `HDD_GRILL_WALL` is the wall thickness for **either**
+`HDD_GRILL_MODE` (`"honeycomb"` or `"diamond"`) picks the pattern.
+`HDD_GRILL_POS`/`HDD_GRILL_SIZE` place and size the grill directly and are
+**untethered** from `HDD_POS`/`HDD_SIZE` — move or resize the vent
+rectangle on the front face without it tracking the drive. (Their defaults
+reproduce the old HDD-tethered footprint at the drive's current position,
+so nothing shifted when this was untethered.) `HDD_GRILL_WALL` is the wall thickness for **either**
 mode; cell size is per-mode: `"honeycomb"` uses `HDD_GRILL_HEX_R`,
 `"diamond"` uses its own independent `HDD_GRILL_DIAMOND_SLOT_W/H` (not
 tied to the divider plate's `SPINE_GRID_SLOT_W/H` — this grill isn't
@@ -540,28 +620,84 @@ except the HDD, which uses the drive industry's standard **6-32 UNC**
 | GaN PSU → standoffs (from MB side) | 4 | M3 | 16-18mm‡ | pan/socket (flat underside) | Threads directly into the PSU's own tapped mounting holes (verified from HDPLEX's STEP file, "same as HDPLEX 200W ACDC / 400W ACDC" pattern). Same access-from-above arrangement as the HDD. **Not** flat/countersunk — same reason as the HDD: needs a flat face to compress an O-ring evenly. |
 | GaN standoff isolation O-rings | 8 | — | 5/32" ID × 9/32" OD × 1/16" CS (ID 3.97mm, OD 7.14mm, CS 1.59mm) | silicone, 70A | Two per standoff — one under the screw head, one between the standoff and the PSU's aluminum body. A **thermal** break (the GaN PSU's case runs meaningfully warmer than PETG's heat-deflection point under sustained load), not vibration isolation like the HDD's — see "GaN PSU thermal isolation" below. |
 | Front panel → case shell (all 4 corners, upper + lower) | 4 | M3 | TBD | flat/countersunk, 90° | Attaches the spine assembly to the outer case shell. Each hole also has a shell-mating tab slot cut into the panel's inside face — the eventual shell gets a matching tab that this same screw clamps in place. Length depends on the shell's own screw boss depth, which hasn't been designed yet. |
-| GaN PSU → front panel (cable-side mounts) | 4 | M3 | TBD | flat/countersunk, 90° | **Placeholder, not verified real hardware** — the GaN PSU's actual front-mounting bracket is a length-wise rail (177×35mm hole spacing, confirmed M3) rather than a small end-cap plate like this cutout assumes. Keep these for now, but don't treat the spacing as matching the real PSU rail. |
+
+**HDD hole pattern note:** an initial read of the Seagate Exos X16/X18/X20
+manuals' mounting-configuration drawing (Figure 4) mis-chained the two
+dimensions as two independent offsets from the same edge (41.28mm and
+76.20mm from one edge, ~35mm apart) - that didn't match a real printed
+test against an actual Exos drive at all. Re-reading the drawing at high
+resolution (SATA X20 manual Rev. B, p.23) showed the two dimensions are
+actually chained: `HDD_HOLE_Y_SATA_OFFSET` (SFF-8301 A7, "2X 1.625in" =
+41.28mm) is measured from the connector-end edge to the near hole row, and
+`HDD_HOLE_Y_SPACING` (SFF-8301 A13, "2X 3.000in" = 76.20mm) is the
+hole-to-hole spacing between the two rows, not a second offset from that
+same edge. That gives a far-hole-row offset of 146.99 − (41.28 + 76.20) =
+29.51mm from the opposite edge - matching a real tape-measure check against
+the physical drive (~1"/~1.5") almost exactly, so this is now the trusted
+manual-sourced value, not a hand-measured placeholder.
+`HDD_SATA_FACING_NEG_X` picks which world direction (±X) the connector end
+faces, swappable and currently defaulted to −X; it assumes the current
+`HDD_ROT = [0,0,90]` and should be re-checked against `rot2d()` if that
+rotation ever changes.
 
 † A real stack-up calculation, not a rule of thumb: plate thickness (3mm) +
 standoff gap + ~3mm thread engagement (WD SFF-8301's own minimum) needs to
 land exactly on a standard screw length. The HDD's own Z position
 (`HDD_POS[2]` in `game_of_life_itx_case.scad`) was adjusted specifically to make that
-land on 3/8" - the next standard size down (5/16") leaves only 0.38mm of
-printed wall around the O-ring pocket (too thin to print reliably), and the
-next size up (7/16") pushes the drive past the enclosure's own floor. See
-the `HDD_ORING_POCKET_DEPTH` comment in `game_of_life_itx_case.scad` for the full math.
+land on 3/8" - the next standard size down (5/16") was rejected for
+thread-engagement margin, and the next size up (7/16") pushes the drive
+past the enclosure's own floor. (This was originally tuned assuming a
+recessed O-ring pocket that no longer exists - see "HDD vibration
+isolation" below - so there's now a little more margin than when this was
+first derived, but 3/8" is still the right target.)
 
 ‡ Assumes ~4.5mm of M3 thread engagement into the PSU's aluminum body (a
 general engineering guideline — the PSU's tapped-hole *depth* wasn't
 extracted from the STEP file, only hole position and diameter), plus the
-standoff run and plate thickness the screw passes through — the two O-ring
-pockets are recesses cut *into* that existing material, not added height,
-so they don't change this length by themselves. The range instead comes
-from the screw head itself: it sits in a shallow 1.43mm pocket, and most
-M3 pan/socket heads are taller than that, so expect it to stand a bit
-proud of the plate rather than sitting flush - go with 18mm if the head
-looks tall, 16mm if it's a low-profile one. Verify once real screws are
-in hand.
+standoff run and plate thickness the screw passes through. Both O-ring
+faces are now flat (no recessed pocket - see "GaN PSU thermal isolation"
+below), so the screw head sits fully proud of the plate rather than
+partially recessed - go with 18mm if the head looks tall, 16mm if it's a
+low-profile one. Verify once real screws are in hand.
+
+### GaN PSU AC inlet cutout (front panel)
+
+`SHOW_GAN_CABLE` (default `false`, now that the GaN PSU mounts to a
+different part - see "GaN PSU standoffs" above) gates all 3 pieces of
+this front-panel cutout together, since they're only meaningful as a
+set: the AC inlet through-hole + mounting pocket + its 2 screws, and the
+small vertical-bar MB↔GaN airflow grill (`FRONT_VENT_*`) directly above
+it. Flip it on if the GaN PSU ever goes back to mounting through this
+front panel.
+
+`GAN_CABLE_POS` places a cutout for the GaN PSU's real AC power-cord
+connector — a 2-screw, no-fuse IEC 60320 C14 flange inlet — through the
+front panel, independent of `GAN_PSU_POS`. Two nested shapes:
+
+- **Front through-hole** (`GAN_CABLE_CUTOUT_W/H/R`, a rounded rectangle):
+  sized to the connector's plug face, flush with the panel's outer
+  surface. The plug face itself isn't dimensioned on any datasheet found
+  for this part, so this uses the IEC 60320-2-2 figure that's consistent
+  across two independent 2-screw-C14 listings, ~27-28 x 19-20mm.
+- **Rear pocket** (`GAN_CABLE_POCKET_W/H/R`, also a rounded rectangle):
+  recessed into the panel's back so the connector's mounting flange sits
+  flush without protruding. This one *is* real, sourced geometry: closely
+  matches the Bulgin PX0580/28 "Flange Mount Inlet" (EN60320-1 Sheet C14
+  Class I) datasheet drawing — a plain 40.0 x 19.8mm rounded rectangle
+  (R5.0 corners), not the elongated hexagon an earlier pass guessed from
+  the photo alone (photo perspective can make a plain rounded rect look
+  more pointed/hexagonal than it is). The 2x Ø3.4 screw holes
+  (`GAN_CABLE_SCREW_SPACING` = 40mm) sit exactly at the two ends, spanning
+  the flange's full length.
+- **Pocket depth** (`GAN_CABLE_POCKET_DEPTH`) is `FRONT_PANEL_THICKNESS`
+  minus your own ~1.5mm boss-height estimate (how far the plug face
+  protrudes past the mounting flange) — the Bulgin sheet gives overall
+  depth by termination type but not this specific dimension, so it's
+  still an estimate, not a datasheet figure. Re-measure the real part if
+  the fit is off.
+
+The HDD grill's left edge was pulled in (`HDD_GRILL_POS`/`SIZE`) to keep
+clear of this cutout — re-check that gap if either position moves again.
 
 ### GaN PSU thermal isolation - install notes
 
@@ -570,23 +706,22 @@ different reason: this joint's screws thread straight into the GaN PSU's
 aluminum body, and a stress-tested HDPLEX 250W GaN unit was measured at up
 to 58°C at the case surface - within reach of PETG's heat-deflection
 point, especially at a point under constant clamping load for years. The
-O-rings are a thermal break, not a vibration isolator, so the target
-compression here is much lighter than the HDD's - just enough to
-guarantee metal never touches PETG directly, not enough to actually damp
-anything.
+O-rings are a thermal break, not a vibration isolator - the goal is just
+to guarantee metal never touches PETG directly, not to actually damp
+anything, so there's no tight compression target to hit: more O-ring
+engagement is strictly better here (short of fully crushing it), unlike
+the HDD's joint below which needs a *specific* compression range.
 
-- **Target: ~5-10% compression per O-ring** (vs. the HDD's 10-15% - this
-  joint doesn't need to absorb energy, just not conduct heat/touch
-  directly).
-- Same series-doubling logic as the HDD: two O-rings per screw split the
-  compression, so hand-thread to first resistance (both O-rings just
-  touching), then turn an additional **1/3 to 2/3 turn** past that - M3's
-  0.5mm/turn pitch covers 5-10% compression on both O-rings together over
-  that range.
-- `GAN_ORING_POCKET_DEPTH` in `game_of_life_itx_case.scad` targets 10% (assuming
-  the O-ring's free height matches the 1/16" nominal cross-section
-  exactly) - treat the turn-count instruction as the real install
-  reference, same caveat as the HDD's own pocket depth.
+- **No locating pocket** - both faces (standoff-to-PSU and screw-head-to-
+  plate) are flat. Two earlier versions cut a recessed pocket here (first
+  1.43mm/~90% of CS, later a shallower 0.3mm/~19% "locating" groove) -
+  even the shallow version was pushback-tested and judged not worth it:
+  a groove's only job is keeping the O-ring from wandering before the
+  screw goes in, and that's not worth trading away compressible height
+  for. Thread each O-ring onto the screw shaft (like a washer) during
+  assembly instead - the shaft centers it, no groove needed. Hand-tighten
+  until snug; there is deliberately no hard stop, so "how tight" is
+  governed by feel/torque, not by any pocket.
 - The screw itself still conducts *some* heat straight through the O-rings
   (a solid metal fastener is a much better conductor than silicone even at
   a small cross-section) - stainless screws over plain/zinc-plated steel
@@ -594,16 +729,14 @@ anything.
 
 ### HDD vibration isolation - install notes
 
-### HDD vibration isolation - install notes
-
 The HDD isn't rigidly bolted to the spine. Two silicone O-rings per
 standoff (screw-head side and standoff-to-HDD side) carry the entire
 clamping load - the screw never touches the plate or the standoff, only
 the O-rings and the drive's threads. That only works if the O-rings end up
-compressed to roughly the right amount, and this joint has **no hard
-mechanical stop** - past the target, tightening further just keeps
-compressing the O-rings, so "screw it down snug" is the wrong instinct
-here.
+compressed to roughly the right amount, and this joint is *meant* to have
+**no hard mechanical stop** short of fully crushing the O-rings - past the
+target, tightening further should just keep compressing them, so "screw it
+down snug" is the wrong instinct here.
 
 - **Target: 10-15% compression** (soft enough to actually damp vibration,
   firm enough to hold the drive securely - see the design discussion for
@@ -617,19 +750,24 @@ here.
   that range covers 10-15% compression on both O-rings together. (A single
   O-ring reaching 15% alone would only take about 1/3 turn - it's the
   two-in-series setup that doubles it.)
-- `HDD_ORING_POCKET_DEPTH` in `game_of_life_itx_case.scad` targets 12.5% (the middle of
-  that range) assuming the O-ring's free height matches the AS568-007 spec
-  exactly (1.78mm cross-section) - real parts vary a little from nominal,
-  so treat the 1/2-2/3 turn instruction as the actual install reference,
-  not the pocket depth number.
+- **No locating pocket** - both faces (screw-head-to-plate and
+  standoff-to-HDD-boss) are flat. Two earlier versions cut a recessed
+  pocket here (first 1.56mm/~88% of CS, which a real print+assembly test
+  showed let the standoff bottom out against the drive's boss after only
+  ~12% compression - the joint was silently going rigid every time it was
+  assembled; then a shallower 0.35mm/~20% "locating" groove). Even the
+  shallow version was judged not worth the tradeoff: a groove's only job
+  is keeping the O-ring from wandering before the screw goes in, and radial
+  location doesn't need a depth cut at all. Thread each O-ring onto the
+  screw shaft (like a washer) during assembly instead - the shaft centers
+  it, leaving the full 1.78mm CS free to compress. The 1/2-2/3 turn
+  instruction above is the real install reference.
 
 ## Known open items
 
 - Outer case shell not yet modeled — the shell-mating tab slots on the
   front panel and the front-panel-to-shell screw length both assume a
   shell design that doesn't exist yet.
-- Lower front panel's GaN PSU mount screws are a simplified stand-in, not
-  the PSU's real mounting rail (see hardware table above).
 - Neither the divider-plate lightening pattern nor the front ventilation
   grill has been thermally validated — both are sized for print
   practicality and a reasonable-looking amount of open area, not against
@@ -637,3 +775,21 @@ here.
 - GaN PSU standoff screw length (16-18mm‡) is a stack-up estimate, not
   verified against real screws - depends on the actual head height once
   hardware is bought (see the hardware table's `‡` note).
+- HDD hole spacing (`HDD_HOLE_Y_SPACING`/`_SATA_OFFSET`) is now sourced from
+  a re-read of the Exos manual's own drawing and cross-checked against a
+  real tape-measure reading, but hasn't been confirmed by an actual test
+  print yet - worth re-verifying on the next print (see the hardware
+  table's HDD note). `HDD_SATA_FACING_NEG_X` is a one-rotation-specific
+  toggle (see the same note) - re-derive its sign if `HDD_ROT` changes.
+- `GAN_CABLE_POCKET_DEPTH`'s boss-height term (~1.5mm) is your own
+  estimate, not a datasheet figure - no source found gives the C14
+  inlet's front-face protrusion past its mounting flange specifically
+  (see "GaN PSU AC inlet cutout" above). Re-measure the real part.
+- `FRONT_PANEL_IO_GROOVE_WIDEN_PX` (2.5mm) is still short of the real
+  measured 3.25mm the other 3 sides use - that's the max the current
+  panel edge allows with a safe wall, not a full match to spec. If
+  `ENCLOSURE_SIZE` ever grows, revisit whether it can go higher.
+- `WEDGE_PX_UPPER` is currently skipped (see "Front panel reinforcement
+  wedges") as a side effect of the `MB_POS[1]` correction above - that
+  corner has one fewer reinforcement gusset than the other three until
+  the wedge's own Y/Z parameters are reworked to fit the new clearance.
