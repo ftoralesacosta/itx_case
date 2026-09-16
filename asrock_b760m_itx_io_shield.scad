@@ -165,5 +165,40 @@ module pill_cutout(w, h, t) {
     }
 }
 
+// --- SVG reference overlay (positioning guide only - see README/session notes) ---
+// io_shield.svg was traced from a photo of the real board; its absolute scale/position
+// has known error (systematic ~1-2mm X bias, plus a growing Y error up to ~3.8mm at the
+// extremes, consistent with photo perspective distortion - NOT a simple uniform offset).
+// Use it only as a rough positioning reference while tweaking cutout centers by hand;
+// don't trust it for cutout shapes/sizes (those are already sourced from direct photo
+// measurement + real connector datasheets - see comments above).
+SHOW_SVG_REFERENCE = true;
+// Despite being an unitless/px SVG, this OpenSCAD build (2026.02.19) imports it treating
+// 1 SVG unit = 1mm directly - NOT the commonly-documented 96 DPI (1 unit = 0.264583mm)
+// conversion. Verified empirically this session (rendered the raw import next to a
+// known-size reference cube and measured the actual pixel ratio) after the 96 DPI
+// assumption put the reference ~150mm off from the real plate. io_shield.svg is 786x208
+// units with no explicit viewBox/units, so native OpenSCAD size = 786 x 208mm directly.
+// Scaled here to the real plate footprint. NOT Y-flipped, per explicit correction from
+// holding the real board: a from-scratch check this session (top-down render, pixel-
+// verified against the known-correct HDMI/DP cutouts) found the Y-flipped version already
+// put DisplayPort above HDMI, matching the ASRock manual's own port diagram and an earlier
+// test-print photo - so that verification and this instruction directly disagree. Deferring
+// to the physical part on purpose: flip removed below. If ports land upside-down again,
+// this is the first place to check - re-verify against the real board, not just the manual/
+// photo, since those are exactly what conflicted with the correction that landed here.
+module svg_reference() {
+    if (SHOW_SVG_REFERENCE) {
+        svg_native_w = 786;
+        svg_native_h = 208;
+        sx = plate_width / svg_native_w;
+        sy = plate_height / svg_native_h;
+        %translate([0, 0, plate_thickness])
+            scale([sx, sy, 1])
+                import("io_shield.svg");
+    }
+}
+
 // Instantiate the faceplate
 io_faceplate();
+svg_reference();
