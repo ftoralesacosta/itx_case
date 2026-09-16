@@ -6,13 +6,15 @@ plate_thickness = 0.25;    // [1.0:0.1:5.0]
 
 // Standard ATX chassis hole is 158.75 x 44.45.
 // We are using a 2mm inset from the standard outer edge on all sides.
-// This gives a plate size of 154.75 x 40.45.
-plate_width = 154.75;
+// We added 0.5mm to the left and 1.5mm to the right
+plate_width = 154.75; 
 plate_height = 40.45;
 
 // Offset to shift the ports since the plate is smaller than the original 158.75 x 44.45
-x_offset = -2.0;
-y_offset = -2.0;
+// Left edge moved by 0.5mm, so x_offset increases by 0.5mm
+x_offset = -1.5;
+// We added 2mm to bottom edge and removed 2mm from top edge, so y_offset increases by 2.0mm
+y_offset = 0.0;
 
 
 // ==========================================
@@ -32,8 +34,8 @@ usb_a_h = 7.0;            // Height of a single USB-A cutout (measured 7mm)
 eth_h = 12.75;            // Height of the Ethernet cutout (measured 12.75mm)
 
 // X-Locations
-stack_left_x = 75.0;
-stack_right_x = 99.0;
+stack_left_x = 77.0;
+stack_right_x = 100.5;
 
 // Y-Locations & Gaps
 usb_gap = 1.0;            // Gap between Bottom and Top USB-A
@@ -48,7 +50,7 @@ eth_y = usb_top_y + (usb_a_h / 2) + eth_gap + (eth_h / 2);
 
 
 // --- USB-C ---
-usbc_x = 115.5;
+usbc_x = 117.0;
 usbc_w = 10.5;
 usbc_h = 4.5;
 // Center Y is mathematically locked so its bottom edge aligns with Bottom USB-A's bottom edge
