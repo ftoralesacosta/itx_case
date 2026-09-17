@@ -21,6 +21,7 @@ and mounting study for the spine only.
 | File | Purpose |
 |---|---|
 | `game_of_life_itx_case.scad` | The working model — everything described below. |
+| `asrock_b760m_itx_io_shield.scad` | Real, calipers-measured model of the ASRock B760M-ITX/D4 board's rear I/O port layout — developed standalone for fast iteration, then imported/subtracted into the front panel's I/O cutout (see "IO shield cutout" below). Exported as `asrock_b760m_itx_io_shield.stl`, which `game_of_life_itx_case.scad` actually imports. |
 | `basic_layout.scad` | An early snapshot, kept for reference. |
 | `4.7-Fish_-_spine.stl` | Original spine reference geometry (source: printables.com link above). Its front I/O opening dimensions, retention-groove geometry, mounting-hole layout, and outer-edge taper shape were all measured from this file; the new spine is otherwise built from scratch. |
 | `4.7-Fish_-_case.stl` | Original outer shell reference geometry — not yet used in the model. |
@@ -117,11 +118,12 @@ anything:
   (vertical) front panel to the (horizontal) divider plate at each of its
   4 corners, auto-anchored to the plate's real edge so they can't be left
   floating in open air if the taper parameters change later.
-- **Front I/O panel, upper portion**: the motherboard's rear-IO cutout
-  (real ATX-spec size, measured from the reference STL), plus its real
-  two-depth **retention groove** (a snug collar the shield's face seats
-  against, then a wider recessed pocket the shield's folded lip snaps
-  into), plus 2 M3 corner mounting screws with shell-mating tab slots.
+- **Front I/O panel, upper portion**: a precise per-port I/O cutout carved
+  straight into the panel from a real, calipers-measured shield model
+  (`asrock_b760m_itx_io_shield.scad`/`.stl`) — no separate stamped-metal
+  shield insert or its retention collar/groove anymore, just one flat
+  panel with the actual port holes in it — plus 2 M3 corner mounting
+  screws with shell-mating tab slots.
 - **Front I/O panel, lower portion**: a GaN PSU power-cable opening, the
   PSU's own front-mounting screws, an HDD honeycomb ventilation grill, a
   small vertical-bar ventilation grill between the GaN cable cutout and
@@ -268,28 +270,38 @@ the wedge is on. Push it too far and it either buries into the plate
 — worth a render + connectivity check after changing it.
 
 The two `UPPER` wedges additionally get their `Z1` clamped below the IO
-shield retention groove's real, `MB_POS`-aware footprint (`io_groove_
-bounds()`), so a moved MB can't leave a wedge anchored to panel material
-the groove has since hollowed out. If there's no clearance left at all,
-the wedge is skipped rather than built broken — watch the console for a
+shield cutout's real, `MB_POS`-aware footprint (`io_groove_bounds()`), so a
+moved MB can't leave a wedge anchored to panel material the cutout has
+since hollowed out. If there's no clearance left at all, the wedge is
+skipped rather than built broken — watch the console for a
 `WEDGE_*_UPPER skipped` warning.
 
-### IO shield retention groove
+### IO shield cutout
 
-Real, measured geometry (cross-sectioned from the reference STL, not
-guessed): stock ATX IO shields are stamped steel with a folded-back
-perimeter lip. The shield's flat face registers against a snug **collar**
-(`FRONT_PANEL_IO_COLLAR_DEPTH`, exactly the nominal IO rectangle size,
-`FRONT_PANEL_IO_OFFSET`), and that folded lip snaps into a **wider pocket**
-recessed just behind it — like a picture frame's rabbet. The widen amount
-is independent **per side** (`FRONT_PANEL_IO_GROOVE_WIDEN_NX/PX/NZ/PZ`),
-not one shared number: 3 sides are at the real measured value (3.25mm),
-but `PX` is intentionally reduced (currently 1.25mm) to reclaim clearance
-to the front panel's own outer edge — the real geometry there put the
-groove within under 1mm of breaching straight through the panel face. That
-gives the shield's lip a shallower bite on that one side only; still
-expected to hold since a stamped shield doesn't need uniform grip around
-its whole perimeter.
+The rear I/O opening isn't a generic rectangle anymore — it's carved
+directly from a real, calipers-measured model of the actual board's port
+layout (`asrock_b760m_itx_io_shield.scad`, exported to
+`asrock_b760m_itx_io_shield.stl`), imported and subtracted straight into
+the front panel (`IO_SHIELD_STL_FILE`/`IO_SHIELD_STL_SIZE` in
+`game_of_life_itx_case.scad`). No separate stamped-metal shield insert, no
+retention collar/groove for a folded lip to snap into — the panel itself
+*is* the shield, one continuous flat piece with the real per-port holes in
+it. The shield model is flattened (`projection()`) and re-extruded through
+the panel's own real thickness rather than trusting its own thin (0.25mm)
+export depth, and its solid/void sense has to be inverted before cutting
+— the raw projection is solid plate *with* holes, so the actual panel cut
+is the complement of that (a rectangle minus the projection), keeping only
+the hole shapes. It's centered within the real IO rectangle
+(`FRONT_PANEL_IO_OFFSET`, still real ATX-spec-derived) rather than filling
+it exactly, since the shield model is a bit smaller on purpose (see that
+file's own header for why).
+
+An earlier version of this file used a two-depth retention groove (a snug
+collar the shield's flat face registered against, then a wider recessed
+pocket for a stamped shield's folded-back lip) — that's gone now along
+with the stamped-shield concept it was built for; `io_groove_bounds()`
+still exists (same name, for the wedge-clamping check above) but now
+returns the shield cutout's own bounding box instead.
 
 ### Divider plate lightening pattern
 

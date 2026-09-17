@@ -6,7 +6,7 @@ SHOW_ENCLOSURE  = false;
 SHOW_ODD        = false;
 
 
-used_components = false;
+used_components = true;
 
 SHOW_MB         = used_components;
 SHOW_HDD        = used_components;
@@ -127,18 +127,19 @@ GAN_ORING_POCKET_DIA   = GAN_ORING_OD + GAN_ORING_POCKET_CLEARANCE;
 GAN_ORING_POCKET_DEPTH = 1.43;
 
 /* ---------- front panel ---------- */
-FRONT_PANEL_TOP_Z    = 68.28; // measured off the reference STL
-FRONT_PANEL_THICKNESS = 5; // Y depth, front face at Y=0
+FRONT_PANEL_TOP_Z    = 55; // measured off the reference STL
+FRONT_PANEL_THICKNESS = 2.5; // Y depth, front face at Y=0
 
 // MB rear-IO rectangle, offset from MB_POS/mb_bottom so it moves with the board.
 FRONT_PANEL_IO_OFFSET = [-72.01, 86.99, -2.83, 41.67]; // [x_min, x_max, z_min, z_max]
 
-// IO shield retention groove - real measured geometry. See README.
-FRONT_PANEL_IO_COLLAR_DEPTH = 1.51;
-FRONT_PANEL_IO_GROOVE_WIDEN_NX = 3.25;
-FRONT_PANEL_IO_GROOVE_WIDEN_PX = 1.25;
-FRONT_PANEL_IO_GROOVE_WIDEN_NZ = 3.25;
-FRONT_PANEL_IO_GROOVE_WIDEN_PZ = 3.25;
+// Precise per-port IO cutout - carved straight into the panel from the real, calipers-
+// measured shield model (asrock_b760m_itx_io_shield.scad/.stl), replacing the old generic
+// rectangle + metal-shield retention collar/groove entirely (no separate insert piece
+// anymore - see README). Centered within the real IO rectangle (io[] below).
+// Must match asrock_b760m_itx_io_shield.scad's plate_width/plate_height.
+IO_SHIELD_STL_FILE = "asrock_b760m_itx_io_shield.stl";
+IO_SHIELD_STL_SIZE = [154.75, 40.75]; // [w, h]
 
 // Top corner screws (M3 + countersink) and their shell-mating tab slots.
 FRONT_PANEL_SCREW_X_INSET = 3.0;
@@ -148,9 +149,9 @@ FRONT_PANEL_SCREW_CS_DIA   = 6.4;
 FRONT_PANEL_SCREW_CS_ANGLE = 90;
 
 // Tab slot for the eventual shell's own mating tab - same screw clamps both.
-FRONT_PANEL_TAB_SLOT_W     = 7.;
-FRONT_PANEL_TAB_SLOT_H     = 7;
-FRONT_PANEL_TAB_SLOT_DEPTH = 3;
+FRONT_PANEL_TAB_SLOT_W     = 3.5;
+FRONT_PANEL_TAB_SLOT_H     = 5;
+FRONT_PANEL_TAB_SLOT_DEPTH = 1.5;
 
 // Clearance shaft + countersink through the panel, optional tab slot (tab_w=0 skips it).
 module panel_screw_hole(x, z, r, cs_dia, cs_angle, tab_w=0, tab_h=0, tab_depth=0) {
@@ -182,21 +183,30 @@ module front_panel_upper(show, plate_bot, col, alpha) {
         screw_xs = [x_min + FRONT_PANEL_SCREW_X_INSET, x_max - FRONT_PANEL_SCREW_X_INSET];
         screw_z = FRONT_PANEL_TOP_Z - FRONT_PANEL_SCREW_Z_INSET;
 
-        groove_x0 = io[0] - FRONT_PANEL_IO_GROOVE_WIDEN_NX;
-        groove_x1 = io[1] + FRONT_PANEL_IO_GROOVE_WIDEN_PX;
-        groove_z0 = io[2] - FRONT_PANEL_IO_GROOVE_WIDEN_NZ;
-        groove_z1 = io[3] + FRONT_PANEL_IO_GROOVE_WIDEN_PZ;
+        // Shield STL centered within the real IO rectangle (io[]). The shield's own local
+        // [x,y] = [width, height]; local y=0 is its HDMI/DP (low) end, matching this file's
+        // world Z convention directly under rotate([90,0,0]) below - verified by render
+        // (DP ends up above HDMI, matching the ASRock manual/board).
+        shield_x = (io[0] + io[1])/2 - IO_SHIELD_STL_SIZE[0]/2;
+        shield_z = (io[2] + io[3])/2 - IO_SHIELD_STL_SIZE[1]/2;
 
         color(col, alpha)
             difference() {
                 translate([x_min, -FRONT_PANEL_THICKNESS, plate_bot])
                     cube([x_max - x_min, FRONT_PANEL_THICKNESS, FRONT_PANEL_TOP_Z - plate_bot]);
-                // collar: shield's flat face registers here
-                translate([io[0], -FRONT_PANEL_IO_COLLAR_DEPTH, io[2]])
-                    cube([io[1] - io[0], FRONT_PANEL_IO_COLLAR_DEPTH + 0.5, io[3] - io[2]]);
-                // groove: widened pocket, shield's retention lip snaps in
-                translate([groove_x0, -FRONT_PANEL_THICKNESS - 1, groove_z0])
-                    cube([groove_x1 - groove_x0, FRONT_PANEL_THICKNESS + 1 - FRONT_PANEL_IO_COLLAR_DEPTH + 0.5, groove_z1 - groove_z0]);
+                // Precise per-port IO shield cutout - see IO_SHIELD_STL_* above. Flattened
+                // to 2D (projection) and re-extruded through the panel's own real thickness,
+                // rather than relying on the STL's own 0.25mm export thickness. The shield's
+                // own projection is solid plate WITH holes - subtracting that directly would
+                // cut away everything BUT the ports; take the complement (holes only) first.
+                translate([shield_x, 0.5, shield_z])
+                    rotate([90, 0, 0])
+                        linear_extrude(height = FRONT_PANEL_THICKNESS + 2.5)
+                            difference() {
+                                square(IO_SHIELD_STL_SIZE);
+                                projection(cut = false)
+                                    import(IO_SHIELD_STL_FILE);
+                            }
                 for (screw_x = screw_xs) {
                     panel_screw_hole(screw_x, screw_z, FRONT_PANEL_SCREW_R,
                         FRONT_PANEL_SCREW_CS_DIA, FRONT_PANEL_SCREW_CS_ANGLE,
@@ -736,18 +746,21 @@ module spine_plate_taper_warnings() {
     }
 }
 
-// Real (MB_POS-aware) IO groove footprint [x_min,x_max,z_min,z_max] -
-// mirrors front_panel_upper()'s own cut. Keeps the upper wedges clear of it.
+// Real (MB_POS-aware) IO shield cutout footprint [x_min,x_max,z_min,z_max] - mirrors
+// front_panel_upper()'s own cut (the shield STL's bounding box, centered in io[]). Keeps
+// the upper wedges clear of it. Conservative: uses the shield's full bounding box, not its
+// actual (smaller) per-port hole shapes, same as the old groove-bounds check did.
 function io_groove_bounds() =
     let(
         mb_bottom = MB_POS[2] - MB_SIZE[2]/2,
         x0 = MB_POS[0] + FRONT_PANEL_IO_OFFSET[0],
         x1 = MB_POS[0] + FRONT_PANEL_IO_OFFSET[1],
         z0 = mb_bottom + FRONT_PANEL_IO_OFFSET[2],
-        z1 = mb_bottom + FRONT_PANEL_IO_OFFSET[3]
+        z1 = mb_bottom + FRONT_PANEL_IO_OFFSET[3],
+        shield_x = (x0 + x1)/2 - IO_SHIELD_STL_SIZE[0]/2,
+        shield_z = (z0 + z1)/2 - IO_SHIELD_STL_SIZE[1]/2
     )
-    [x0 - FRONT_PANEL_IO_GROOVE_WIDEN_NX, x1 + FRONT_PANEL_IO_GROOVE_WIDEN_PX,
-     z0 - FRONT_PANEL_IO_GROOVE_WIDEN_NZ, z1 + FRONT_PANEL_IO_GROOVE_WIDEN_PZ];
+    [shield_x, shield_x + IO_SHIELD_STL_SIZE[0], shield_z, shield_z + IO_SHIELD_STL_SIZE[1]];
 
 // Clamps an upper wedge's Z1 below the IO groove's real Z-range (if X-ranges
 // overlap). Returns z2 (degenerate) if there's no room - caller skips building it.
