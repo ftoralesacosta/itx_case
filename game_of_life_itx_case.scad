@@ -142,19 +142,22 @@ IO_SHIELD_STL_FILE = "asrock_b760m_itx_io_shield.stl";
 IO_SHIELD_STL_SIZE = [154.75, 40.75]; // [w, h]
 
 // Top corner screws (M3 + countersink) and their shell-mating tab slots.
-FRONT_PANEL_SCREW_X_INSET = 3.0;
-FRONT_PANEL_SCREW_Z_INSET = 3.0;
+FRONT_PANEL_SCREW_X_INSET = 3.5;
+FRONT_PANEL_SCREW_Z_INSET = 4.0;
 FRONT_PANEL_SCREW_R       = 1.5;
 FRONT_PANEL_SCREW_CS_DIA   = 6.4;
 FRONT_PANEL_SCREW_CS_ANGLE = 90;
 
 // Tab slot for the eventual shell's own mating tab - same screw clamps both.
-FRONT_PANEL_TAB_SLOT_W     = 3.5;
-FRONT_PANEL_TAB_SLOT_H     = 5;
+FRONT_PANEL_TAB_INNER_W    = 1.75;
+FRONT_PANEL_TAB_OUTER_W    = 4;
+FRONT_PANEL_TAB_INNER_H    = 2.5;
+FRONT_PANEL_TAB_OUTER_H    = 4.5;
 FRONT_PANEL_TAB_SLOT_DEPTH = 1.5;
 
 // Clearance shaft + countersink through the panel, optional tab slot (tab_w=0 skips it).
-module panel_screw_hole(x, z, r, cs_dia, cs_angle, tab_w=0, tab_h=0, tab_depth=0) {
+// Clearance shaft + countersink through the panel, optional tab slot.
+module panel_screw_hole(x, z, r, cs_dia, cs_angle, cx=0, cz=0, inner_w=0, outer_w=0, inner_h=0, outer_h=0, tab_depth=0) {
     cs_r = cs_dia / 2;
     cs_depth = countersink_depth(r, cs_dia, cs_angle);
     translate([x, -FRONT_PANEL_THICKNESS - 1, z])
@@ -163,9 +166,14 @@ module panel_screw_hole(x, z, r, cs_dia, cs_angle, tab_w=0, tab_h=0, tab_depth=0
     translate([x, 0.5 - cs_depth, z])
         rotate([-90, 0, 0])
             cylinder(h = cs_depth, r1 = r, r2 = cs_r, $fn = 48);
-    if (tab_w > 0)
-        translate([x - tab_w/2, -FRONT_PANEL_THICKNESS - 0.5, z - tab_h/2])
-            cube([tab_w, tab_depth + 0.5, tab_h]);
+    if (inner_w + outer_w > 0) {
+        dir_x = sign(cx - x);
+        dir_z = sign(cz - z);
+        min_x = (dir_x >= 0) ? (x - outer_w) : (x - inner_w);
+        min_z = (dir_z >= 0) ? (z - outer_h) : (z - inner_h);
+        translate([min_x, -FRONT_PANEL_THICKNESS - 0.5, min_z])
+            cube([inner_w + outer_w, tab_depth + 0.5, inner_h + outer_h]);
+    }
 }
 
 module front_panel_upper(show, plate_bot, col, alpha) {
@@ -210,7 +218,10 @@ module front_panel_upper(show, plate_bot, col, alpha) {
                 for (screw_x = screw_xs) {
                     panel_screw_hole(screw_x, screw_z, FRONT_PANEL_SCREW_R,
                         FRONT_PANEL_SCREW_CS_DIA, FRONT_PANEL_SCREW_CS_ANGLE,
-                        FRONT_PANEL_TAB_SLOT_W, FRONT_PANEL_TAB_SLOT_H, FRONT_PANEL_TAB_SLOT_DEPTH);
+                        (x_min + x_max)/2, (plate_bot + FRONT_PANEL_TOP_Z)/2,
+                        FRONT_PANEL_TAB_INNER_W, FRONT_PANEL_TAB_OUTER_W,
+                        FRONT_PANEL_TAB_INNER_H, FRONT_PANEL_TAB_OUTER_H,
+                        FRONT_PANEL_TAB_SLOT_DEPTH);
                 }
             }
     }
@@ -459,7 +470,10 @@ module front_panel_lower(show, plate_top, col, alpha) {
                 for (screw_x = corner_screw_xs) {
                     panel_screw_hole(screw_x, corner_screw_z, FRONT_PANEL_SCREW_R,
                         FRONT_PANEL_SCREW_CS_DIA, FRONT_PANEL_SCREW_CS_ANGLE,
-                        FRONT_PANEL_TAB_SLOT_W, FRONT_PANEL_TAB_SLOT_H, FRONT_PANEL_TAB_SLOT_DEPTH);
+                        (x_min + x_max)/2, (z_min + plate_top)/2,
+                        FRONT_PANEL_TAB_INNER_W, FRONT_PANEL_TAB_OUTER_W,
+                        FRONT_PANEL_TAB_INNER_H, FRONT_PANEL_TAB_OUTER_H,
+                        FRONT_PANEL_TAB_SLOT_DEPTH);
                 }
                 // HDD grill, with a guard wedge cut out near the corner screw.
                 // honeycomb_2d()'s local frame is centered on (grill_x, grill_z);
