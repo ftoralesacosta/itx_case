@@ -1,98 +1,90 @@
 // Asrock B860I - Custom IO Faceplate
 // All dimensions in mm
 
-// --- Outer Plate Parameters ---
-plate_thickness = 0.25;    // [1.0:0.1:5.0]
+// =========================================================================
+// === 📏 CALIPER MEASUREMENT VARIABLES 📏 ===
+// Measure these physically with calipers and update the values below!
+// The layout will automatically constrain and recalculate itself.
+// =========================================================================
 
-// Kept from B760M
-plate_width = 154.75; 
-plate_height = 40.75; 
+// --- 1. OVERALL PLATE BOUNDARIES ---
+plate_thickness = 0.25;    
+plate_width = 154.75;      // Overall width of the 3D printed insert
+plate_height = 40.75;      // Overall height of the 3D printed insert
 
-
-// ==========================================
-// --- Port Layout Parameters ---
-// ==========================================
-
-// --- DisplayPort & HDMI ---
+// --- 2. PORT SIZES (W x H) ---
 dp_w = 17.5;
 dp_h = 7.0;
 hdmi_w = 15.0;
 hdmi_h = 6.0;
-
-// Constraints:
-dp_x = 3.3 + (dp_w / 2);
-hdmi_x = 5.15 + (hdmi_w / 2);
-hdmi_y = 5.5; 
-dp_y = hdmi_y + (hdmi_h / 2) + 5.5 + (dp_h / 2);
-
-
-// --- USB & Ethernet Stacks ---
-// Width and Height Sizes
-stack_w = 15.0;           
-usb_a_h = 7.0;            
-eth_h = 12.75;            
 usbc_w = 10.5;
 usbc_h = 4.5;
+usb_a_w = 15.0;            // All USB-A ports (and stack widths)
+usb_a_h = 7.0;
+eth_w = 15.0;              // Ethernet width (usually matches USB-A)
+eth_h = 12.75;             // Ethernet height
+wifi_hole_dia = 10.0;      // Diameter of the antenna holes
+audio_w = 8.0;             // Audio jack pill width
+audio_h_bottom = 9.0;      // Bottom audio jack height
+audio_h_middle = 9.5;      // Middle audio jack height
+audio_h_top = 9.5;         // Top audio jack height
 
-// Y-Locations & Gaps
-usb_gap = 1.5;            
-eth_gap = usb_gap;        
-usb_bottom_gap = 2.5;
+// --- 3. VERTICAL (Y-AXIS) EDGE GAPS ---
+bottom_edge_to_hdmi_bottom = 2.5;     // Gap from plate bottom edge to HDMI bottom edge
+hdmi_top_to_dp_bottom = 5.5;          // Gap between HDMI top and DP bottom
+bottom_edge_to_usb_bottoms = 2.5;     // Gap from plate bottom edge to the bottom of the lowest USB-C / USB-A ports
+usbc_to_usba_gap = 2.5;               // Custom vertical gap between USB-C and the USB-A port directly above it
+usb_to_usb_gap = 1.5;                 // Standard vertical gap between USB-A ports (and between USB-A and Ethernet)
+wifi_gap = 5.7;                       // Edge-to-edge gap between the two Wi-Fi holes
+top_edge_to_wifi_top = 6.0;           // Gap from plate top edge to the top edge of the upper Wi-Fi hole
+audio_gap = 1.6;                      // Edge-to-edge gap between the audio jacks
+top_edge_to_audio_top = 5.75;         // Gap from plate top edge to the top edge of the upper audio jack
 
-// Stack Y-Coordinates from bottom to top
-usbc_y = usb_bottom_gap + (usbc_h / 2);
-usb_1_y = usb_bottom_gap + (usb_a_h / 2);
-usb_2_y = usb_1_y + (usb_a_h / 2) + usb_gap + (usb_a_h / 2);
-usb_3_y = usb_2_y + (usb_a_h / 2) + usb_gap + (usb_a_h / 2);
-usb_4_y = usb_3_y + (usb_a_h / 2) + usb_gap + (usb_a_h / 2);
+// --- 4. HORIZONTAL (X-AXIS) CENTER-TO-CENTER DISTANCES ---
+// Measured directly from the physical centerlines of the metal housings!
+left_edge_to_video_center = 12.65;  // Base anchor point
+video_to_usbc_1g_center = 22.74;    // Distance from Video center to Stack 1 center
+usbc_1g_to_dual_usb_center = 42.09; // Distance from Stack 1 center to Stack 2 center
+dual_usb_to_quad_usb_center = 26.89;// Distance from Stack 2 center to Stack 3 center
+quad_usb_to_wifi_center = 15.05;    // Distance from Stack 3 center to Wifi center
+wifi_to_audio_center = 13.18;       // Distance from Wifi center to Audio center
+// --- USB Stack X-Coordinate Math ---
+// --- Video Stack Math ---
+dp_x = left_edge_to_video_center - 0.6; // Slight offset for DP
+hdmi_x = left_edge_to_video_center;
+hdmi_y = bottom_edge_to_hdmi_bottom + (hdmi_h / 2);
+dp_y = hdmi_y + (hdmi_h / 2) + hdmi_top_to_dp_bottom + (dp_h / 2);
 
-// Ethernet for the left_usb_stack
-eth_above_2_y = usb_2_y + (usb_a_h / 2) + eth_gap + (eth_h / 2);
+usbc_1g_stack_x = left_edge_to_video_center + video_to_usbc_1g_center;
+dual_usb_2_5g_stack_x = usbc_1g_stack_x + usbc_1g_to_dual_usb_center;
+quad_usb_stack_x = dual_usb_2_5g_stack_x + dual_usb_to_quad_usb_center;
+wifi_x = quad_usb_stack_x + quad_usb_to_wifi_center;
+audio_x = wifi_x + wifi_to_audio_center;
+// --- USB Stack Y-Coordinate Math ---
+// Standard stack bases
+usbc_y = bottom_edge_to_usb_bottoms + (usbc_h / 2);
+usb_1_y = bottom_edge_to_usb_bottoms + (usb_a_h / 2);
+usb_2_y = usb_1_y + (usb_a_h / 2) + usb_to_usb_gap + (usb_a_h / 2);
+usb_3_y = usb_2_y + (usb_a_h / 2) + usb_to_usb_gap + (usb_a_h / 2);
+usb_4_y = usb_3_y + (usb_a_h / 2) + usb_to_usb_gap + (usb_a_h / 2);
 
-// --- 2.5G Ethernet Stack Calculations (USB-C + USB-A + 2.5G ETH) ---
-// Since this stack matches the overall height of the standard left_usb_stack, 
-// we can mathematically calculate exactly what the two identical gaps inside must be!
-stack_top_y = eth_above_2_y + (eth_h / 2);
-total_stack_height = stack_top_y - usb_bottom_gap;
-available_gap_space = total_stack_height - usbc_h - usb_a_h - eth_h;
-gap_2_5g = available_gap_space / 2;
+// Ethernet Tops
+eth_above_2_y = usb_2_y + (usb_a_h / 2) + usb_to_usb_gap + (eth_h / 2);
 
-stack_2_5g_usb_y = usbc_y + (usbc_h / 2) + gap_2_5g + (usb_a_h / 2);
-stack_2_5g_eth_y = stack_2_5g_usb_y + (usb_a_h / 2) + gap_2_5g + (eth_h / 2);
+// USBC Stack custom gaps
+usbc_stack_usb_y = usbc_y + (usbc_h / 2) + usbc_to_usba_gap + (usb_a_h / 2);
+usbc_stack_eth_y = usbc_stack_usb_y + (usb_a_h / 2) + usb_to_usb_gap + (eth_h / 2);
 
-
-// --- X-Locations for Stacks ---
-// You can adjust these to perfectly space out your B860I layout!
-stack_2_5g_x = 40.0;       // USB-C + USB-A + 2.5G ETH
-left_usb_stack_x = 70.0;   // 2x USB-A + Ethernet
-right_usb_stack_x = 100.0; // 4x USB-A
-
-
-// --- Wi-Fi Antenna Holes ---
-wifi_x = 128.0;
-wifi_hole_dia = 10.0;
-wifi_gap = 5.7;
-
-wifi_top_edge = plate_height - 6;
+// --- Wi-Fi Math ---
+wifi_top_edge = plate_height - top_edge_to_wifi_top;
 wifi_2_y = wifi_top_edge - (wifi_hole_dia / 2);
 wifi_1_y = wifi_2_y - (wifi_hole_dia / 2) - wifi_gap - (wifi_hole_dia / 2);
 
-
-// --- Audio Jacks ---
-audio_x = 142.1;
-audio_gap = 1.6;
-
-audio_1_w = 8.0;
-audio_1_h = 9.0;
-audio_2_w = 8.0;
-audio_2_h = 9.5;
-audio_3_w = 8.0;
-audio_3_h = 9.5;
-
-audio_top_edge = plate_height - 5.75;
-audio_3_y = audio_top_edge - (audio_3_h / 2);
-audio_2_y = audio_3_y - (audio_3_h / 2) - audio_gap - (audio_2_h / 2);
-audio_1_y = audio_2_y - (audio_2_h / 2) - audio_gap - (audio_1_h / 2);
+// --- Audio Math ---
+audio_top_edge = plate_height - top_edge_to_audio_top;
+audio_3_y = audio_top_edge - (audio_h_top / 2);
+audio_2_y = audio_3_y - (audio_h_top / 2) - audio_gap - (audio_h_middle / 2);
+audio_1_y = audio_2_y - (audio_h_middle / 2) - audio_gap - (audio_h_bottom / 2);
 
 
 // ==========================================
@@ -112,32 +104,32 @@ module io_faceplate() {
         translate([dp_x, dp_y, 0])
             dp_cutout(plate_thickness);
 
-        // --- 2.5G Ethernet Stack (USB-C + USB-A + ETH) ---
-        translate([stack_2_5g_x, usbc_y, 0])
+        // --- Stack 1: USB-C + USB-A + 1G ETH ---
+        translate([usbc_1g_stack_x, usbc_y, 0])
             pill_cutout(usbc_w, usbc_h, plate_thickness);
-        translate([stack_2_5g_x, stack_2_5g_usb_y, 0])
-            cut_rect(stack_w, usb_a_h, plate_thickness);
-        translate([stack_2_5g_x, stack_2_5g_eth_y, 0])
-            cut_rect(stack_w, eth_h, plate_thickness);
+        translate([usbc_1g_stack_x, usbc_stack_usb_y, 0])
+            cut_rect(usb_a_w, usb_a_h, plate_thickness);
+        translate([usbc_1g_stack_x, usbc_stack_eth_y, 0])
+            cut_rect(eth_w, eth_h, plate_thickness);
 
 
-        // --- Left USB Stack (2x USB-A + Ethernet) ---
-        translate([left_usb_stack_x, usb_1_y, 0])
-            cut_rect(stack_w, usb_a_h, plate_thickness);
-        translate([left_usb_stack_x, usb_2_y, 0])
-            cut_rect(stack_w, usb_a_h, plate_thickness);
-        translate([left_usb_stack_x, eth_above_2_y, 0])
-            cut_rect(stack_w, eth_h, plate_thickness);
+        // --- Stack 2: 2x USB-A + 2.5G Ethernet ---
+        translate([dual_usb_2_5g_stack_x, usb_1_y, 0])
+            cut_rect(usb_a_w, usb_a_h, plate_thickness);
+        translate([dual_usb_2_5g_stack_x, usb_2_y, 0])
+            cut_rect(usb_a_w, usb_a_h, plate_thickness);
+        translate([dual_usb_2_5g_stack_x, eth_above_2_y, 0])
+            cut_rect(eth_w, eth_h, plate_thickness);
 
-        // --- Right USB Stack (4x USB-A) ---
-        translate([right_usb_stack_x, usb_1_y, 0])
-            cut_rect(stack_w, usb_a_h, plate_thickness);
-        translate([right_usb_stack_x, usb_2_y, 0])
-            cut_rect(stack_w, usb_a_h, plate_thickness);
-        translate([right_usb_stack_x, usb_3_y, 0])
-            cut_rect(stack_w, usb_a_h, plate_thickness);
-        translate([right_usb_stack_x, usb_4_y, 0])
-            cut_rect(stack_w, usb_a_h, plate_thickness);
+        // --- Stack 3: 4x USB-A ---
+        translate([quad_usb_stack_x, usb_1_y, 0])
+            cut_rect(usb_a_w, usb_a_h, plate_thickness);
+        translate([quad_usb_stack_x, usb_2_y, 0])
+            cut_rect(usb_a_w, usb_a_h, plate_thickness);
+        translate([quad_usb_stack_x, usb_3_y, 0])
+            cut_rect(usb_a_w, usb_a_h, plate_thickness);
+        translate([quad_usb_stack_x, usb_4_y, 0])
+            cut_rect(usb_a_w, usb_a_h, plate_thickness);
 
         // Wi-Fi Antenna Holes
         translate([wifi_x, wifi_1_y, 0])
@@ -147,11 +139,11 @@ module io_faceplate() {
 
         // Audio Jacks
         translate([audio_x, audio_1_y, 0])
-            pill_cutout(audio_1_w, audio_1_h, plate_thickness);
+            pill_cutout(audio_w, audio_h_bottom, plate_thickness);
         translate([audio_x, audio_2_y, 0])
-            pill_cutout(audio_2_w, audio_2_h, plate_thickness);
+            pill_cutout(audio_w, audio_h_middle, plate_thickness);
         translate([audio_x, audio_3_y, 0])
-            pill_cutout(audio_3_w, audio_3_h, plate_thickness);
+            pill_cutout(audio_w, audio_h_top, plate_thickness);
     }
 }
 
