@@ -1,3 +1,4 @@
+include <c14_tool.scad>
 // Game of Life ITX Case - ITX layout study. See README.md for context/conventions.
 
 /* ---------- global toggles ---------- */
@@ -6,7 +7,7 @@ SHOW_ENCLOSURE  = false;
 SHOW_ODD        = false;
 
 
-used_components = true;
+used_components = false;
 
 SHOW_MB         = used_components;
 SHOW_HDD        = used_components;
@@ -138,8 +139,17 @@ FRONT_PANEL_IO_OFFSET = [-72.01, 86.99, -2.83, 41.67]; // [x_min, x_max, z_min, 
 // rectangle + metal-shield retention collar/groove entirely (no separate insert piece
 // anymore - see README). Centered within the real IO rectangle (io[] below).
 // Must match asrock_b760m_itx_io_shield.scad's plate_width/plate_height.
-IO_SHIELD_STL_FILE = "asrock_b760m_itx_io_shield.stl";
+IO_SHIELD_STL_FILE = "asrock_b860i_io_shield.stl";
 IO_SHIELD_STL_SIZE = [154.75, 40.75]; // [w, h]
+
+// --- C14 Power Socket ---
+SHOW_C14_SOCKET = used_components;
+C14_STL_FILE = "C14 Socket v8.stl";
+C14_POS = [-71.0, -FRONT_PANEL_THICKNESS + 2.0, 29.0]; // Centered near IO shield Z
+C14_ROT = [90, 270, 0]; // Vertical, flange pointing outwards (-Y)
+C14_SCREW_PITCH = 42.0; // The C14 Socket v8.stl has exactly 42.0mm pitch
+C14_SCREW_R = 1.75; // 3.5mm diameter
+
 
 // Top corner screws (M3 + countersink) and their shell-mating tab slots.
 FRONT_PANEL_SCREW_X_INSET = 3.5;
@@ -215,6 +225,20 @@ module front_panel_upper(show, plate_bot, col, alpha) {
                                 projection(cut = false)
                                     import(IO_SHIELD_STL_FILE);
                             }
+
+                // C14 Socket Cutout (Uses the exact solid bounding tool mathematically extracted from the STL)
+                translate(C14_POS)
+                    rotate(C14_ROT)
+                        c14_solid_tool();
+
+                // C14 Mounting Screw Holes (Pitch = 42.0mm)
+                // Punched manually just in case the STL's screw holes don't pierce completely through the panel thickness.
+                translate([C14_POS[0], 0, C14_POS[2] + C14_SCREW_PITCH/2])
+                    rotate([90, 0, 0])
+                        cylinder(r=C14_SCREW_R, h=50, center=true, $fn=32);
+                translate([C14_POS[0], 0, C14_POS[2] - C14_SCREW_PITCH/2])
+                    rotate([90, 0, 0])
+                        cylinder(r=C14_SCREW_R, h=50, center=true, $fn=32);
                 for (screw_x = screw_xs) {
                     panel_screw_hole(screw_x, screw_z, FRONT_PANEL_SCREW_R,
                         FRONT_PANEL_SCREW_CS_DIA, FRONT_PANEL_SCREW_CS_ANGLE,
@@ -445,14 +469,31 @@ module front_panel_lower(show, plate_top, col, alpha) {
             difference() {
                 translate([x_min, -FRONT_PANEL_THICKNESS, z_min])
                     cube([x_max - x_min, FRONT_PANEL_THICKNESS, plate_top - z_min]);
+
+                // C14 Socket Cutout (Uses the exact solid bounding tool mathematically extracted from the STL)
+                translate(C14_POS)
+                    rotate(C14_ROT)
+                        c14_solid_tool();
+
+                // C14 Mounting Screw Holes (Pitch = 42.0mm)
+                // Punched manually just in case the STL's screw holes don't pierce completely through the panel thickness.
+                translate([C14_POS[0], 0, C14_POS[2] + C14_SCREW_PITCH/2])
+                    rotate([90, 0, 0])
+                        cylinder(r=C14_SCREW_R, h=50, center=true, $fn=32);
+                translate([C14_POS[0], 0, C14_POS[2] - C14_SCREW_PITCH/2])
+                    rotate([90, 0, 0])
+                        cylinder(r=C14_SCREW_R, h=50, center=true, $fn=32);
+                /* 
                 // GaN PSU power cable opening
                 translate([cable_x - cable_w/2, -FRONT_PANEL_THICKNESS - 1, cable_z - cable_h/2])
-                    cube([cable_w, FRONT_PANEL_THICKNESS + 2, cable_h]);
+                    cube([cable_w, FRONT_PANEL_THICKNESS + 2, cable_h]); */
+                /* 
                 // GaN PSU front-mounting screws
                 for (p = mount_pts) {
                     panel_screw_hole(p[0], p[1], GAN_FRONT_MOUNT_R,
                         GAN_FRONT_MOUNT_CS_DIA, GAN_FRONT_MOUNT_CS_ANGLE);
-                }
+                } */
+                /* 
                 // front ventilation grill - see FRONT_VENT_* above
                 fvent_cols = floor(FRONT_VENT_SIZE[0] / (FRONT_VENT_SLOT_W + FRONT_VENT_WALL));
                 fvent_grid_w = fvent_cols * FRONT_VENT_SLOT_W + (fvent_cols - 1) * FRONT_VENT_WALL;
@@ -465,7 +506,7 @@ module front_panel_lower(show, plate_top, col, alpha) {
                         fvent_z0
                     ])
                         cube([FRONT_VENT_SLOT_W, FRONT_PANEL_THICKNESS + 2, FRONT_VENT_SIZE[1]]);
-                }
+                } */
                 // lower corner case-mounting screws
                 for (screw_x = corner_screw_xs) {
                     panel_screw_hole(screw_x, corner_screw_z, FRONT_PANEL_SCREW_R,
@@ -1029,6 +1070,15 @@ module spine_ref(show, pos, rot, alpha) {
 }
 
 /* ================= assembly ================= */
+
+
+/* ---------- C14 Socket ---------- */
+if (SHOW_C14_SOCKET) {
+    color("LawnGreen") // Vibrant new leaves green!
+    translate(C14_POS)
+        rotate(C14_ROT)
+            import(C14_STL_FILE);
+}
 
 spine_ref(SHOW_SPINE, [80, 0, 0], [0, -90, 0], SPINE_ALPHA);
 new_spine(SHOW_NEW_SPINE, "Orange", 1);

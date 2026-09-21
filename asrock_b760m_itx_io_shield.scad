@@ -225,5 +225,7 @@ module pill_cutout(w, h, t) {
     }
 }
 
-// Instantiate the faceplate
-io_faceplate();
+// Instantiate the faceplate, mirrored horizontally so Video is on +X and Audio is on -X
+translate([plate_width, 0, 0])
+    mirror([1, 0, 0])
+        io_faceplate();
