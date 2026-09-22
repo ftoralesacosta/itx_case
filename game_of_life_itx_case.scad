@@ -22,8 +22,8 @@ SPINE_ALPHA     = 0.9;
 ENCLOSURE_ALPHA = 0.55;
 
 /* ---------- enclosure (outer volume budget) ---------- */
-ENCLOSURE_SIZE = [176, 178, 85];   // [W, D, H]
-ENCLOSURE_POS  = [5, -90, 18];
+ENCLOSURE_SIZE = [171, 178, 85];   // [W, D, H]
+ENCLOSURE_POS  = [2.5, -90, 18];
 ENCLOSURE_ROT  = [0, 0, 0];
 ENCLOSURE_EDGE_R = 1.0;
 
@@ -34,7 +34,7 @@ MB_ROT  = [0, 0, 0];
 
 /* ---------- HDD (replaces GPU) ---------- */
 HDD_SIZE = [101.6, 146.99, 26.11]; // 3.5" HDD envelope [W, D, H]
-HDD_POS  = [35, -78.5, -9.98];
+HDD_POS  = [33.38, -78.5, -9.98];
 HDD_ROT  = [0, 0, 0];
 
 /* ---------- ODD (unused placeholder, see README) ---------- */
@@ -47,8 +47,7 @@ GAN_PSU_SIZE = [170, 55, 25]; // [D, W, H]
 GAN_PSU_POS  = [-48, -90, -10];
 GAN_PSU_ROT  = [0, 0, 90];
 
-// Dummy fit-check block, not used elsewhere - HDPLEX 500W GaN AIO ATX (hdplex.com),
-// same POS/ROT slot as the 250W above for a direct size comparison.
+// Fit-check ATX PSU.
 SHOW_GAN_PSU_500W = false;
 GAN_PSU_500W_SIZE = [200.2, 55, 40]; // [D, W, H]
 
@@ -71,12 +70,7 @@ SPINE_PLATE_TAPER_NX_BEFORE = 25;
 SPINE_PLATE_TAPER_NX_RUN = 30;
 SPINE_PLATE_TAPER_NX_DEPTH = 30; // free - no real hardware to flush against; new_spine() warns if it cuts an MB standoff loose
 
-// 4 reinforcement wedges, front panel to plate, one per corner. X is
-// auto-anchored to the plate's real edge + X_OFFSET - see README.
-WEDGE_PX_UPPER_Y1 = -5; WEDGE_PX_UPPER_Z1 = 36; WEDGE_PX_UPPER_Y2 = -17; WEDGE_PX_UPPER_Z2 = 9.6; WEDGE_PX_UPPER_THICKNESS = 0.7; WEDGE_PX_UPPER_X_OFFSET = -1.06;
-WEDGE_PX_LOWER_Y1 = -5; WEDGE_PX_LOWER_Z1 = -6.0; WEDGE_PX_LOWER_Y2 = -17; WEDGE_PX_LOWER_Z2 = 6.6; WEDGE_PX_LOWER_THICKNESS = 1; WEDGE_PX_LOWER_X_OFFSET = -1.0;
-WEDGE_NX_UPPER_Y1 = -5; WEDGE_NX_UPPER_Z1 = 24.6; WEDGE_NX_UPPER_Y2 = -5; WEDGE_NX_UPPER_Z2 = 9.6; WEDGE_NX_UPPER_THICKNESS = 2; WEDGE_NX_UPPER_X_OFFSET = 0;
-WEDGE_NX_LOWER_Y1 = -5; WEDGE_NX_LOWER_Z1 = -10.0; WEDGE_NX_LOWER_Y2 = -20; WEDGE_NX_LOWER_Z2 = 6.6; WEDGE_NX_LOWER_THICKNESS = 2; WEDGE_NX_LOWER_X_OFFSET = 2;
+
 
 STANDOFF_R      = 3.5;  // mounting standoff outer radius
 STANDOFF_HOLE_R = 1.9;  // M3 clearance radius
@@ -114,13 +108,9 @@ GAN_PSU_HOLES = [
     [ 71, -16.65],
     [-73, -16.65],
 ];
-GAN_STANDOFF_HOLE_R = 1.9; // M3 clearance
-// Widened from the shared STANDOFF_R (like HDD_STANDOFF_R) so both O-ring pockets
-// below fit inside the peg with a real wall margin, not just the screw clearance hole.
+GAN_STANDOFF_HOLE_R = 1.9; // M3 clearance with O-ring margin.
 GAN_STANDOFF_R = 5;
-// O-ring at both standoff faces (PSU side + screw-head/plate side) as a thermal
-// break from the GaN PSU's aluminum body - see README. Light compression on
-// purpose (not a seal): ~10% of GAN_ORING_CS.
+// PSU thermal break O-rings.
 GAN_ORING_OD = 7.14; // 9/32"
 GAN_ORING_CS = 1.59; // 1/16"
 GAN_ORING_POCKET_CLEARANCE = 0.4;
@@ -134,21 +124,20 @@ FRONT_PANEL_THICKNESS = 2.5; // Y depth, front face at Y=0
 // MB rear-IO rectangle, offset from MB_POS/mb_bottom so it moves with the board.
 FRONT_PANEL_IO_OFFSET = [-72.01, 86.99, -2.83, 41.67]; // [x_min, x_max, z_min, z_max]
 
-// Precise per-port IO cutout - carved straight into the panel from the real, calipers-
-// measured shield model (asrock_b760m_itx_io_shield.scad/.stl), replacing the old generic
-// rectangle + metal-shield retention collar/groove entirely (no separate insert piece
-// anymore - see README). Centered within the real IO rectangle (io[] below).
-// Must match asrock_b760m_itx_io_shield.scad's plate_width/plate_height.
+// Direct Motherboard IO port cutout.
 IO_SHIELD_STL_FILE = "asrock_b860i_io_shield.stl";
 IO_SHIELD_STL_SIZE = [154.75, 40.75]; // [w, h]
 
 // --- C14 Power Socket ---
-SHOW_C14_SOCKET = used_components;
-C14_STL_FILE = "C14 Socket v8.stl";
-C14_POS = [-71.0, -FRONT_PANEL_THICKNESS + 2.0, 29.0]; // Centered near IO shield Z
-C14_ROT = [90, 270, 0]; // Vertical, flange pointing outwards (-Y)
-C14_SCREW_PITCH = 42.0; // The C14 Socket v8.stl has exactly 42.0mm pitch
-C14_SCREW_R = 1.75; // 3.5mm diameter
+USE_SNAP_IN_C14 = false;
+SHOW_C14_SOCKET = true;
+C14_STL_FILE = USE_SNAP_IN_C14 ? "c14_snap-fit_socket.stl" : "c14_socket.stl";
+C14_POS = [58.0, -2, -7.0]; 
+C14_ROT = [270, 0, 0]; 
+C14_SNAP_CUTOUT_W = 28.0;
+C14_SNAP_CUTOUT_H = 20.5;
+C14_SCREW_PITCH = 42.0; 
+C14_SCREW_R = 1.75;
 
 
 // Top corner screws (M3 + countersink) and their shell-mating tab slots.
@@ -158,16 +147,8 @@ FRONT_PANEL_SCREW_R       = 1.5;
 FRONT_PANEL_SCREW_CS_DIA   = 6.4;
 FRONT_PANEL_SCREW_CS_ANGLE = 90;
 
-// Tab slot for the eventual shell's own mating tab - same screw clamps both.
-FRONT_PANEL_TAB_INNER_W    = 1.75;
-FRONT_PANEL_TAB_OUTER_W    = 4;
-FRONT_PANEL_TAB_INNER_H    = 2.5;
-FRONT_PANEL_TAB_OUTER_H    = 4.5;
-FRONT_PANEL_TAB_SLOT_DEPTH = 1.5;
-
-// Clearance shaft + countersink through the panel, optional tab slot (tab_w=0 skips it).
-// Clearance shaft + countersink through the panel, optional tab slot.
-module panel_screw_hole(x, z, r, cs_dia, cs_angle, cx=0, cz=0, inner_w=0, outer_w=0, inner_h=0, outer_h=0, tab_depth=0) {
+// Screw clearance hole.
+module panel_screw_hole(x, z, r, cs_dia, cs_angle) {
     cs_r = cs_dia / 2;
     cs_depth = countersink_depth(r, cs_dia, cs_angle);
     translate([x, -FRONT_PANEL_THICKNESS - 1, z])
@@ -176,14 +157,6 @@ module panel_screw_hole(x, z, r, cs_dia, cs_angle, cx=0, cz=0, inner_w=0, outer_
     translate([x, 0.5 - cs_depth, z])
         rotate([-90, 0, 0])
             cylinder(h = cs_depth, r1 = r, r2 = cs_r, $fn = 48);
-    if (inner_w + outer_w > 0) {
-        dir_x = sign(cx - x);
-        dir_z = sign(cz - z);
-        min_x = (dir_x >= 0) ? (x - outer_w) : (x - inner_w);
-        min_z = (dir_z >= 0) ? (z - outer_h) : (z - inner_h);
-        translate([min_x, -FRONT_PANEL_THICKNESS - 0.5, min_z])
-            cube([inner_w + outer_w, tab_depth + 0.5, inner_h + outer_h]);
-    }
 }
 
 module front_panel_upper(show, plate_bot, col, alpha) {
@@ -198,8 +171,6 @@ module front_panel_upper(show, plate_bot, col, alpha) {
             mb_bottom + FRONT_PANEL_IO_OFFSET[3],
         ];
 
-        screw_xs = [x_min + FRONT_PANEL_SCREW_X_INSET, x_max - FRONT_PANEL_SCREW_X_INSET];
-        screw_z = FRONT_PANEL_TOP_Z - FRONT_PANEL_SCREW_Z_INSET;
 
         // Shield STL centered within the real IO rectangle (io[]). The shield's own local
         // [x,y] = [width, height]; local y=0 is its HDMI/DP (low) end, matching this file's
@@ -239,14 +210,6 @@ module front_panel_upper(show, plate_bot, col, alpha) {
                 translate([C14_POS[0], 0, C14_POS[2] - C14_SCREW_PITCH/2])
                     rotate([90, 0, 0])
                         cylinder(r=C14_SCREW_R, h=50, center=true, $fn=32);
-                for (screw_x = screw_xs) {
-                    panel_screw_hole(screw_x, screw_z, FRONT_PANEL_SCREW_R,
-                        FRONT_PANEL_SCREW_CS_DIA, FRONT_PANEL_SCREW_CS_ANGLE,
-                        (x_min + x_max)/2, (plate_bot + FRONT_PANEL_TOP_Z)/2,
-                        FRONT_PANEL_TAB_INNER_W, FRONT_PANEL_TAB_OUTER_W,
-                        FRONT_PANEL_TAB_INNER_H, FRONT_PANEL_TAB_OUTER_H,
-                        FRONT_PANEL_TAB_SLOT_DEPTH);
-                }
             }
     }
 }
@@ -285,15 +248,13 @@ SPINE_GRID_WALL   = 2.5;
 // Diamonds along the -Y margin get subdivided to this scale (0 disables). See README.
 SPINE_LIGHTENING_NY_INLAY_SCALE = 0.3;
 
-// Game of Life-inspired shapes for GOL_Grill_*_SHAPE below - [di,dj] live-cell
-// offsets on a square lattice. See README ("HDD ventilation grill").
+// Game of Life grill shapes.
 LIFE_BLOCK   = [[0,0],[1,0], [0,1],[1,1]]; // solid 2x2 - already fully edge-connected
 LIFE_BEEHIVE = [[1,0],[2,0], [0,1],[3,1], [1,2],[2,2], [0,0],[3,0],[0,2],[3,2]];
 LIFE_POND    = [[1,0],[2,0], [0,1],[3,1], [0,2],[3,2], [1,3],[2,3]]; // ring / "0"
 LIFE_HEX_RING = [[1,0],[2,0], [0,1],[3,1], [1,2],[2,2]]; // hex "0", unbridged
 
-// Not still lifes - plain ">"/"<" chevrons, two straight lines sharing a corner
-// cell (the grid's own 45deg rotation makes them diagonal). _2/_3 = arm length.
+// Chevron grill shapes.
 ARROW_GT_2 = [[0,0], [0,1], [-1,0]];
 ARROW_GT_3 = [[0,0], [0,1],[0,2], [-1,0],[-2,0]];
 ARROW_LT_2 = [[0,0], [1,0], [0,-1]];
@@ -303,9 +264,9 @@ GOL_OFF = []; // set a GOL_Grill_*_SHAPE to this to turn that slot off
 
 // HDD ventilation grill (front panel). See README.
 HDD_GRILL_MODE = "diamond"; // "honeycomb" or "diamond"
-HDD_GRILL_MARGIN_LEFT   = 4;
-HDD_GRILL_MARGIN_RIGHT  = 5.2;
-HDD_GRILL_MARGIN_TOP    = 6;
+HDD_GRILL_W = 101.6; // Width of the HDD grill
+HDD_GRILL_POS_X = -24; // Center X position of the HDD grill
+HDD_GRILL_MARGIN_TOP    = 7;
 HDD_GRILL_MARGIN_BOTTOM = 0;
 
 HDD_GRILL_HEX_R  = 4;
@@ -313,8 +274,7 @@ HDD_GRILL_WALL   = 1.25; // shared by both modes
 HDD_GRILL_DIAMOND_SLOT_W = 4;
 HDD_GRILL_DIAMOND_SLOT_H = 4;
 
-// "diamond" mode only: up to 4 [SHAPE, ANCHOR] slots kept solid on the grill.
-// ANCHOR is a grid_2d index [i0,j0], lattice step = SLOT+WALL. See README.
+// Grill solid anchors.
 GOL_Grill_1_SHAPE  = LIFE_HEX_RING; // "0" ring, +X side
 GOL_Grill_1_ANCHOR = [4, -6];
 GOL_Grill_2_SHAPE  = GOL_OFF;
@@ -324,13 +284,11 @@ GOL_Grill_3_ANCHOR = [-6, 6];
 GOL_Grill_4_SHAPE  = GOL_OFF;
 GOL_Grill_4_ANCHOR = [-3, 3];
 
-// Guard wedge cut out of the HDD grill pattern near the +X/-Z corner screw
-// so it keeps solid material regardless of where the hex tiling lands.
+// Corner screw guard.
 FRONT_PANEL_CORNER_INFILL_X = 13;
 FRONT_PANEL_CORNER_INFILL_Z = 13;
 
-// Distance from wp to nearest protected footprint (circles [x,y,r], rects
-// [x_min,y_min,x_max,y_max]); 0 if inside. See README.
+// Bounds check.
 function lightening_protect_dist(wp, protect_pts, protect_rects) =
     min(concat(
         [for (c = protect_pts) max(norm([wp[0] - c[0], wp[1] - c[1]]) - c[2], 0)],
@@ -347,15 +305,13 @@ function point_seg_dist(p, a, b) =
 function point_polyline_dist(p, pts) =
     min([for (i = [0 : len(pts) - 2]) point_seg_dist(p, pts[i], pts[i + 1])]);
 
-// World-space protect_pts for a [di,dj] shape anchored at grid_2d index [i0,j0];
-// pitch_x/y and world_rot must match the grid_2d() call this feeds. See README.
+// Grid cell projection.
 function life_pattern_protect_pts(cells, anchor, pitch_x, pitch_y, world_rot) =
     [for (c = cells)
         let(x = (anchor[0] + c[0]) * pitch_x, y = (anchor[1] + c[1]) * pitch_y)
         [cos(world_rot)*x - sin(world_rot)*y, sin(world_rot)*x + cos(world_rot)*y, 0]];
 
-// One part's standoff+ramp footprints as world-space [protect_pts, protect_rects].
-// Drops standoffs already covered by the flat margin box. See README.
+// PCB clearance bounding box.
 function standoff_lightening_protect(pos, local_pts, rot_z, r, z_from, z_to, nx_limit, px_limit, ny_limit, py_limit) =
     let(
         run = abs(z_to - z_from) * STANDOFF_RAMP_RUN_FACTOR,
@@ -370,8 +326,7 @@ function standoff_lightening_protect(pos, local_pts, rot_z, r, z_from, z_to, nx_
             [pts[i][0] - r, pts[i][1] + r, pts[i][0] + r, pts[i][1] + r + run]]
     ];
 
-// Hex field tiling [w,h], clipped to a straight border. protect_* keep cells
-// over a footprint solid instead of generated. See README ("Hex/grid tiling helpers").
+// Hexagon grill generator.
 module honeycomb_2d(w, h, hex_r, wall, protect_pts=[], protect_rects=[], protect_fudge=0, world_rot=0, world_translate=[0,0]) {
     r_tile = hex_r + wall / sqrt(3);
     pitch_x = 1.5 * r_tile;      // column spacing
@@ -399,8 +354,7 @@ module honeycomb_2d(w, h, hex_r, wall, protect_pts=[], protect_rects=[], protect
     }
 }
 
-// Square grid, used rotated 45deg for "diamond" mode. Same params as honeycomb_2d()
-// above, plus inlay_edge_pts/inlay_scale (subdivide cells near an edge). See README.
+// Square grill generator.
 module grid_2d(w, h, slot_w, slot_h, wall, protect_pts=[], protect_rects=[], protect_fudge=0, world_rot=0, world_translate=[0,0],
                 inlay_edge_pts=[], inlay_scale=1) {
     pitch_x = slot_w + wall;
@@ -452,17 +406,12 @@ module front_panel_lower(show, plate_top, col, alpha) {
             [GAN_PSU_POS[0] - mount_hx, GAN_PSU_POS[2] - mount_hz],
         ];
 
-        // lower corner case-mounting screws, same treatment as the upper panel's
-        corner_screw_xs = [x_min + FRONT_PANEL_SCREW_X_INSET, x_max - FRONT_PANEL_SCREW_X_INSET];
-        corner_screw_z = z_min + FRONT_PANEL_SCREW_Z_INSET;
 
-        grill_x_min = HDD_POS[0] - HDD_SIZE[0]/2 - HDD_GRILL_MARGIN_LEFT;
-        grill_x_max = HDD_POS[0] + HDD_SIZE[0]/2 + HDD_GRILL_MARGIN_RIGHT;
+                grill_w = HDD_GRILL_W;
+        grill_x = HDD_GRILL_POS_X;
         grill_z_min = HDD_POS[2] - HDD_SIZE[2]/2 - HDD_GRILL_MARGIN_BOTTOM;
         grill_z_max = HDD_POS[2] + HDD_SIZE[2]/2 + HDD_GRILL_MARGIN_TOP;
-        grill_w = grill_x_max - grill_x_min;
         grill_h = grill_z_max - grill_z_min;
-        grill_x = (grill_x_min + grill_x_max) / 2;
         grill_z = (grill_z_min + grill_z_max) / 2;
 
         color(col, alpha)
@@ -507,23 +456,8 @@ module front_panel_lower(show, plate_top, col, alpha) {
                     ])
                         cube([FRONT_VENT_SLOT_W, FRONT_PANEL_THICKNESS + 2, FRONT_VENT_SIZE[1]]);
                 } */
-                // lower corner case-mounting screws
-                for (screw_x = corner_screw_xs) {
-                    panel_screw_hole(screw_x, corner_screw_z, FRONT_PANEL_SCREW_R,
-                        FRONT_PANEL_SCREW_CS_DIA, FRONT_PANEL_SCREW_CS_ANGLE,
-                        (x_min + x_max)/2, (z_min + plate_top)/2,
-                        FRONT_PANEL_TAB_INNER_W, FRONT_PANEL_TAB_OUTER_W,
-                        FRONT_PANEL_TAB_INNER_H, FRONT_PANEL_TAB_OUTER_H,
-                        FRONT_PANEL_TAB_SLOT_DEPTH);
-                }
-                // HDD grill, with a guard wedge cut out near the corner screw.
-                // honeycomb_2d()'s local frame is centered on (grill_x, grill_z);
-                // rotate([-90,0,0]) negates local_y relative to world Z.
-                corner_guard = [
-                    [x_max - grill_x, grill_z - z_min],
-                    [x_max - FRONT_PANEL_CORNER_INFILL_X - grill_x, grill_z - z_min],
-                    [x_max - grill_x, grill_z - (z_min + FRONT_PANEL_CORNER_INFILL_Z)],
-                ];
+                // HDD grill
+
                 translate([grill_x, -FRONT_PANEL_THICKNESS - 1, grill_z])
                     rotate([-90, 0, 0])
                         linear_extrude(height = FRONT_PANEL_THICKNESS + 2)
@@ -547,7 +481,6 @@ module front_panel_lower(show, plate_top, col, alpha) {
                                 } else {
                                     honeycomb_2d(grill_w, grill_h, HDD_GRILL_HEX_R, HDD_GRILL_WALL);
                                 }
-                                polygon(corner_guard);
                             }
             }
     }
@@ -564,8 +497,7 @@ module labeled_box(size, pos, rot, show, col, alpha=1) {
     }
 }
 
-// Wireframe cage (12 edge rods, no faces) - can't occlude anything, sidestepping
-// OpenSCAD's transparency-through-boolean limitation.
+// Enclosure debug frame.
 module enclosure_ref(size, pos, rot, show, col, alpha, edge_r) {
     if (show) {
         translate(pos)
@@ -644,7 +576,7 @@ function spine_plate_ny_edge(x) =
         full  = SPINE_PLATE_POS[1] - SPINE_PLATE_SIZE[1]/2,
         narrow = full + SPINE_PLATE_TAPER_NY_DEPTH,
         x_min = SPINE_PLATE_POS[0] - (SPINE_PLATE_SIZE[0] - 2*SPINE_PLATE_MARGIN_X)/2,
-        x_max = ENCLOSURE_POS[0] + ENCLOSURE_SIZE[0]/2,
+        x_max = MB_POS[0] + MB_SIZE[0]/2 - 2.0,
         lbe = x_min + SPINE_PLATE_TAPER_NY_BEFORE,
         lte = lbe + SPINE_PLATE_TAPER_NY_RUN,
         rbe = x_max - SPINE_PLATE_TAPER_NY_BEFORE,
@@ -656,8 +588,7 @@ function spine_plate_ny_edge(x) =
     (x < rbe) ? full + (narrow - full) * (rbe - x) / SPINE_PLATE_TAPER_NY_RUN :
     full;
 
-// *_edge() above, shifted by margin, as a polyline following the real taper.
-// pad extends past the plate so callers can intersect against a taller/shorter box.
+// Spine edge polygon.
 function spine_plate_px_edge_points(margin, y_pad = 50) =
     let(
         y_max = SPINE_PLATE_POS[1] + SPINE_PLATE_SIZE[1]/2,
@@ -701,7 +632,7 @@ function spine_plate_nx_edge_points(margin, y_pad = 50) =
 function spine_plate_ny_edge_points(margin, x_pad = 50) =
     let(
         x_min = SPINE_PLATE_POS[0] - (SPINE_PLATE_SIZE[0] - 2*SPINE_PLATE_MARGIN_X)/2,
-        x_max = ENCLOSURE_POS[0] + ENCLOSURE_SIZE[0]/2,
+        x_max = MB_POS[0] + MB_SIZE[0]/2 - 2.0,
         lbe = x_min + SPINE_PLATE_TAPER_NY_BEFORE,
         lte = lbe + SPINE_PLATE_TAPER_NY_RUN,
         rbe = x_max - SPINE_PLATE_TAPER_NY_BEFORE,
@@ -718,8 +649,7 @@ function spine_plate_ny_edge_points(margin, x_pad = 50) =
         [x_max + x_pad, spine_plate_ny_edge(x_max) + margin],
     ];
 
-// The plate's real (taper-aware) outline polygon - keep in sync with
-// spine_plate_px_edge()/nx_edge()/ny_edge() above.
+// Taper-aware spine outline.
 function spine_plate_outline() =
     let(
         plate_x = SPINE_PLATE_POS[0],
@@ -727,20 +657,16 @@ function spine_plate_outline() =
         plate_w = SPINE_PLATE_SIZE[0] - 2*SPINE_PLATE_MARGIN_X,
         plate_d = SPINE_PLATE_SIZE[1],
         plate_x_min = plate_x - plate_w/2,
-        plate_x_max = plate_x + plate_w/2,
         plate_y_min = plate_y - plate_d/2,
         plate_y_max = plate_y + plate_d/2,
-        front_x_max = ENCLOSURE_POS[0] + ENCLOSURE_SIZE[0]/2,
-        px_narrow_x = front_x_max - SPINE_PLATE_TAPER_PX_DEPTH,
-        taper_start_y = plate_y_max - SPINE_PLATE_TAPER_PX_BEFORE,
-        taper_end_y   = taper_start_y - SPINE_PLATE_TAPER_PX_RUN,
-        back_taper_start_y = plate_y_min + SPINE_PLATE_TAPER_PX_BEFORE,
-        back_taper_end_y   = back_taper_start_y + SPINE_PLATE_TAPER_PX_RUN,
+        px_edge = MB_POS[0] + MB_SIZE[0]/2 - 2.0,
+        
         ny_narrow_y = plate_y_min + SPINE_PLATE_TAPER_NY_DEPTH,
         ny_taper_left_start_x  = plate_x_min + SPINE_PLATE_TAPER_NY_BEFORE,
         ny_taper_left_end_x    = ny_taper_left_start_x + SPINE_PLATE_TAPER_NY_RUN,
-        ny_taper_right_start_x = front_x_max - SPINE_PLATE_TAPER_NY_BEFORE,
+        ny_taper_right_start_x = px_edge - SPINE_PLATE_TAPER_NY_BEFORE,
         ny_taper_right_end_x   = ny_taper_right_start_x - SPINE_PLATE_TAPER_NY_RUN,
+        
         nx_inset_x = plate_x_min + SPINE_PLATE_TAPER_NX_DEPTH,
         nx_taper_front_start_y = plate_y_max - SPINE_PLATE_TAPER_NX_BEFORE,
         nx_taper_front_end_y   = nx_taper_front_start_y - SPINE_PLATE_TAPER_NX_RUN,
@@ -753,12 +679,8 @@ function spine_plate_outline() =
         [ny_taper_left_end_x, ny_narrow_y],
         [ny_taper_right_end_x, ny_narrow_y],
         [ny_taper_right_start_x, plate_y_min],
-        [front_x_max, plate_y_min],
-        [front_x_max, back_taper_start_y],
-        [px_narrow_x, back_taper_end_y],
-        [px_narrow_x, taper_end_y],
-        [front_x_max, taper_start_y],
-        [front_x_max, plate_y_max],
+        [px_edge, plate_y_min],
+        [px_edge, plate_y_max],
         [plate_x_min, plate_y_max],
         [plate_x_min, nx_taper_front_start_y],
         [nx_inset_x, nx_taper_front_end_y],
@@ -771,13 +693,6 @@ module spine_plate_taper_warnings() {
     plate_x_max = SPINE_PLATE_POS[0] + (SPINE_PLATE_SIZE[0] - 2*SPINE_PLATE_MARGIN_X)/2;
     plate_y_min = SPINE_PLATE_POS[1] - SPINE_PLATE_SIZE[1]/2;
     front_x_max = ENCLOSURE_POS[0] + ENCLOSURE_SIZE[0]/2;
-    px_narrow_x = front_x_max - SPINE_PLATE_TAPER_PX_DEPTH;
-    if (abs(px_narrow_x - plate_x_max) > 0.01) {
-        echo(str("WARNING: SPINE_PLATE_TAPER_PX_DEPTH (", SPINE_PLATE_TAPER_PX_DEPTH,
-            ") no longer matches the flush-with-HDD-standoffs width (plate_x_max = ", plate_x_max,
-            ", would need PX_DEPTH = ", front_x_max - plate_x_max,
-            ") - the +X taper's waist is no longer flush with the HDD standoffs."));
-    }
     gan_world_ys  = [for (wp = world_holes(GAN_PSU_POS, GAN_PSU_HOLES, GAN_PSU_ROT[2])) wp[1]];
     gan_y_min_edge = min(gan_world_ys) - GAN_STANDOFF_R;
     ny_narrow_y = plate_y_min + SPINE_PLATE_TAPER_NY_DEPTH;
@@ -801,55 +716,9 @@ module spine_plate_taper_warnings() {
     }
 }
 
-// Real (MB_POS-aware) IO shield cutout footprint [x_min,x_max,z_min,z_max] - mirrors
-// front_panel_upper()'s own cut (the shield STL's bounding box, centered in io[]). Keeps
-// the upper wedges clear of it. Conservative: uses the shield's full bounding box, not its
-// actual (smaller) per-port hole shapes, same as the old groove-bounds check did.
-function io_groove_bounds() =
-    let(
-        mb_bottom = MB_POS[2] - MB_SIZE[2]/2,
-        x0 = MB_POS[0] + FRONT_PANEL_IO_OFFSET[0],
-        x1 = MB_POS[0] + FRONT_PANEL_IO_OFFSET[1],
-        z0 = mb_bottom + FRONT_PANEL_IO_OFFSET[2],
-        z1 = mb_bottom + FRONT_PANEL_IO_OFFSET[3],
-        shield_x = (x0 + x1)/2 - IO_SHIELD_STL_SIZE[0]/2,
-        shield_z = (z0 + z1)/2 - IO_SHIELD_STL_SIZE[1]/2
-    )
-    [shield_x, shield_x + IO_SHIELD_STL_SIZE[0], shield_z, shield_z + IO_SHIELD_STL_SIZE[1]];
 
-// Clamps an upper wedge's Z1 below the IO groove's real Z-range (if X-ranges
-// overlap). Returns z2 (degenerate) if there's no room - caller skips building it.
-function wedge_upper_z1_clamped(z1, z2, x_lo, x_hi) =
-    let(
-        gb = io_groove_bounds(),
-        x_overlaps = (x_hi > gb[0]) && (x_lo < gb[1]),
-        limit = gb[2] - 0.5 // small safety margin below the groove's real floor
-    )
-    (x_overlaps && limit < z1) ? max(z2, limit) : z1;
 
-// Right-triangle gusset in the Y-Z plane, extruded by `thickness` in X from
-// world X = x0. dir=+1 extrudes toward +X, dir=-1 toward -X. Right angle at (y1, z2).
-module reinforcement_wedge(y1, z1, y2, z2, x0, thickness, dir) {
-    x_min = dir > 0 ? x0 : x0 - thickness;
-    x_max = dir > 0 ? x0 + thickness : x0;
-    polyhedron(
-        points = [
-            [x_min, y1, z1],
-            [x_min, y2, z2],
-            [x_min, y1, z2],
-            [x_max, y1, z1],
-            [x_max, y2, z2],
-            [x_max, y1, z2],
-        ],
-        faces = [
-            [0, 2, 1],
-            [3, 4, 5],
-            [0, 1, 4, 3],
-            [1, 2, 5, 4],
-            [2, 0, 3, 5],
-        ]
-    );
-}
+
 
 // 45deg print-support ramp fused to a standoff's +Y side. See README ("Print orientation").
 module standoff_ramp(wx, wy, r, z_from, z_to, plate_z, run) {
@@ -872,24 +741,35 @@ module standoff_ramp(wx, wy, r, z_from, z_to, plate_z, run) {
     }
 }
 
-// Standoffs at [x,y] local hole points, each with a drilled through-hole
-// and a +Y ramp. z_from is always the plate-contact end.
-module standoffs(pos, local_pts, rot_z, r, hole_r, z_from, z_to) {
+// Just the solid pegs+ramps, no holes cut yet - see standoffs()/standoff_holes() below.
+module standoff_pegs(pos, local_pts, rot_z, r, z_from, z_to) {
     h = abs(z_to - z_from);
     run = h * STANDOFF_RAMP_RUN_FACTOR;
     zmin = min(z_from, z_to);
     for (wp = world_holes(pos, local_pts, rot_z)) {
         wx = wp[0];
         wy = wp[1];
-        difference() {
-            union() {
-                translate([wx, wy, zmin])
-                    cylinder(h = h, r = r, $fn = 24);
-                standoff_ramp(wx, wy, r, z_from, z_to, z_from, run);
-            }
-            translate([wx, wy, zmin - 0.5])
-                cylinder(h = h + 1, r = hole_r, $fn = 24);
-        }
+        translate([wx, wy, zmin])
+            cylinder(h = h, r = r, $fn = 24);
+        standoff_ramp(wx, wy, r, z_from, z_to, z_from, run);
+    }
+}
+
+// Just the through-holes, sized to pair with standoff_pegs() above.
+module standoff_holes(pos, local_pts, rot_z, hole_r, z_from, z_to) {
+    h = abs(z_to - z_from);
+    zmin = min(z_from, z_to);
+    for (wp = world_holes(pos, local_pts, rot_z)) {
+        translate([wp[0], wp[1], zmin - 0.5])
+            cylinder(h = h + 1, r = hole_r, $fn = 24);
+    }
+}
+
+// Angled PCB standoffs.
+module standoffs(pos, local_pts, rot_z, r, hole_r, z_from, z_to) {
+    difference() {
+        standoff_pegs(pos, local_pts, rot_z, r, z_from, z_to);
+        standoff_holes(pos, local_pts, rot_z, hole_r, z_from, z_to);
     }
 }
 
@@ -921,18 +801,12 @@ module new_spine(show, col, alpha) {
                     wy = wp[1];
                     translate([wx, wy, plate_bot - 0.5])
                         cylinder(h = plate_t + 1, r = HDD_STANDOFF_HOLE_R, $fn = 24);
-                    // O-ring pocket for the screw head, MB side
-                    translate([wx, wy, plate_top - HDD_ORING_POCKET_DEPTH])
-                        cylinder(h = HDD_ORING_POCKET_DEPTH + 0.5, r = HDD_ORING_POCKET_DIA/2, $fn = 48);
                 }
                 for (wp = world_holes(GAN_PSU_POS, GAN_PSU_HOLES, GAN_PSU_ROT[2])) {
                     wx = wp[0];
                     wy = wp[1];
                     translate([wx, wy, plate_bot - 0.5])
                         cylinder(h = plate_t + 1, r = GAN_STANDOFF_HOLE_R, $fn = 24);
-                    // O-ring pocket for the screw head, MB side (was a countersink)
-                    translate([wx, wy, plate_top - GAN_ORING_POCKET_DEPTH])
-                        cylinder(h = GAN_ORING_POCKET_DEPTH + 0.5, r = GAN_ORING_POCKET_DIA/2, $fn = 48);
                 }
                 // Lightening/vent pattern - see SPINE_LIGHTENING_* above, README.
                 lightening_px_limit = (ENCLOSURE_POS[0] + ENCLOSURE_SIZE[0]/2) - SPINE_LIGHTENING_MARGIN_PX;
@@ -1007,55 +881,24 @@ module new_spine(show, col, alpha) {
             // MB standoffs
             standoffs(MB_POS, MB_HOLES, MB_ROT[2], STANDOFF_R, STANDOFF_HOLE_R, plate_top, mb_bottom);
 
-            // HDD standoffs, plus the 2nd O-ring pocket (standoff-to-HDD side)
+            // HDD + GaN standoffs, all flat-face (no O-ring pocket).
+            // Heights adjusted for O-ring standard compression.
+            // Built as one combined union-then-difference to avoid ramp crossover clipping.
             difference() {
-                standoffs(HDD_POS, HDD_HOLES, HDD_ROT[2], HDD_STANDOFF_R, HDD_STANDOFF_HOLE_R, plate_bot, hdd_top);
-                for (wp = world_holes(HDD_POS, HDD_HOLES, HDD_ROT[2])) {
-                    wx = wp[0];
-                    wy = wp[1];
-                    translate([wx, wy, hdd_top - 0.5])
-                        cylinder(h = HDD_ORING_POCKET_DEPTH + 0.5, r = HDD_ORING_POCKET_DIA/2, $fn = 48);
+                union() {
+                    standoff_pegs(HDD_POS, HDD_HOLES, HDD_ROT[2], HDD_STANDOFF_R, plate_bot, hdd_top + HDD_ORING_POCKET_DEPTH);
+                    
+                        standoff_pegs(GAN_PSU_POS, GAN_PSU_HOLES, GAN_PSU_ROT[2], GAN_STANDOFF_R, plate_bot, gan_top + GAN_ORING_POCKET_DEPTH);
                 }
-            }
-
-            // GaN PSU standoffs, plus the O-ring pocket (standoff-to-PSU side)
-            difference() {
-                standoffs(GAN_PSU_POS, GAN_PSU_HOLES, GAN_PSU_ROT[2], GAN_STANDOFF_R, GAN_STANDOFF_HOLE_R, plate_bot, gan_top);
-                for (wp = world_holes(GAN_PSU_POS, GAN_PSU_HOLES, GAN_PSU_ROT[2])) {
-                    wx = wp[0];
-                    wy = wp[1];
-                    translate([wx, wy, gan_top - 0.5])
-                        cylinder(h = GAN_ORING_POCKET_DEPTH + 0.5, r = GAN_ORING_POCKET_DIA/2, $fn = 48);
-                }
+                standoff_holes(HDD_POS, HDD_HOLES, HDD_ROT[2], HDD_STANDOFF_HOLE_R, plate_bot, hdd_top + HDD_ORING_POCKET_DEPTH);
+                
+                    standoff_holes(GAN_PSU_POS, GAN_PSU_HOLES, GAN_PSU_ROT[2], GAN_STANDOFF_HOLE_R, plate_bot, gan_top + GAN_ORING_POCKET_DEPTH);
             }
 
             front_panel_upper(SHOW_FRONT_PANEL, plate_bot, col, alpha);
             front_panel_lower(SHOW_FRONT_PANEL_LOWER, plate_top, col, alpha);
 
-            // reinforcement wedges - see WEDGE_* above. UPPER wedges get Z1
-            // clamped below the IO groove; skipped entirely if no room is left.
-            px_upper_edge = spine_plate_px_edge(WEDGE_PX_UPPER_Y2) + WEDGE_PX_UPPER_X_OFFSET;
-            px_upper_z1 = wedge_upper_z1_clamped(WEDGE_PX_UPPER_Z1, WEDGE_PX_UPPER_Z2,
-                px_upper_edge - WEDGE_PX_UPPER_THICKNESS, px_upper_edge);
-            if (px_upper_z1 > WEDGE_PX_UPPER_Z2) {
-                reinforcement_wedge(WEDGE_PX_UPPER_Y1, px_upper_z1, WEDGE_PX_UPPER_Y2, WEDGE_PX_UPPER_Z2,
-                    px_upper_edge, WEDGE_PX_UPPER_THICKNESS, -1);
-            } else {
-                echo("WARNING: WEDGE_PX_UPPER skipped - no clearance from the IO groove at the current MB_POS");
-            }
-            reinforcement_wedge(WEDGE_PX_LOWER_Y1, WEDGE_PX_LOWER_Z1, WEDGE_PX_LOWER_Y2, WEDGE_PX_LOWER_Z2,
-                spine_plate_px_edge(WEDGE_PX_LOWER_Y2) + WEDGE_PX_LOWER_X_OFFSET, WEDGE_PX_LOWER_THICKNESS, -1);
-            nx_upper_edge = spine_plate_nx_edge(WEDGE_NX_UPPER_Y2) + WEDGE_NX_UPPER_X_OFFSET;
-            nx_upper_z1 = wedge_upper_z1_clamped(WEDGE_NX_UPPER_Z1, WEDGE_NX_UPPER_Z2,
-                nx_upper_edge, nx_upper_edge + WEDGE_NX_UPPER_THICKNESS);
-            if (nx_upper_z1 > WEDGE_NX_UPPER_Z2) {
-                reinforcement_wedge(WEDGE_NX_UPPER_Y1, nx_upper_z1, WEDGE_NX_UPPER_Y2, WEDGE_NX_UPPER_Z2,
-                    nx_upper_edge, WEDGE_NX_UPPER_THICKNESS, 1);
-            } else {
-                echo("WARNING: WEDGE_NX_UPPER skipped - no clearance from the IO groove at the current MB_POS");
-            }
-            reinforcement_wedge(WEDGE_NX_LOWER_Y1, WEDGE_NX_LOWER_Z1, WEDGE_NX_LOWER_Y2, WEDGE_NX_LOWER_Z2,
-                spine_plate_nx_edge(WEDGE_NX_LOWER_Y2) + WEDGE_NX_LOWER_X_OFFSET, WEDGE_NX_LOWER_THICKNESS, 1);
+
         }
     }
 }
