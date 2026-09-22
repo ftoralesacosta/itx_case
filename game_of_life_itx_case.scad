@@ -7,7 +7,7 @@ SHOW_ENCLOSURE  = false;
 SHOW_ODD        = false;
 
 
-used_components = false;
+used_components = true;
 
 SHOW_MB         = used_components;
 SHOW_HDD        = used_components;
@@ -129,10 +129,10 @@ IO_SHIELD_STL_FILE = "asrock_b860i_io_shield.stl";
 IO_SHIELD_STL_SIZE = [154.75, 40.75]; // [w, h]
 
 // --- C14 Power Socket ---
-USE_SNAP_IN_C14 = false;
+USE_SNAP_IN_C14 = true;
 SHOW_C14_SOCKET = true;
 C14_STL_FILE = USE_SNAP_IN_C14 ? "c14_snap-fit_socket.stl" : "c14_socket.stl";
-C14_POS = [58.0, -2, -7.0]; 
+C14_POS = [70.0, -2, -10.0]; 
 C14_ROT = [270, 0, 0]; 
 C14_SNAP_CUTOUT_W = 28.0;
 C14_SNAP_CUTOUT_H = 20.5;
@@ -264,8 +264,8 @@ GOL_OFF = []; // set a GOL_Grill_*_SHAPE to this to turn that slot off
 
 // HDD ventilation grill (front panel). See README.
 HDD_GRILL_MODE = "diamond"; // "honeycomb" or "diamond"
-HDD_GRILL_W = 101.6; // Width of the HDD grill
-HDD_GRILL_POS_X = -24; // Center X position of the HDD grill
+HDD_GRILL_W = 132; // Width of the HDD grill
+HDD_GRILL_POS_X = -15; // Center X position of the HDD grill
 HDD_GRILL_MARGIN_TOP    = 7;
 HDD_GRILL_MARGIN_BOTTOM = 0;
 
@@ -274,15 +274,19 @@ HDD_GRILL_WALL   = 1.25; // shared by both modes
 HDD_GRILL_DIAMOND_SLOT_W = 4;
 HDD_GRILL_DIAMOND_SLOT_H = 4;
 
+
+// Helper to map intuitive [X, Y] grid steps (horizontal/vertical) into the rotated diamond grid's coordinates.
+function diamond_anchor(x, y) = [x + y, y - x];
+
 // Grill solid anchors.
 GOL_Grill_1_SHAPE  = LIFE_HEX_RING; // "0" ring, +X side
-GOL_Grill_1_ANCHOR = [4, -6];
+GOL_Grill_1_ANCHOR = diamond_anchor(-5, -1); // changed from (5, -1) to (-5, -1) to mirror to -X side
 GOL_Grill_2_SHAPE  = GOL_OFF;
-GOL_Grill_2_ANCHOR = [0, -2];
+GOL_Grill_2_ANCHOR = diamond_anchor(1, -1);
 GOL_Grill_3_SHAPE  = GOL_OFF;
-GOL_Grill_3_ANCHOR = [-6, 6];
+GOL_Grill_3_ANCHOR = diamond_anchor(-6, 0);
 GOL_Grill_4_SHAPE  = GOL_OFF;
-GOL_Grill_4_ANCHOR = [-3, 3];
+GOL_Grill_4_ANCHOR = diamond_anchor(-3, 0);
 
 // Corner screw guard.
 FRONT_PANEL_CORNER_INFILL_X = 13;
