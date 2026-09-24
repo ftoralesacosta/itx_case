@@ -538,6 +538,99 @@ strip of solid material between the GaN PSU's cable cutout and where the
 upper panel piece begins. Placement is pinned to `GAN_PSU_POS` and the
 plate's own Z position; re-check clearance if either moves.
 
+### Fan intake clearance (CPU cooler ↔ side panel)
+
+The CPU cooler is a downdraft unit: the fan sits on top of the fin stack
+and fires **−Z** into the CPU, so the panel above it faces the fan's
+**intake**. Intakes are more sensitive to a nearby surface than exhausts
+— they draw from a hemisphere, and a close wall both starves the outer
+blade span and reflects blade-passing noise.
+
+**The clearance is 5 mm** (`FAN_PANEL_GAP`), measured from the fan's
+intake face to the **inner** face of the panel.
+
+#### Why 5 and not less
+
+The gap and the vent pattern cannot be designed independently. If the
+gap is smaller than the vent's cell size, air arrives at the blades as
+discrete jets rather than a uniform stream. So `cell ≤ gap`. But
+honeycomb open area is `(c/(c+t))²` and the printable web `t` bottoms out
+around 1.0 mm, so shrinking the gap shrinks the cell, which lets the webs
+eat the open area. **Tightening the gap costs you twice.**
+
+Modelling the panel as a thick orifice plate
+(`K = (1/(Cd·σ))² − 1`, `Cd ≈ 0.88` chamfered) against a 92 mm fan moving
+~40 CFM (face velocity 3.5 m/s, dynamic head 7.4 Pa):
+
+| Gap | Max cell | Open area | ΔP sharp | ΔP chamfered |
+|----:|---------:|----------:|---------:|-------------:|
+| 2 mm | 2 mm | 44% | 90 Pa | 41 Pa |
+| 3 mm | 3 mm | 56% | 53 Pa | 23 Pa |
+| 4 mm | 4 mm | 64% | 39 Pa | 16 Pa |
+| **5 mm** | **5 mm** | **69%** | 32 Pa | **12 Pa** |
+| 8 mm | 8 mm | 79% | 23 Pa | 8 Pa |
+| 15 mm | 15 mm | 88% | 17 Pa | 5 Pa |
+
+A low-profile 92 mm fan has roughly **15–25 Pa** of static pressure at
+full speed. Read the chamfered column against that: below ~4 mm the vent
+alone consumes a serious fraction of the fan's entire head. Above ~6 mm
+the curve flattens. **5 mm is the knee** — it buys ~95% of the available
+performance for the least height.
+
+If the panel above the fan were *solid*, with venting only around the
+perimeter, air would have to enter radially and the gap would be the
+entire inlet. Area-matching the annulus to the swept area then needs
+~19 mm. That is the number to use if the vent ever moves off the fan.
+
+#### Vent design rules that go with the 5 mm
+
+- **Cell ≤ 5 mm**, ~1.0 mm webs → ~69% open. Hex, not round-hole punch:
+  a typical punch pattern is only 35–40% open and quietly costs more
+  than several mm of gap would.
+- **Chamfer the intake side of every hole.** Sharp edges give
+  `Cd ≈ 0.6`; a chamfer gives ~0.88, which roughly *halves* the loss
+  (32 Pa → 12 Pa above). On a printed panel this is free geometry and is
+  worth about 2 mm of gap. Skipping it is the usual way a good pattern
+  gets wasted.
+- **Perforate out to ~112 mm square** over the fan (fan diameter + 4×
+  the gap). Air entering outside the fan footprint has to travel
+  sideways through the gap, and that catchment only reaches about 2–3×
+  the gap past the fan perimeter. At 5 mm that is ~1.5× effective area,
+  worth ΔP/2.2. Beyond ~112 mm you are removing material for nothing.
+
+#### What it drives in the model
+
+`FRONT_PANEL_TOP_Z` used to be hard-coded to **55**, measured off the
+reference STL. It is now derived:
+
+```
+MB_PCB_TOP_Z      17.2   = MB_POS[2] − MB_SIZE[2]/2 + MB_PCB_THICK
+CPU_COOLER_HEIGHT 37.0   real, Thermalright low-profile, PCB top → fan top
+CPU_COOLER_TOP_Z  54.2
+FAN_PANEL_GAP      5.0
+FAN_PANEL_INNER_Z 59.2   = FRONT_PANEL_TOP_Z
+```
+
+So the front face grew by **4.2 mm**. It still fits the outer volume
+budget with 1.3 mm to spare (`ENCLOSURE` top = 60.5).
+
+`cooler_clearance_report()` echoes this stack-up on every render and
+warns if the gap drops below 4 mm, if the panel overshoots the enclosure
+budget, or if `MB_SIZE[2]` understates the real cooler height.
+
+> **Assumption to verify:** `CPU_COOLER_FAN_D = 92` (AXP90 class). The
+> gap scales with fan diameter — the table's percentages, not its
+> millimetres, are the portable result. The ΔP figures are a first-order
+> Idelchik orifice model, not CFD; treat the *shape* of the curve and
+> the 5 mm knee as solid and the absolute Pascals as ±40%.
+
+> **Known discrepancy:** `MB_SIZE[2] = 38` puts the MB envelope top at
+> 53.6, which is 0.6 mm *below* the real cooler top of 54.2. Do **not**
+> fix this by editing `MB_SIZE[2]` alone — `mb_bottom` is derived as
+> `MB_POS[2] − MB_SIZE[2]/2`, and `FRONT_PANEL_IO_OFFSET` hangs off
+> `mb_bottom`, so growing the envelope would drag the I/O cutout down
+> with it. Adjust `MB_POS[2]` by half the delta at the same time.
+
 ## Hardware / screws needed
 
 Two different thread standards are used in this build — **M3** everywhere
@@ -649,3 +742,26 @@ here.
 - GaN PSU standoff screw length (16-18mm‡) is a stack-up estimate, not
   verified against real screws - depends on the actual head height once
   hardware is bought (see the hardware table's `‡` note).
+
+
+## Developer Notes & Expanded Code Comments
+
+
+## Developer Notes & Expanded Code Comments
+- **Fit-check ATX PSU**: // Dummy fit-check block, not used elsewhere - HDPLEX 500W GaN AIO ATX (hdplex.com),\n// same POS/ROT slot as the 250W above for a direct size comparison.
+- **M3 clearance with O-ring margin**: // M3 clearance\n// Widened from the shared STANDOFF_R (like HDD_STANDOFF_R) so both O-ring pockets\n// below fit inside the peg with a real wall margin, not just the screw clearance hole.
+- **PSU thermal break O-rings**: // O-ring at both standoff faces (PSU side + screw-head/plate side) as a thermal\n// break from the GaN PSU\'s aluminum body - see README. Light compression on\n// purpose (not a seal): ~10% of GAN_ORING_CS.
+- **Direct Motherboard IO port cutout**: // Precise per-port IO cutout - carved straight into the panel from the real, calipers-\n// measured shield model (asrock_b760m_itx_io_shield.scad/.stl), replacing the old generic\n// rectangle + metal-shield retention collar/groove entirely (no separate insert piece\n// anymore - see README). Centered within the real IO rectangle (io[] below).\n// Must match asrock_b760m_itx_io_shield.scad\'s plate_width/plate_height.
+- **Game of Life grill shapes**: // Game of Life-inspired shapes for GOL_Grill_*_SHAPE below - [di,dj] live-cell\n// offsets on a square lattice. See README ("HDD ventilation grill").
+- **Chevron grill shapes**: // Not still lifes - plain ">"/"<" chevrons, two straight lines sharing a corner\n// cell (the grid\'s own 45deg rotation makes them diagonal). _2/_3 = arm length.
+- **Grill solid anchors**: // "diamond" mode only: up to 4 [SHAPE, ANCHOR] slots kept solid on the grill.\n// ANCHOR is a grid_2d index [i0,j0], lattice step = SLOT+WALL. See README.
+- **Corner screw guard**: // Guard wedge cut out of the HDD grill pattern near the +X/-Z corner screw\n// so it keeps solid material regardless of where the hex tiling lands.
+- **Bounds check**: // Distance from wp to nearest protected footprint (circles [x,y,r], rects\n// [x_min,y_min,x_max,y_max]); 0 if inside. See README.
+- **Grid cell projection**: // World-space protect_pts for a [di,dj] shape anchored at grid_2d index [i0,j0];\n// pitch_x/y and world_rot must match the grid_2d() call this feeds. See README.
+- **PCB clearance bounding box**: // One part\'s standoff+ramp footprints as world-space [protect_pts, protect_rects].\n// Drops standoffs already covered by the flat margin box. See README.
+- **Hexagon grill generator**: // Hex field tiling [w,h], clipped to a straight border. protect_* keep cells\n// over a footprint solid instead of generated. See README ("Hex/grid tiling helpers").
+- **Square grill generator**: // Square grid, used rotated 45deg for "diamond" mode. Same params as honeycomb_2d()\n// above, plus inlay_edge_pts/inlay_scale (subdivide cells near an edge). See README.
+- **Enclosure debug frame**: // Wireframe cage (12 edge rods, no faces) - can\'t occlude anything, sidestepping\n// OpenSCAD\'s transparency-through-boolean limitation.
+- **Spine edge polygon**: // *_edge() above, shifted by margin, as a polyline following the real taper.\n// pad extends past the plate so callers can intersect against a taller/shorter box.
+- **Taper-aware spine outline**: // The plate\'s real (taper-aware) outline polygon - keep in sync with\n// spine_plate_px_edge()/nx_edge()/ny_edge() above.
+- **Angled PCB standoffs**: // Standoffs at [x,y] local hole points, each with a drilled through-hole\n// and a +Y ramp. z_from is always the plate-contact end.

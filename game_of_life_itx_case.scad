@@ -7,7 +7,7 @@ SHOW_ENCLOSURE  = false;
 SHOW_ODD        = false;
 
 
-used_components = true;
+used_components = false;
 
 SHOW_MB         = used_components;
 SHOW_HDD        = used_components;
@@ -34,7 +34,7 @@ MB_ROT  = [0, 0, 0];
 
 /* ---------- HDD (replaces GPU) ---------- */
 HDD_SIZE = [101.6, 146.99, 26.11]; // 3.5" HDD envelope [W, D, H]
-HDD_POS  = [33.38, -78.5, -9.98];
+HDD_POS  = [-30.3, -100, -9.98];
 HDD_ROT  = [0, 0, 0];
 
 /* ---------- ODD (unused placeholder, see README) ---------- */
@@ -43,9 +43,70 @@ ODD_POS  = [30, -70, -50];
 ODD_ROT  = [0, 0, 0];
 
 /* ---------- GaN PSU (HDPLEX 250W GaN AIO ATX) ---------- */
+
 GAN_PSU_SIZE = [170, 55, 25]; // [D, W, H]
-GAN_PSU_POS  = [-48, -90, -10];
+GAN_PSU_POS  = [58.5, -90, -10];
 GAN_PSU_ROT  = [0, 0, 90];
+
+/* ---------- GaN PSU DC output cluster ---------- */
+// HDPLEX puts all four DC output headers - 24-pin (Molex 46207-1024), 8-pin EPS,
+// 8-pin PCIe, 4-pin SATA - on ONE of the two 170x55 faces, clustered within ~30mm
+// of ONE 55mm end, firing perpendicular to that face.
+// In this build that face is -Z (pointing away from the plate, into open air) and
+// the cluster is at the REAR (-Y) end. Consistent with the AC pigtail exiting the
+// opposite (front) end toward the front-panel C14.
+GAN_24PIN_LEN   = 51.0;  // Mini-Fit Jr 12x2 @ 4.2mm pitch - real
+GAN_24PIN_W     = 10.0;  // real
+GAN_24PIN_HDR_H = 11.0;  // header protrusion beyond the PSU face - real, approx
+GAN_24PIN_INSET = 8.0;   // free - 24-pin centre, measured in from the rear end
+
+// derived - do not hand-edit
+MB_PCB_THICK   = 1.6;                                  // real
+MB_PCB_TOP_Z   = MB_POS[2] - MB_SIZE[2]/2 + MB_PCB_THICK;
+GAN_PSU_REAR_Y = GAN_PSU_POS[1] - GAN_PSU_SIZE[0]/2;   // local X (170) is world Y at ROT 90
+GAN_PSU_BOT_Z  = GAN_PSU_POS[2] - GAN_PSU_SIZE[2]/2;
+GAN_24PIN_POS  = [GAN_PSU_POS[0],
+                  GAN_PSU_REAR_Y + GAN_24PIN_INSET,
+                  GAN_PSU_BOT_Z - GAN_24PIN_HDR_H/2];
+
+/* ---------- SC Shift 180 degree adaptors ---------- */
+// Singularity Computers "Shift Motherboard 24pin 180 Degree Adaptor Short",
+// SKU SC-A-180-24-S, USD 24.50. Rigid dual-layer PCB.
+// L52 x W32 x H22 - the 32mm is the LATERAL OFFSET between the two connectors,
+// NOT a length. (The non-"Short" variant is 42 x 52 x 22: same 22mm height,
+// 52mm offset.) One on each header turns the two sockets to face each other.
+//SHOW_GAN_BLOCKS   = SHOW_GAN_PSU;
+SHOW_GAN_BLOCKS   = false;
+SC_ADAPTOR_SIZE   = [52, 32, 22]; // real
+SC_ADAPTOR_OFFSET = 32;           // real - runs along world -Y here
+GAN_BLOCK_ROT     = [0, 0, 0];
+
+// PSU-side: mates onto the down-facing 24-pin, turns it to face UP, offset into
+// -Y so the socket clears the plate's rear edge.
+GAN_BLOCK1_SIZE = SC_ADAPTOR_SIZE;
+GAN_BLOCK1_POS  = [GAN_24PIN_POS[0],
+                   GAN_24PIN_POS[1] - SC_ADAPTOR_SIZE[1]/2,
+                   GAN_PSU_BOT_Z - SC_ADAPTOR_SIZE[2]/2];
+
+// MB-side: mates onto the up-facing MB 24-pin, turns it to face DOWN, landing its
+// socket directly above the PSU adaptor's socket.
+// NOTE: this assumes the MB 24-pin is at MB_24PIN_IMPLIED (echoed below). That
+// position is NOT yet confirmed against the real B860I - see the echo.
+GAN_BLOCK2_SIZE = SC_ADAPTOR_SIZE;
+GAN_BLOCK2_POS  = [GAN_BLOCK1_POS[0],
+                   GAN_BLOCK1_POS[1],
+                   MB_PCB_TOP_Z + SC_ADAPTOR_SIZE[2]/2];
+
+// Where the two sockets meet, and what the board would have to look like for it.
+SC_JUNCTION_Y      = GAN_24PIN_POS[1] - SC_ADAPTOR_OFFSET;
+MB_24PIN_IMPLIED   = [GAN_BLOCK1_POS[0], SC_JUNCTION_Y + SC_ADAPTOR_OFFSET, MB_PCB_TOP_Z];
+SC_CABLE_FREE_SPAN = MB_PCB_TOP_Z - GAN_PSU_BOT_Z;   // socket face to socket face
+
+// 24-pin cables are specified connector-face to connector-face, so the span above
+// IS the cable length to order. Practical floors, by construction - see README:
+SC_MIN_SPAN_FLAT  = 45.0;  // flat/ribbon custom, bends in one plane
+SC_MIN_SPAN_ROUND = 70.0;  // round bundle - the HDPLEX in-box short cable is ~70
+
 
 // Fit-check ATX PSU.
 SHOW_GAN_PSU_500W = false;
@@ -58,17 +119,23 @@ SPINE_PLATE_SIZE = [170.6, 174, 3]; // [w, d, t]
 SPINE_PLATE_MARGIN_X = 0; // X-only inset applied on top of POS/SIZE, each side
 
 // 3 trapezoidal edge tapers (+X, -Y, -X), copied from the reference STL. See README.
-SPINE_PLATE_TAPER_PX_BEFORE = 15;
-SPINE_PLATE_TAPER_PX_RUN = 6.665;
-SPINE_PLATE_TAPER_PX_DEPTH = 5.38; // flush-with-HDD-standoffs target; new_spine() warns on drift
+// Plate's +X edge, before any taper. Single source of truth for the outline, the
+// taper-aware edge functions, and the lightening boundary - see spine_plate_outline().
+SPINE_PLATE_PX_X = MB_POS[0] + MB_SIZE[0]/2 - 2.0; // derived - 2mm inside the MB edge
+SPINE_PLATE_TAPER_PX_BEFORE = 40;
+SPINE_PLATE_TAPER_PX_RUN = 20;
+SPINE_PLATE_TAPER_PX_AFTER = 20;  
+SPINE_PLATE_TAPER_PX_DEPTH = 50; // flush-with-HDD-standoffs target; new_spine() warns on drift
 
-SPINE_PLATE_TAPER_NY_BEFORE = 20;
-SPINE_PLATE_TAPER_NY_RUN = 5;
-SPINE_PLATE_TAPER_NY_DEPTH = 9.0; // flush-with-GaN-standoffs target; new_spine() warns on drift
+SPINE_PLATE_TAPER_NY_BEFORE = 8;
+SPINE_PLATE_TAPER_NY_RUN = 38;
+SPINE_PLATE_TAPER_NY_AFTER = 50;  
+SPINE_PLATE_TAPER_NY_DEPTH = 38.0; // 
 
-SPINE_PLATE_TAPER_NX_BEFORE = 25;
+SPINE_PLATE_TAPER_NX_BEFORE = 15;
 SPINE_PLATE_TAPER_NX_RUN = 30;
-SPINE_PLATE_TAPER_NX_DEPTH = 30; // free - no real hardware to flush against; new_spine() warns if it cuts an MB standoff loose
+SPINE_PLATE_TAPER_NX_AFTER = 90;   
+SPINE_PLATE_TAPER_NX_DEPTH = 70;
 
 
 
@@ -117,8 +184,29 @@ GAN_ORING_POCKET_CLEARANCE = 0.4;
 GAN_ORING_POCKET_DIA   = GAN_ORING_OD + GAN_ORING_POCKET_CLEARANCE;
 GAN_ORING_POCKET_DEPTH = 1.43;
 
+/* ---------- CPU cooler + fan intake clearance ---------- */
+// Downdraft cooler sitting on the board, fan on top firing -Z into the CPU.
+// Depends on MB_PCB_TOP_Z, so this block has to come after the MB derived block.
+CPU_COOLER_HEIGHT = 37.0; // real - Thermalright low-profile, PCB top to fan top
+CPU_COOLER_FAN_D  = 92.0; // real, assumed - AXP90 class. Verify; FAN_PANEL_GAP scales with it.
+
+// Clearance from the fan's intake face to the inner face of the panel above it.
+// 5mm is the knee of the gap-vs-open-area curve for a chamfered honeycomb vent:
+// below it the vent cell size (which must be <= the gap, or the blades see jets)
+// gets small enough that the webs eat the open area and the vent starts consuming
+// a serious fraction of the fan's static pressure. See README "Fan intake clearance".
+FAN_PANEL_GAP = 5.0; // free, but do not go below ~4 without re-running the numbers
+
+// derived - do not hand-edit
+CPU_COOLER_TOP_Z  = MB_PCB_TOP_Z + CPU_COOLER_HEIGHT;
+FAN_PANEL_INNER_Z = CPU_COOLER_TOP_Z + FAN_PANEL_GAP;
+
 /* ---------- front panel ---------- */
-FRONT_PANEL_TOP_Z    = 55; // measured off the reference STL
+// Top edge used to be hard-coded to 55, measured off the reference STL. It is now
+// driven by the fan intake clearance: the top edge IS the plane the side/top panel
+// lands on, so it has to sit FAN_PANEL_GAP above the cooler.
+FRONT_PANEL_TOP_Z_STL = 55;  // measured off the reference STL - kept for reference only
+FRONT_PANEL_TOP_Z     = FAN_PANEL_INNER_Z;
 FRONT_PANEL_THICKNESS = 2.5; // Y depth, front face at Y=0
 
 // MB rear-IO rectangle, offset from MB_POS/mb_bottom so it moves with the board.
@@ -126,18 +214,76 @@ FRONT_PANEL_IO_OFFSET = [-72.01, 86.99, -2.83, 41.67]; // [x_min, x_max, z_min, 
 
 // Direct Motherboard IO port cutout.
 IO_SHIELD_STL_FILE = "asrock_b860i_io_shield.stl";
-IO_SHIELD_STL_SIZE = [154.75, 40.75]; // [w, h]
+IO_SHIELD_STL_SIZE = [155.0, 40.5]; // [w, h] - real, measured off the STL's bounding box.
+// (Was [154.75, 40.75]. The extra 0.25mm of height cut a hairline slot straight
+// across the panel at z~55.3 - invisible while the panel topped out at 55, exposed
+// once FRONT_PANEL_TOP_Z became cooler-driven. See front_panel_upper().)
+// Inset of the complement square used to extract port holes from the shield. Keeps
+// any residual size/tessellation mismatch at the shield's outline from cutting an
+// edge slot. Must stay smaller than the nearest port's distance to the shield edge.
+IO_SHIELD_EDGE_INSET = 1.0; // free
 
 // --- C14 Power Socket ---
-USE_SNAP_IN_C14 = true;
-SHOW_C14_SOCKET = true;
+USE_SNAP_IN_C14 = false;
+SHOW_C14_SOCKET = used_components;
 C14_STL_FILE = USE_SNAP_IN_C14 ? "c14_snap-fit_socket.stl" : "c14_socket.stl";
-C14_POS = [70.0, -2, -10.0]; 
-C14_ROT = [270, 0, 0]; 
+C14_POS = [-52.5, -2, -8.0]; 
+C14_ROT = [270, 180, 0]; 
 C14_SNAP_CUTOUT_W = 28.0;
 C14_SNAP_CUTOUT_H = 20.5;
 C14_SCREW_PITCH = 42.0; 
 C14_SCREW_R = 1.75;
+
+// The pitch runs along world X, NOT Z: with C14_ROT = [270,180,0] the STL's flange
+// holes land at [C14_POS[0] +/- 21, *, C14_POS[2]] (verified by locating the hole
+// rings in the transformed STL). If C14_ROT changes, re-check this axis.
+//
+// Mounting: socket goes in from INSIDE, eared flange against the panel's back face.
+// M3 x 10 90deg countersunk screw from outside -> panel -> flange -> M3 nyloc nut.
+// The flange holes are plain 3.2mm clearance, not tapped, so the nut is required.
+C14_SCREW_CS_DIA   = 6.4; // matches FRONT_PANEL_SCREW_CS_DIA - M3 flat head is ~6.0 nominal
+C14_SCREW_CS_ANGLE = 90;
+module c14_screw_holes() {
+    cs_r     = C14_SCREW_CS_DIA / 2;
+    cs_depth = countersink_depth(C14_SCREW_R, C14_SCREW_CS_DIA, C14_SCREW_CS_ANGLE);
+    for (s = [-1, 1])
+        translate([C14_POS[0] + s*C14_SCREW_PITCH/2, 0, C14_POS[2]]) {
+            rotate([90, 0, 0])
+                cylinder(r = C14_SCREW_R, h = 50, center = true, $fn = 32);
+            // Cone reaches full cs_r exactly AT the outer face (Y=0), so the head
+            // sits flush - not proud. Short cylinder above just cleans the face.
+            translate([0, -cs_depth, 0])
+                rotate([-90, 0, 0])
+                    cylinder(h = cs_depth, r1 = C14_SCREW_R, r2 = cs_r, $fn = 48);
+            rotate([-90, 0, 0])
+                cylinder(h = 1, r = cs_r, $fn = 48);
+        }
+}
+
+// Pocket for the socket's eared mounting flange in the panel's BACK face.
+// The socket's front face is flush with the outside of the case (Y=0) - that is the
+// datum and must not move. c14_solid_tool() already pockets the 2mm front lip, but
+// the eared flange behind it spans Y -5..-2 while the panel's back face is at
+// -FRONT_PANEL_THICKNESS (-2.5): 0.5mm of interference. Rather than shifting the
+// socket, cut the flange's own outline into the back face, floor exactly at the
+// flange's front face, so the socket seats with its front still at Y=0.
+// Outline is sliced from the STL mid-flange (local z = -1.5; flange is local
+// z -3..0), holes closed, then grown by the same 0.3mm fit clearance as the tool.
+// Screw-mount STL only - the snap-in variant has no eared flange.
+C14_FLANGE_LOCAL_Z   = [-3.0, 0.0]; // real - measured off c14_socket.stl
+C14_FLANGE_CLEARANCE = 0.3;         // matches c14_solid_tool()
+module c14_flange_pocket() {
+    if (!USE_SNAP_IN_C14)
+        translate(C14_POS)
+            rotate(C14_ROT)
+                translate([0, 0, C14_FLANGE_LOCAL_Z[0]])
+                    linear_extrude(height = C14_FLANGE_LOCAL_Z[1] - C14_FLANGE_LOCAL_Z[0])
+                        offset(r = C14_FLANGE_CLEARANCE)
+                            offset(delta = -2) offset(r = 2)   // close the screw holes
+                                projection(cut = true)
+                                    translate([0, 0, -(C14_FLANGE_LOCAL_Z[0] + C14_FLANGE_LOCAL_Z[1])/2])
+                                        import(C14_STL_FILE);
+}
 
 
 // Top corner screws (M3 + countersink) and their shell-mating tab slots.
@@ -192,7 +338,9 @@ module front_panel_upper(show, plate_bot, col, alpha) {
                     rotate([90, 0, 0])
                         linear_extrude(height = FRONT_PANEL_THICKNESS + 2.5)
                             difference() {
-                                square(IO_SHIELD_STL_SIZE);
+                                // inset so the shield's own outline never becomes a cut
+                                translate([IO_SHIELD_EDGE_INSET, IO_SHIELD_EDGE_INSET])
+                                    square(IO_SHIELD_STL_SIZE - 2*[IO_SHIELD_EDGE_INSET, IO_SHIELD_EDGE_INSET]);
                                 projection(cut = false)
                                     import(IO_SHIELD_STL_FILE);
                             }
@@ -204,12 +352,8 @@ module front_panel_upper(show, plate_bot, col, alpha) {
 
                 // C14 Mounting Screw Holes (Pitch = 42.0mm)
                 // Punched manually just in case the STL's screw holes don't pierce completely through the panel thickness.
-                translate([C14_POS[0], 0, C14_POS[2] + C14_SCREW_PITCH/2])
-                    rotate([90, 0, 0])
-                        cylinder(r=C14_SCREW_R, h=50, center=true, $fn=32);
-                translate([C14_POS[0], 0, C14_POS[2] - C14_SCREW_PITCH/2])
-                    rotate([90, 0, 0])
-                        cylinder(r=C14_SCREW_R, h=50, center=true, $fn=32);
+                c14_screw_holes();
+                c14_flange_pocket();
             }
     }
 }
@@ -264,9 +408,9 @@ GOL_OFF = []; // set a GOL_Grill_*_SHAPE to this to turn that slot off
 
 // HDD ventilation grill (front panel). See README.
 HDD_GRILL_MODE = "diamond"; // "honeycomb" or "diamond"
-HDD_GRILL_W = 132; // Width of the HDD grill
-HDD_GRILL_POS_X = -15; // Center X position of the HDD grill
-HDD_GRILL_MARGIN_TOP    = 7;
+HDD_GRILL_W = 108; // Width of the HDD grill
+HDD_GRILL_POS_X = 32; // Center X position of the HDD grill
+HDD_GRILL_MARGIN_TOP    = 9;
 HDD_GRILL_MARGIN_BOTTOM = 0;
 
 HDD_GRILL_HEX_R  = 4;
@@ -280,11 +424,11 @@ function diamond_anchor(x, y) = [x + y, y - x];
 
 // Grill solid anchors.
 GOL_Grill_1_SHAPE  = LIFE_HEX_RING; // "0" ring, +X side
-GOL_Grill_1_ANCHOR = diamond_anchor(-5, -1); // changed from (5, -1) to (-5, -1) to mirror to -X side
-GOL_Grill_2_SHAPE  = GOL_OFF;
-GOL_Grill_2_ANCHOR = diamond_anchor(1, -1);
-GOL_Grill_3_SHAPE  = GOL_OFF;
-GOL_Grill_3_ANCHOR = diamond_anchor(-6, 0);
+GOL_Grill_1_ANCHOR = diamond_anchor(5, -1); // changed from (5, -1) to (-5, -1) to mirror to -X side
+GOL_Grill_2_SHAPE  = LIFE_HEX_RING;
+GOL_Grill_2_ANCHOR = diamond_anchor(0, -1);
+GOL_Grill_3_SHAPE  = LIFE_HEX_RING;
+GOL_Grill_3_ANCHOR = diamond_anchor(-5, -1);
 GOL_Grill_4_SHAPE  = GOL_OFF;
 GOL_Grill_4_ANCHOR = diamond_anchor(-3, 0);
 
@@ -430,12 +574,8 @@ module front_panel_lower(show, plate_top, col, alpha) {
 
                 // C14 Mounting Screw Holes (Pitch = 42.0mm)
                 // Punched manually just in case the STL's screw holes don't pierce completely through the panel thickness.
-                translate([C14_POS[0], 0, C14_POS[2] + C14_SCREW_PITCH/2])
-                    rotate([90, 0, 0])
-                        cylinder(r=C14_SCREW_R, h=50, center=true, $fn=32);
-                translate([C14_POS[0], 0, C14_POS[2] - C14_SCREW_PITCH/2])
-                    rotate([90, 0, 0])
-                        cylinder(r=C14_SCREW_R, h=50, center=true, $fn=32);
+                c14_screw_holes();
+                c14_flange_pocket();
                 /* 
                 // GaN PSU power cable opening
                 translate([cable_x - cable_w/2, -FRONT_PANEL_THICKNESS - 1, cable_z - cable_h/2])
@@ -543,13 +683,13 @@ function countersink_depth(r, cs_dia, cs_angle) = (cs_dia/2 - r) / tan(cs_angle/
 // Real (taper-aware) plate edge X at world Y - keep in sync with spine_plate_outline().
 function spine_plate_px_edge(y) =
     let(
-        full  = ENCLOSURE_POS[0] + ENCLOSURE_SIZE[0]/2,
+        full  = SPINE_PLATE_PX_X,
         narrow = full - SPINE_PLATE_TAPER_PX_DEPTH,
         y_max = SPINE_PLATE_POS[1] + SPINE_PLATE_SIZE[1]/2,
         y_min = SPINE_PLATE_POS[1] - SPINE_PLATE_SIZE[1]/2,
         fbe = y_max - SPINE_PLATE_TAPER_PX_BEFORE,
         fte = fbe - SPINE_PLATE_TAPER_PX_RUN,
-        bbe = y_min + SPINE_PLATE_TAPER_PX_BEFORE,
+        bbe = y_min + SPINE_PLATE_TAPER_PX_AFTER,
         bte = bbe + SPINE_PLATE_TAPER_PX_RUN
     )
     (y > fbe) ? full :
@@ -566,7 +706,7 @@ function spine_plate_nx_edge(y) =
         y_min = SPINE_PLATE_POS[1] - SPINE_PLATE_SIZE[1]/2,
         fbe = y_max - SPINE_PLATE_TAPER_NX_BEFORE,
         fte = fbe - SPINE_PLATE_TAPER_NX_RUN,
-        bbe = y_min + SPINE_PLATE_TAPER_NX_BEFORE,
+        bbe = y_min + SPINE_PLATE_TAPER_NX_AFTER,
         bte = bbe + SPINE_PLATE_TAPER_NX_RUN
     )
     (y > fbe) ? full :
@@ -580,10 +720,10 @@ function spine_plate_ny_edge(x) =
         full  = SPINE_PLATE_POS[1] - SPINE_PLATE_SIZE[1]/2,
         narrow = full + SPINE_PLATE_TAPER_NY_DEPTH,
         x_min = SPINE_PLATE_POS[0] - (SPINE_PLATE_SIZE[0] - 2*SPINE_PLATE_MARGIN_X)/2,
-        x_max = MB_POS[0] + MB_SIZE[0]/2 - 2.0,
+        x_max = SPINE_PLATE_PX_X,
         lbe = x_min + SPINE_PLATE_TAPER_NY_BEFORE,
         lte = lbe + SPINE_PLATE_TAPER_NY_RUN,
-        rbe = x_max - SPINE_PLATE_TAPER_NY_BEFORE,
+        rbe = x_max - SPINE_PLATE_TAPER_NY_AFTER,
         rte = rbe - SPINE_PLATE_TAPER_NY_RUN
     )
     (x < lbe) ? full :
@@ -599,7 +739,7 @@ function spine_plate_px_edge_points(margin, y_pad = 50) =
         y_min = SPINE_PLATE_POS[1] - SPINE_PLATE_SIZE[1]/2,
         fbe = y_max - SPINE_PLATE_TAPER_PX_BEFORE,
         fte = fbe - SPINE_PLATE_TAPER_PX_RUN,
-        bbe = y_min + SPINE_PLATE_TAPER_PX_BEFORE,
+        bbe = y_min + SPINE_PLATE_TAPER_PX_AFTER,
         bte = bbe + SPINE_PLATE_TAPER_PX_RUN
     )
     [
@@ -619,7 +759,7 @@ function spine_plate_nx_edge_points(margin, y_pad = 50) =
         y_min = SPINE_PLATE_POS[1] - SPINE_PLATE_SIZE[1]/2,
         fbe = y_max - SPINE_PLATE_TAPER_NX_BEFORE,
         fte = fbe - SPINE_PLATE_TAPER_NX_RUN,
-        bbe = y_min + SPINE_PLATE_TAPER_NX_BEFORE,
+        bbe = y_min + SPINE_PLATE_TAPER_NX_AFTER,
         bte = bbe + SPINE_PLATE_TAPER_NX_RUN
     )
     [
@@ -636,10 +776,10 @@ function spine_plate_nx_edge_points(margin, y_pad = 50) =
 function spine_plate_ny_edge_points(margin, x_pad = 50) =
     let(
         x_min = SPINE_PLATE_POS[0] - (SPINE_PLATE_SIZE[0] - 2*SPINE_PLATE_MARGIN_X)/2,
-        x_max = MB_POS[0] + MB_SIZE[0]/2 - 2.0,
+        x_max = SPINE_PLATE_PX_X,
         lbe = x_min + SPINE_PLATE_TAPER_NY_BEFORE,
         lte = lbe + SPINE_PLATE_TAPER_NY_RUN,
-        rbe = x_max - SPINE_PLATE_TAPER_NY_BEFORE,
+        rbe = x_max - SPINE_PLATE_TAPER_NY_AFTER,
         rte = rbe - SPINE_PLATE_TAPER_NY_RUN
     )
     [
@@ -663,18 +803,23 @@ function spine_plate_outline() =
         plate_x_min = plate_x - plate_w/2,
         plate_y_min = plate_y - plate_d/2,
         plate_y_max = plate_y + plate_d/2,
-        px_edge = MB_POS[0] + MB_SIZE[0]/2 - 2.0,
+        px_edge = SPINE_PLATE_PX_X,
+        px_narrow_x = px_edge - SPINE_PLATE_TAPER_PX_DEPTH,
+        px_taper_front_start_y = plate_y_max - SPINE_PLATE_TAPER_PX_BEFORE,
+        px_taper_front_end_y   = px_taper_front_start_y - SPINE_PLATE_TAPER_PX_RUN,
+        px_taper_back_start_y  = plate_y_min + SPINE_PLATE_TAPER_PX_AFTER,
+        px_taper_back_end_y    = px_taper_back_start_y + SPINE_PLATE_TAPER_PX_RUN,
         
         ny_narrow_y = plate_y_min + SPINE_PLATE_TAPER_NY_DEPTH,
         ny_taper_left_start_x  = plate_x_min + SPINE_PLATE_TAPER_NY_BEFORE,
         ny_taper_left_end_x    = ny_taper_left_start_x + SPINE_PLATE_TAPER_NY_RUN,
-        ny_taper_right_start_x = px_edge - SPINE_PLATE_TAPER_NY_BEFORE,
+        ny_taper_right_start_x = px_edge - SPINE_PLATE_TAPER_NY_AFTER,
         ny_taper_right_end_x   = ny_taper_right_start_x - SPINE_PLATE_TAPER_NY_RUN,
         
         nx_inset_x = plate_x_min + SPINE_PLATE_TAPER_NX_DEPTH,
         nx_taper_front_start_y = plate_y_max - SPINE_PLATE_TAPER_NX_BEFORE,
         nx_taper_front_end_y   = nx_taper_front_start_y - SPINE_PLATE_TAPER_NX_RUN,
-        nx_taper_back_start_y  = plate_y_min + SPINE_PLATE_TAPER_NX_BEFORE,
+        nx_taper_back_start_y  = plate_y_min + SPINE_PLATE_TAPER_NX_AFTER,
         nx_taper_back_end_y    = nx_taper_back_start_y + SPINE_PLATE_TAPER_NX_RUN
     )
     [
@@ -683,7 +828,13 @@ function spine_plate_outline() =
         [ny_taper_left_end_x, ny_narrow_y],
         [ny_taper_right_end_x, ny_narrow_y],
         [ny_taper_right_start_x, plate_y_min],
+        // +X taper (restored - dropped when px_edge moved off the enclosure wall).
+        // Same breakpoints as spine_plate_px_edge(), so outline and lightening agree.
         [px_edge, plate_y_min],
+        [px_edge, px_taper_back_start_y],
+        [px_narrow_x, px_taper_back_end_y],
+        [px_narrow_x, px_taper_front_end_y],
+        [px_edge, px_taper_front_start_y],
         [px_edge, plate_y_max],
         [plate_x_min, plate_y_max],
         [plate_x_min, nx_taper_front_start_y],
@@ -694,6 +845,20 @@ function spine_plate_outline() =
 
 // Drift/connectivity self-checks for the taper DEPTHs above. See README.
 module spine_plate_taper_warnings() {
+    // BEFORE + 2*RUN + AFTER must fit along the edge, or the two tapers cross and
+    // the outline polygon self-intersects.
+    y_len = SPINE_PLATE_SIZE[1];
+    ny_len = SPINE_PLATE_PX_X
+           - (SPINE_PLATE_POS[0] - (SPINE_PLATE_SIZE[0] - 2*SPINE_PLATE_MARGIN_X)/2);
+    for (t = [["PX", SPINE_PLATE_TAPER_PX_BEFORE, SPINE_PLATE_TAPER_PX_RUN, SPINE_PLATE_TAPER_PX_AFTER, y_len],
+              ["NX", SPINE_PLATE_TAPER_NX_BEFORE, SPINE_PLATE_TAPER_NX_RUN, SPINE_PLATE_TAPER_NX_AFTER, y_len],
+              ["NY", SPINE_PLATE_TAPER_NY_BEFORE, SPINE_PLATE_TAPER_NY_RUN, SPINE_PLATE_TAPER_NY_AFTER, ny_len]]) {
+        used = t[1] + 2*t[2] + t[3];
+        if (used > t[4])
+            echo(str("WARNING: SPINE_PLATE_TAPER_", t[0], " BEFORE + 2*RUN + AFTER = ", used,
+                     " exceeds the edge length ", t[4], " by ", used - t[4],
+                     " - the two tapers cross and the plate outline self-intersects."));
+    }
     plate_x_max = SPINE_PLATE_POS[0] + (SPINE_PLATE_SIZE[0] - 2*SPINE_PLATE_MARGIN_X)/2;
     plate_y_min = SPINE_PLATE_POS[1] - SPINE_PLATE_SIZE[1]/2;
     front_x_max = ENCLOSURE_POS[0] + ENCLOSURE_SIZE[0]/2;
@@ -718,6 +883,18 @@ module spine_plate_taper_warnings() {
                 " - this standoff may be disconnected from the plate."));
         }
     }
+    // warn if the +X taper cuts any standoff loose (it really cuts the plate now)
+    for (set = [["MB",  MB_POS,      MB_HOLES,      MB_ROT[2],      STANDOFF_R],
+                ["HDD", HDD_POS,     HDD_HOLES,     HDD_ROT[2],     HDD_STANDOFF_R],
+                ["GaN", GAN_PSU_POS, GAN_PSU_HOLES, GAN_PSU_ROT[2], GAN_STANDOFF_R]])
+        for (wp = world_holes(set[1], set[2], set[3])) {
+            px_edge_here = spine_plate_px_edge(wp[1]);
+            if (wp[0] + set[4] > px_edge_here + 0.01)
+                echo(str("WARNING: SPINE_PLATE_TAPER_PX_DEPTH (", SPINE_PLATE_TAPER_PX_DEPTH,
+                    ") cuts past a ", set[0], " standoff at [", wp[0], ",", wp[1],
+                    "] - standoff +X edge = ", wp[0] + set[4], ", plate +X edge there = ",
+                    px_edge_here, " - this standoff may be disconnected from the plate."));
+        }
 }
 
 
@@ -935,5 +1112,99 @@ enclosure_ref(ENCLOSURE_SIZE, ENCLOSURE_POS, ENCLOSURE_ROT, SHOW_ENCLOSURE, "Gra
 labeled_box(MB_SIZE,  MB_POS,  MB_ROT,  SHOW_MB,  "Blue");
 labeled_box(HDD_SIZE, HDD_POS, HDD_ROT, SHOW_HDD, "Red");
 labeled_box(ODD_SIZE, ODD_POS, ODD_ROT, SHOW_ODD, "Cyan");
-labeled_box(GAN_PSU_SIZE, GAN_PSU_POS, GAN_PSU_ROT, SHOW_GAN_PSU, "Black");
+labeled_box(GAN_PSU_SIZE, GAN_PSU_POS, GAN_PSU_ROT, SHOW_GAN_PSU, "#222222");
+labeled_box(GAN_BLOCK1_SIZE, GAN_BLOCK1_POS, GAN_BLOCK_ROT, SHOW_GAN_BLOCKS, "Yellow");
+labeled_box(GAN_BLOCK2_SIZE, GAN_BLOCK2_POS, GAN_BLOCK_ROT, SHOW_GAN_BLOCKS, "Orange");
 labeled_box(GAN_PSU_500W_SIZE, GAN_PSU_POS, GAN_PSU_ROT, SHOW_GAN_PSU_500W, "Purple", 0.5);
+
+gan_adaptor_report();
+cooler_clearance_report();
+
+// Reports the cooler / fan-intake / panel stack-up and flags anything that would
+// silently eat the intake clearance. See README "Fan intake clearance".
+module cooler_clearance_report() {
+    mb_env_top   = MB_POS[2] + MB_SIZE[2]/2;
+    encl_top     = ENCLOSURE_POS[2] + ENCLOSURE_SIZE[2]/2;
+    budget_slack = encl_top - FRONT_PANEL_TOP_Z;
+
+    echo(str("Cooler stack: PCB top ", MB_PCB_TOP_Z, " + ", CPU_COOLER_HEIGHT,
+             "mm cooler = fan top ", CPU_COOLER_TOP_Z,
+             "; + ", FAN_PANEL_GAP, "mm intake gap => panel inner face ",
+             FAN_PANEL_INNER_Z, "."));
+    echo(str("=> FRONT_PANEL_TOP_Z = ", FRONT_PANEL_TOP_Z,
+             " (was ", FRONT_PANEL_TOP_Z_STL, " off the reference STL, delta ",
+             FRONT_PANEL_TOP_Z - FRONT_PANEL_TOP_Z_STL, "mm)."));
+    echo(str("=> vent honeycomb: cell <= ", FAN_PANEL_GAP,
+             "mm, ~1.0mm webs, CHAMFER the intake side, perforate out to ~",
+             CPU_COOLER_FAN_D + 4*FAN_PANEL_GAP, "mm square over the fan."));
+
+    if (FAN_PANEL_GAP < 4.0) {
+        echo(str("WARNING: FAN_PANEL_GAP ", FAN_PANEL_GAP,
+                 "mm is below the ~4mm floor. The vent cell must shrink to match, ",
+                 "open area collapses, and the panel starts eating the fan's ",
+                 "static pressure head. Re-run the numbers before committing."));
+    }
+    // The MB box is an envelope, not the board - if it is shorter than the real
+    // cooler, every clearance read off the render is optimistic.
+    if (mb_env_top < CPU_COOLER_TOP_Z) {
+        echo(str("WARNING: MB envelope top ", mb_env_top, " is ",
+                 CPU_COOLER_TOP_Z - mb_env_top, "mm BELOW the real cooler top ",
+                 CPU_COOLER_TOP_Z, ". Raise MB_SIZE[2] to ",
+                 MB_SIZE[2] + (CPU_COOLER_TOP_Z - mb_env_top),
+                 " so the render stops implying clearance that is not there."));
+    }
+    if (budget_slack < 0) {
+        echo(str("WARNING: panel top ", FRONT_PANEL_TOP_Z, " overshoots the ",
+                 "enclosure budget top ", encl_top, " by ", -budget_slack,
+                 "mm. Grow ENCLOSURE_SIZE[2] to ",
+                 ENCLOSURE_SIZE[2] - budget_slack, "."));
+    } else {
+        echo(str("=> ", budget_slack, "mm of enclosure budget left above the panel."));
+    }
+}
+
+// Reports the consequences of the SC Shift 180 adaptor pair, and flags the
+// assumptions that are not yet confirmed against real hardware. See README.
+module gan_adaptor_report() {
+    if (SHOW_GAN_BLOCKS) {
+        plate_rear_y = SPINE_PLATE_POS[1] - SPINE_PLATE_SIZE[1]/2;
+        // rearmost extent of the PSU-side adaptor body
+        adaptor_rear_y = GAN_BLOCK1_POS[1] - SC_ADAPTOR_SIZE[1]/2;
+        chase_depth  = plate_rear_y - adaptor_rear_y;
+        mb_rear_y    = MB_POS[1] - MB_SIZE[1]/2;
+
+        echo(str("GaN 24-pin header at [", GAN_24PIN_POS[0], ",", GAN_24PIN_POS[1],
+                 ",", GAN_24PIN_POS[2], "], firing -Z into open air."));
+        echo(str("Adaptor sockets meet at Y = ", SC_JUNCTION_Y,
+                 "; socket-to-socket span = ", SC_CABLE_FREE_SPAN,
+                 "mm - that IS the cable length to order."));
+        echo(str("=> ASSUMES the MB 24-pin sits at [", MB_24PIN_IMPLIED[0], ",",
+                 MB_24PIN_IMPLIED[1], ",", MB_24PIN_IMPLIED[2],
+                 "] - i.e. ", mb_rear_y - MB_24PIN_IMPLIED[1] < 0
+                     ? str(abs(mb_rear_y - MB_24PIN_IMPLIED[1]), "mm in from the board's rear edge")
+                     : "BEYOND the board's rear edge (impossible)",
+                 ". UNCONFIRMED against the real B860I - verify before cutting the chase."));
+        echo(str("=> rear cable chase must reach ", chase_depth,
+                 "mm past the plate's rear edge (plate rear Y = ", plate_rear_y, ")."));
+
+        if (SC_CABLE_FREE_SPAN < SC_MIN_SPAN_FLAT) {
+            echo(str("WARNING: span ", SC_CABLE_FREE_SPAN, "mm is below the ~",
+                     SC_MIN_SPAN_FLAT, "mm floor even for a flat/ribbon custom cable. ",
+                     "Open the PSU-to-board separation by ",
+                     SC_MIN_SPAN_FLAT - SC_CABLE_FREE_SPAN,
+                     "mm, or drop the MB-side adaptor and U-route instead."));
+        } else if (SC_CABLE_FREE_SPAN < SC_MIN_SPAN_ROUND) {
+            echo(str("NOTE: span ", SC_CABLE_FREE_SPAN,
+                     "mm needs a FLAT/ribbon custom cable - too short for a round ",
+                     "bundle (~", SC_MIN_SPAN_ROUND, "mm floor, incl. the HDPLEX in-box short cable). ",
+                     "For a round cable, open the separation by ",
+                     SC_MIN_SPAN_ROUND - SC_CABLE_FREE_SPAN, "mm."));
+        }
+        // The junction must clear the plate, or the cable has nowhere to pass.
+        if (adaptor_rear_y > plate_rear_y) {
+            echo(str("WARNING: the adaptor junction at Y = ", SC_JUNCTION_Y,
+                     " still overlaps the spine plate (rear edge ", plate_rear_y,
+                     ") - the plate needs a notch here, or the PSU must shift -Y."));
+        }
+    }
+}
