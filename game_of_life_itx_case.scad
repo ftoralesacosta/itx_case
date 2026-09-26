@@ -7,7 +7,7 @@ SHOW_ENCLOSURE  = false;
 SHOW_ODD        = false;
 
 
-used_components = true;
+used_components = false;
 
 SHOW_MB         = used_components;
 SHOW_HDD        = used_components;
@@ -34,7 +34,7 @@ MB_ROT  = [0, 0, 0];
 
 /* ---------- HDD (replaces GPU) ---------- */
 HDD_SIZE = [101.6, 146.99, 26.11]; // 3.5" HDD envelope [W, D, H]
-HDD_POS  = [-27.38, -100, -9.98];
+HDD_POS  = [-27.38, -92, -9.98];
 HDD_ROT  = [0, 0, 0];
 
 /* ---------- ODD (unused placeholder, see README) ---------- */
@@ -135,14 +135,14 @@ SPINE_PLATE_TAPER_PX_RUN = 20;
 SPINE_PLATE_TAPER_PX_AFTER = 20;  
 SPINE_PLATE_TAPER_PX_DEPTH = 30; // flush-with-HDD-standoffs target; new_spine() warns on drift
 
-SPINE_PLATE_TAPER_NY_BEFORE = 8;
+SPINE_PLATE_TAPER_NY_BEFORE = 7;
 SPINE_PLATE_TAPER_NY_RUN = 38;
-SPINE_PLATE_TAPER_NY_AFTER = 50;  
+SPINE_PLATE_TAPER_NY_AFTER = 44.4;  
 SPINE_PLATE_TAPER_NY_DEPTH = 38.0; // 
 
-SPINE_PLATE_TAPER_NX_BEFORE = 58;
+SPINE_PLATE_TAPER_NX_BEFORE = 50;
 SPINE_PLATE_TAPER_NX_RUN = 10;
-SPINE_PLATE_TAPER_NX_AFTER = 52;   
+SPINE_PLATE_TAPER_NX_AFTER = 60;   
 SPINE_PLATE_TAPER_NX_DEPTH = 30;
 
 
@@ -153,12 +153,19 @@ STANDOFF_MARGIN = 8;    // fallback corner inset where no real hole spec is know
 STANDOFF_RAMP_RUN_FACTOR = 1.0; // ramp horizontal run = peg height x this (1.0 = 45 degree self-supporting slope)
 
 // Real screw-hole patterns, local [x,y] offsets. See README for sourcing.
-MB_HOLES = [
+// MB_HOLES_RAW's edge insets are 5.84mm (-X) / 6.86mm (+X). Test fit showed the
+// real board sitting ~1mm proud of the -X front-panel face - consistent with
+// those two insets being mirrored (6.86 - 5.84 = 1.02). MB_HOLES_X_SHIFT moves
+// the standoff pattern (NOT the board/panel) so the PCB lands flush with the face.
+// +shift moves standoffs -> +X, which carries the board +X. Set 0 to revert.
+MB_HOLES_X_SHIFT = 1.02;
+MB_HOLES_RAW = [
     [-79.16,  75.47],
     [ 78.14,  52.57],
     [-79.13, -79.13],
     [ 78.14, -79.13],
 ];
+MB_HOLES = [for (p = MB_HOLES_RAW) [p[0] + MB_HOLES_X_SHIFT, p[1]]];
 
 // SFF-8301 Rev 1.9, Fig 3-1 / Table 3-1 (bottom holes, 6-32 UNC):
 //   A5 = 3.18   hole centre in from each long side  (so A4 = 95.25 across)
@@ -238,6 +245,12 @@ IO_SHIELD_STL_SIZE = [155.0, 40.5]; // [w, h] - real, measured off the STL's bou
 // any residual size/tessellation mismatch at the shield's outline from cutting an
 // edge slot. Must stay smaller than the nearest port's distance to the shield edge.
 IO_SHIELD_EDGE_INSET = 1.0; // free
+// Test-fit correction for the IO port cutouts, world Z (+ = up). First print had the
+// ports sitting ~2.0mm (-X end) / ~1.5mm (+X end) ABOVE their cutouts. 2.0 taken from
+// the -X end: it has an MB standoff 9.5mm from the IO edge so the board can't flex
+// there, while the +X end's nearest standoff is ~32mm back (free to deflect toward
+// the cutout, reading low). Moves only the cutouts - not the board or the panel.
+IO_SHIELD_Z_SHIFT = 2.0;
 
 // --- C14 Power Socket ---
 USE_SNAP_IN_C14 = false;
@@ -335,7 +348,7 @@ module panel_screw_hole(x, z, r, cs_dia, cs_angle) {
 // Per-hole [dx, dz] nudge (mm), applied on top of the inset-derived position.
 // World axes: +dx = +X, +dz = up. The HDD grill keep-out follows automatically.
 FRONT_PANEL_MOUNT_OFFSET_UPPER = [[0, 0], [0, 0], [0, 0]]; // top edge:    -X corner, mid-X, +X corner
-FRONT_PANEL_MOUNT_OFFSET_LOWER = [[-1.5, -1.5], [23.5, 0]];         // bottom edge: -X corner, mid-X
+FRONT_PANEL_MOUNT_OFFSET_LOWER = [[-1.5, -1.5], [23., 0]];         // bottom edge: -X corner, mid-X
 
 // Mounting hole [x, z] positions, split per panel. Derived from the enclosure
 // X extent (flush with the MB PCB) and each panel's outer Z edge, plus the
@@ -381,7 +394,7 @@ module front_panel_upper(show, plate_bot, col, alpha) {
         // world Z convention directly under rotate([90,0,0]) below - verified by render
         // (DP ends up above HDMI, matching the ASRock manual/board).
         shield_x = (io[0] + io[1])/2 - IO_SHIELD_STL_SIZE[0]/2;
-        shield_z = (io[2] + io[3])/2 - IO_SHIELD_STL_SIZE[1]/2;
+        shield_z = (io[2] + io[3])/2 - IO_SHIELD_STL_SIZE[1]/2 + IO_SHIELD_Z_SHIFT;
 
         color(col, alpha)
             difference() {
