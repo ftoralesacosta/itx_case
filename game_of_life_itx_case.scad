@@ -7,7 +7,7 @@ SHOW_ENCLOSURE  = false;
 SHOW_ODD        = false;
 
 
-used_components = true;
+used_components = false;
 
 SHOW_MB         = used_components;
 SHOW_HDD        = used_components;
@@ -22,13 +22,16 @@ SPINE_ALPHA     = 0.9;
 ENCLOSURE_ALPHA = 0.55;
 
 /* ---------- enclosure (outer volume budget) ---------- */
-ENCLOSURE_SIZE = [170.5, 178, 94]; // [W, D, H] - W/X: MB_SIZE[0] + 0.5 on -X (see below)
-ENCLOSURE_POS  = [2.75, -90, 13.5]; // X: face -82.5 .. 88; +X flush with the MB PCB
+ENCLOSURE_SIZE = [170.5, 178, 91.83]; // [W, D, H] - W/X: MB_SIZE[0] + 0.5 on -X (see below)
+ENCLOSURE_POS  = [2.75, -90, 14.585]; // X: face -82.5 .. 88; +X flush with the MB PCB
 // The Sep 25 test print (170 @ 3) had the board flush on +X but ~1mm past the face on
 // -X, so the face grew 0.5 on -X only (free, from the test fit). Earlier: [171 @ 2.5],
 // 1mm proud of the MB on -X.
 // Z: H grew 85 -> 94 on -Z only (cable room under the HDD/PSU), free. Top stays at
 // 60.5; bottom (= lower front panel's bottom edge) went -24.5 -> -33.5. Was [85 @ 18].
+// Then trimmed 94 -> 91.83 on -Z: bottom -31.33 = PSU bottom (-20.83) - 10.5 for the
+// 24-pin bend (FRONT_PANEL_PSU_CABLE_GAP; front_panel_lower() warns on drift).
+FRONT_PANEL_PSU_CABLE_GAP = 10.5; // free - 24-pin cable bend room below the PSU
 ENCLOSURE_ROT  = [0, 0, 0];
 ENCLOSURE_EDGE_R = 1.0;
 
@@ -306,22 +309,30 @@ IO_SHIELD_Z_SHIFT = 2.0;
 // between stacks, at the cost of the ribs (the whole port area is a thin skin). (Was
 // a hull of the holes: its diagonal lower corners cut ~2mm into the video + audio
 // stacks' boxes.)
-IO_POCKET_DEPTH  = 1.0; // free - wall left over the ports = FRONT_PANEL_THICKNESS - this
+IO_POCKET_DEPTH  = 1.2; // free - wall left over the ports = FRONT_PANEL_THICKNESS - this (was 1.0; 1.2 = room for 1.5mm)
 IO_POCKET_MARGIN = 2.0; // free - how much bigger than its hole a housing may be, per side
 IO_POCKET_SCREW_WALL = 1.0; // free - min material kept around a mount countersink
+// Extra pocket on the -X end only. The audio stack (the -X-most column, 3 round
+// jacks at X -56.61..-48.61) has a metal housing reaching 2mm past its holes on
+// -X (real, user-measured) - exactly IO_POCKET_MARGIN, i.e. zero air. +2.5 on top
+// -> pocket edge 4.5mm past the jacks. Free; the nearest thing is the -X corner
+// screw's keep-out, ~12mm further out.
+IO_POCKET_EXTRA_NX = 2.5;
 // PCB front edge -> panel back face. Free. Was 2.5 (MB_POS Y -90); now 0.3.
 // MB_POS[1] can't be derived from this (panel is defined after MB_POS) -
 // front_panel_upper() warns if they drift apart.
 MB_PANEL_GAP = 0.3;
-// How far the rear IO connectors stick out past the PCB edge. UNMEASURED
-// placeholder - caliper the furthest one and put it here; the fit check uses it.
+// How far the rear IO connectors stick out past the PCB edge. REAL - calipered
+// Sep 27 at ~1.0mm (furthest housing).
 IO_PORT_OVERHANG = 1.0;
-IO_PORT_CLEARANCE = 0.2; // free - min air between a connector face and the pocket floor
+// free - min air between a connector face and the pocket floor. 0.5 so the
+// connectors get 1.5mm of room total (MB_PANEL_GAP + IO_POCKET_DEPTH), per the user.
+IO_PORT_CLEARANCE = 0.5;
 // --- C14 Power Socket ---
 USE_SNAP_IN_C14 = false;
 SHOW_C14_SOCKET = used_components;
 C14_STL_FILE = USE_SNAP_IN_C14 ? "c14_snap-fit_socket.stl" : "c14_socket.stl";
-C14_POS = [-52.5, -2, -12.0]; // Z free - was -8.0, lowered 4mm
+C14_POS = [-52.5, -2, -9.83]; // Z free - was -8.0, lowered 4mm, then +2.17 with the panel-bottom trim
 C14_ROT = [270, 180, 0]; 
 C14_SNAP_CUTOUT_W = 28.0;
 C14_SNAP_CUTOUT_H = 20.5;
@@ -485,7 +496,7 @@ module front_panel_upper(show, plate_bot, col, alpha) {
         if (mb_gap < 0)
             echo(str("WARNING: PCB front edge (Y ", mb_front_y, ") is INSIDE the front panel."));
         port_room = mb_gap + IO_POCKET_DEPTH;   // PCB edge -> pocket floor
-        if (IO_PORT_OVERHANG + IO_PORT_CLEARANCE > port_room)
+        if (IO_PORT_OVERHANG + IO_PORT_CLEARANCE > port_room + 0.001)
             echo(str("WARNING: IO connectors stick out ", IO_PORT_OVERHANG,
                      "mm past the PCB but there's only ", port_room,
                      "mm to the pocket floor (want ", IO_PORT_CLEARANCE,
@@ -512,6 +523,9 @@ module front_panel_upper(show, plate_bot, col, alpha) {
                         rotate([90, 0, 0])
                             linear_extrude(height = IO_POCKET_DEPTH + 1)
                                 difference() {
+                                    // hull with a -X-shifted copy = the same rectangle, stretched
+                                    // IO_POCKET_EXTRA_NX further on -X only (audio housing)
+                                    hull() for (dx = [0, -IO_POCKET_EXTRA_NX]) translate([dx, 0])
                                     offset(delta = IO_POCKET_MARGIN)
                                         // hull of the column bands = ONE rectangle over
                                         // the whole cluster (no ribs between stacks)
@@ -609,7 +623,7 @@ HDD_GRILL_MODE = "diamond"; // "honeycomb" or "diamond"
 HDD_GRILL_W = 108; // Width of the HDD grill
 HDD_GRILL_POS_X = 32; // Center X position of the HDD grill
 HDD_GRILL_MARGIN_TOP    = 9;
-HDD_GRILL_MARGIN_BOTTOM = 9; // was 0; +9 with the panel's -Z growth, same ~1.46mm edge gap
+HDD_GRILL_MARGIN_BOTTOM = 6.83; // was 0; +9 with the panel's -Z growth, -2.17 with its trim; same ~1.46mm edge gap
 
 HDD_GRILL_HEX_R  = 4;
 HDD_GRILL_WALL   = 1.25; // shared by both modes
@@ -737,7 +751,11 @@ module front_panel_lower(show, plate_top, col, alpha) {
         x_min = ENCLOSURE_POS[0] - ENCLOSURE_SIZE[0]/2;
         x_max = ENCLOSURE_POS[0] + ENCLOSURE_SIZE[0]/2;
         z_min = ENCLOSURE_POS[2] - ENCLOSURE_SIZE[2]/2;
-
+        psu_cable_gap = (GAN_PSU_POS[2] - GAN_PSU_SIZE[2]/2) - z_min;
+        if (abs(psu_cable_gap - FRONT_PANEL_PSU_CABLE_GAP) > 0.01)
+            echo(str("WARNING: panel bottom is ", psu_cable_gap, "mm below the PSU, not FRONT_PANEL_PSU_CABLE_GAP = ",
+                     FRONT_PANEL_PSU_CABLE_GAP, ". Shift ENCLOSURE_SIZE[2]/POS[2] (top fixed) so the bottom is at ",
+                     GAN_PSU_POS[2] - GAN_PSU_SIZE[2]/2 - FRONT_PANEL_PSU_CABLE_GAP, "."));
         cable_w = GAN_CABLE_CUTOUT_W;
         cable_h = GAN_CABLE_CUTOUT_H;
         cable_x = GAN_PSU_POS[0];
