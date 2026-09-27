@@ -162,6 +162,24 @@ STANDOFF_HOLE_R = 1.9;  // M3 clearance radius
 STANDOFF_MARGIN = 8;    // fallback corner inset where no real hole spec is known
 STANDOFF_RAMP_RUN_FACTOR = 1.0; // ramp horizontal run = peg height x this (1.0 = 45 degree self-supporting slope)
 
+// MB standoff heat-set inserts. true = blind insert bore from the standoff top,
+// STANDOFF_HOLE_R clearance continues below it for screw overrun. false = plain
+// clearance bore (thread-forming screws). Defaults are the common M3x5.7 short
+// insert (Ruthex / CNC Kitchen style: knurl OD ~4.6, 4.0mm hole) - check yours.
+MB_HEAT_INSERT          = true;
+MB_INSERT_HOLE_DIA      = 4.0;  // vendor-recommended hole for M3x5.7 (free: match your insert)
+MB_INSERT_LEN           = 5.7;  // insert length (free: match your insert)
+MB_INSERT_DEPTH_EXTRA   = 1.0;  // bore past the insert tip for displaced plastic
+// 1.8 (not the ~1.5 minimum): the spine prints +Y-down, so the standoff axis is
+// horizontal and the hot insert's radial push splits along layer lines - thin
+// walls crack there. 2.0 would be nicer but R=4.0 pokes 0.16mm past the plate's
+// -X edge at the two -X standoffs (edge is 2mm inside the MB, holes 5.84mm in).
+MB_INSERT_MIN_WALL      = 1.8;
+// Effective MB standoff radius: STANDOFF_R unless the insert needs more wall.
+// With the defaults: max(3.5, 2.0 + 1.8) = 3.8 -> 7.6mm OD (under the ~10mm ITX
+// mounting-hole keep-out, so no board-side clash).
+MB_STANDOFF_R = MB_HEAT_INSERT ? max(STANDOFF_R, MB_INSERT_HOLE_DIA/2 + MB_INSERT_MIN_WALL) : STANDOFF_R;
+
 // Real screw-hole patterns, local [x,y] offsets. See README for sourcing.
 // MB_HOLES_RAW's edge insets are 5.84mm (-X) / 6.86mm (+X). Test fit showed the
 // real board sitting ~1mm proud of the -X front-panel face - consistent with
@@ -1065,7 +1083,7 @@ module spine_plate_taper_warnings() {
             ") - the -Y taper's waist is no longer flush with the GaN PSU standoffs."));
     }
     // warn if the -X edge/taper cuts any standoff loose (mirror of the +X check below)
-    for (set = [["MB",  MB_POS,      MB_HOLES,      MB_ROT[2],      STANDOFF_R],
+    for (set = [["MB",  MB_POS,      MB_HOLES,      MB_ROT[2],      MB_STANDOFF_R],
                 ["HDD", HDD_POS,     HDD_HOLES,     HDD_ROT[2],     HDD_STANDOFF_R],
                 ["GaN", GAN_PSU_POS, GAN_PSU_HOLES, GAN_PSU_ROT[2], GAN_STANDOFF_R]])
         for (wp = world_holes(set[1], set[2], set[3])) {
@@ -1077,7 +1095,7 @@ module spine_plate_taper_warnings() {
                     nx_edge_here, " - this standoff may be disconnected from the plate."));
         }
     // warn if the +X taper cuts any standoff loose (it really cuts the plate now)
-    for (set = [["MB",  MB_POS,      MB_HOLES,      MB_ROT[2],      STANDOFF_R],
+    for (set = [["MB",  MB_POS,      MB_HOLES,      MB_ROT[2],      MB_STANDOFF_R],
                 ["HDD", HDD_POS,     HDD_HOLES,     HDD_ROT[2],     HDD_STANDOFF_R],
                 ["GaN", GAN_PSU_POS, GAN_PSU_HOLES, GAN_PSU_ROT[2], GAN_STANDOFF_R]])
         for (wp = world_holes(set[1], set[2], set[3])) {
@@ -1147,6 +1165,23 @@ module standoffs(pos, local_pts, rot_z, r, hole_r, z_from, z_to) {
     }
 }
 
+// Blind heat-set insert bores down from the MB standoff tops. No-op if !MB_HEAT_INSERT.
+module mb_insert_bores(mb_bottom) {
+    if (MB_HEAT_INSERT) {
+        depth = MB_INSERT_LEN + MB_INSERT_DEPTH_EXTRA;
+        plate_bot_z = SPINE_PLATE_POS[2] - SPINE_PLATE_SIZE[2]/2;
+        wall = MB_STANDOFF_R - MB_INSERT_HOLE_DIA/2;
+        if (wall < MB_INSERT_MIN_WALL - 0.001)
+            echo(str("WARNING: MB insert wall is ", wall, "mm (< MB_INSERT_MIN_WALL ", MB_INSERT_MIN_WALL, ")."));
+        if (mb_bottom - depth < plate_bot_z + 1)
+            echo(str("WARNING: MB insert bore bottom Z ", mb_bottom - depth, " leaves < 1mm of plate (plate bottom ",
+                     plate_bot_z, ") - use a shorter insert."));
+        for (wp = world_holes(MB_POS, MB_HOLES, MB_ROT[2]))
+            translate([wp[0], wp[1], mb_bottom - depth])
+                cylinder(h = depth + 0.5, r = MB_INSERT_HOLE_DIA/2, $fn = 32);
+    }
+}
+
 module new_spine(show, col, alpha) {
     if (show) {
         mb_bottom = MB_POS[2] - MB_SIZE[2]/2;
@@ -1196,6 +1231,8 @@ module new_spine(show, col, alpha) {
                     translate([wx, wy, plate_top - 0.001])
                         cylinder(h = 1, r = GAN_SCREW_CS_DIA/2, $fn = 48);
                 }
+                // MB insert bore runs deeper than the peg (6mm) - finish it in the plate.
+                mb_insert_bores(mb_bottom);
                 // Lightening/vent pattern - see SPINE_LIGHTENING_* above, README.
                 lightening_px_limit = (ENCLOSURE_POS[0] + ENCLOSURE_SIZE[0]/2) - SPINE_LIGHTENING_MARGIN_PX;
                 lightening_nx_limit = SPINE_PLATE_NX_X + SPINE_LIGHTENING_MARGIN_NX;
@@ -1226,7 +1263,7 @@ module new_spine(show, col, alpha) {
                 );
                 lightening_box_center = [(lightening_nx_limit + lightening_px_limit)/2, (lightening_ny_limit + lightening_py_limit)/2];
                 // see standoff_lightening_protect() above
-                mb_lightening_protect = standoff_lightening_protect(MB_POS, MB_HOLES, MB_ROT[2], STANDOFF_R, plate_top, mb_bottom,
+                mb_lightening_protect = standoff_lightening_protect(MB_POS, MB_HOLES, MB_ROT[2], MB_STANDOFF_R, plate_top, mb_bottom,
                     lightening_nx_limit, lightening_px_limit, lightening_ny_limit, lightening_py_limit);
                 hdd_lightening_protect = standoff_lightening_protect(HDD_POS, HDD_HOLES, HDD_ROT[2], HDD_STANDOFF_R, plate_bot, hdd_top,
                     lightening_nx_limit, lightening_px_limit, lightening_ny_limit, lightening_py_limit);
@@ -1266,8 +1303,11 @@ module new_spine(show, col, alpha) {
                         }
             }
 
-            // MB standoffs
-            standoffs(MB_POS, MB_HOLES, MB_ROT[2], STANDOFF_R, STANDOFF_HOLE_R, plate_top, mb_bottom);
+            // MB standoffs (+ heat-set insert bore if MB_HEAT_INSERT - see mb_insert_bores())
+            difference() {
+                standoffs(MB_POS, MB_HOLES, MB_ROT[2], MB_STANDOFF_R, STANDOFF_HOLE_R, plate_top, mb_bottom);
+                mb_insert_bores(mb_bottom);
+            }
 
             // HDD + GaN standoffs, all flat-face (no O-ring pocket).
             // Heights adjusted for O-ring standard compression.
