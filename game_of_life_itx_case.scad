@@ -211,19 +211,28 @@ GAN_PSU_HOLES = [
     [ 71, -16.65],
     [-73, -16.65],
 ];
-GAN_STANDOFF_HOLE_R = 1.9; // M3 clearance with O-ring margin.
+GAN_STANDOFF_HOLE_R = 1.9; // M3 clearance (the countersink centres the screw).
 GAN_STANDOFF_R = 5;
 // Peg length below the plate's underside, NOT counting the O-ring gap below it
 // (GAN_ORING_POCKET_DEPTH). Free - was 2.67 (implied). Shortened to 1.0 to lift the
 // PSU 1.67mm; PSU top face ends up 2.43mm under the plate. The O-rings, not the
 // peg, are the thermal break, so this only trades air gap above the PSU.
 GAN_STANDOFF_H = 1.0;
-// PSU thermal break O-rings.
+// PSU thermal break O-ring - ONE per screw now, between the standoff face and the
+// PSU body (-Z side). The screw-head O-ring is gone: see GAN_SCREW_CS_* below.
 GAN_ORING_OD = 7.14; // 9/32"
 GAN_ORING_CS = 1.59; // 1/16"
 GAN_ORING_POCKET_CLEARANCE = 0.4;
 GAN_ORING_POCKET_DIA   = GAN_ORING_OD + GAN_ORING_POCKET_CLEARANCE;
 GAN_ORING_POCKET_DEPTH = 1.43;
+// PSU screws: M3 NYLON 90deg flat head (DIN 965 / ISO 7046), driven from the MB side,
+// head countersunk flush into the plate's top face. Was a pan head on an O-ring: its
+// ~4mm stack sat ~2mm under the MB's solder pins, and a steel screw bridged heat
+// straight past the O-rings. Nylon conducts ~100x less than steel and can't short
+// anything, so the head O-ring isn't needed. 6.4 matches FRONT_PANEL_SCREW_CS_DIA
+// (DIN 965 M3 head is 5.5-6.0, so it lands flush to ~0.45mm under). See README.
+GAN_SCREW_CS_DIA   = 6.4;
+GAN_SCREW_CS_ANGLE = 90;
 
 /* ---------- CPU cooler + fan intake clearance ---------- */
 // Downdraft cooler sitting on the board, fan on top firing -Z into the CPU.
@@ -1179,6 +1188,13 @@ module new_spine(show, col, alpha) {
                     wy = wp[1];
                     translate([wx, wy, plate_bot - 0.5])
                         cylinder(h = plate_t + 1, r = GAN_STANDOFF_HOLE_R, $fn = 24);
+                    // flat-head countersink in the top (MB-side) face - see GAN_SCREW_CS_*.
+                    // Cone hits full diameter exactly AT plate_top, so the head sits flush.
+                    gan_cs_depth = countersink_depth(GAN_STANDOFF_HOLE_R, GAN_SCREW_CS_DIA, GAN_SCREW_CS_ANGLE);
+                    translate([wx, wy, plate_top - gan_cs_depth])
+                        cylinder(h = gan_cs_depth, r1 = GAN_STANDOFF_HOLE_R, r2 = GAN_SCREW_CS_DIA/2, $fn = 48);
+                    translate([wx, wy, plate_top - 0.001])
+                        cylinder(h = 1, r = GAN_SCREW_CS_DIA/2, $fn = 48);
                 }
                 // Lightening/vent pattern - see SPINE_LIGHTENING_* above, README.
                 lightening_px_limit = (ENCLOSURE_POS[0] + ENCLOSURE_SIZE[0]/2) - SPINE_LIGHTENING_MARGIN_PX;
