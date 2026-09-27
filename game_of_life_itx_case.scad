@@ -7,7 +7,7 @@ SHOW_ENCLOSURE  = false;
 SHOW_ODD        = false;
 
 
-used_components = false;
+used_components = true;
 
 SHOW_MB         = used_components;
 SHOW_HDD        = used_components;
@@ -41,7 +41,7 @@ MB_ROT  = [0, 0, 0];
 
 /* ---------- HDD (replaces GPU) ---------- */
 HDD_SIZE = [101.6, 146.99, 26.11]; // 3.5" HDD envelope [W, D, H]
-HDD_POS  = [-27.38, -96, -9.98];
+HDD_POS  = [-27.38, -97, -9.98];
 HDD_ROT  = [0, 0, 0];
 
 /* ---------- ODD (unused placeholder, see README) ---------- */
@@ -55,7 +55,7 @@ GAN_PSU_SIZE = [170, 55, 25]; // [D, W, H]
 // Z: top face sits GAN_STANDOFF_H + GAN_ORING_POCKET_DEPTH below the plate's
 // underside (6.6) -> 6.6 - 1.0 - 1.43 - 12.5 = -8.33. Was -10 (2.67mm pegs).
 // Can't be derived here (plate is defined further down) - new_spine() warns on drift.
-GAN_PSU_POS  = [56.5, -90, -8.33];
+GAN_PSU_POS  = [56.5, -89, -8.33];
 GAN_PSU_ROT  = [0, 0, 90];
 
 /* ---------- GaN PSU DC output cluster ---------- */
@@ -414,7 +414,7 @@ module panel_screw_hole(x, z, r, cs_dia, cs_angle) {
 // World axes: +dx = +X, +dz = up. The HDD grill keep-out follows automatically.
 FRONT_PANEL_MOUNT_OFFSET_UPPER = [[0, 0], [0, 0], [0, 0]]; // top edge:    -X corner, mid-X, +X corner
 // bottom edge: -X corner, mid-X, +X corner. Mid was [23, 0]; now centred on the face.
-FRONT_PANEL_MOUNT_OFFSET_LOWER = [[-1.5, -1.5], [0, 0], [0, 0]];
+FRONT_PANEL_MOUNT_OFFSET_LOWER = [[0, 0], [0, 0], [0, 0]];
 
 // Mounting hole [x, z] positions, split per panel. Derived from the enclosure
 // X extent (flush with the MB PCB) and each panel's outer Z edge, plus the
