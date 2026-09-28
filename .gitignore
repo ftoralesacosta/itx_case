@@ -1,2 +1,9 @@
 .DS_Store
 *.swp
+
+# Debug and temporary scripts
+*.py
+*.svg
+*.png
+test*
+C14 Socket v8.step
