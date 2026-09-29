@@ -4,563 +4,461 @@
 
 A parametric OpenSCAD model built around the ["4.7L Mini ITX case, easily
 printable (2 major pieces)"](https://www.printables.com/model/143897-47l-mini-itx-case-easily-printable-2-major-pieces)
-design. The original case pairs a fish-shaped **spine** (structural divider +
+design. The original pairs a fish-shaped **spine** (structural divider +
 motherboard standoffs) with an outer **shell**. This project keeps the
-spine's general "sandwich" concept — a divider plate between a motherboard
-compartment and a GPU/PSU compartment — but redesigns the lower compartment
-around a different hardware set:
+spine's "sandwich" concept — a divider plate between a motherboard
+compartment and a lower compartment — but redesigns the lower compartment
+around different hardware:
 
-- **GPU → 3.5" HDD**, mounted via damping/grommet screws
-- **Standard ATX/FlexATX PSU → HDPLEX 250W GaN AIO ATX PSU**
+- **GPU → 3.5" HDD**, vibration-isolated on O-rings
+- **ATX/FlexATX PSU → HDPLEX 250W GaN AIO ATX PSU**, thermally isolated on O-rings
+- Board: **ASRock B860I** (Mini-ITX)
 
-The outer shell itself has not been redesigned yet — this file is a layout
-and mounting study for the spine only.
+The outer shell has not been redesigned yet — this is a layout and mounting
+study for the spine only.
+
+## Contents
+
+1. [Files](#files)
+2. [Using the model](#using-the-model)
+3. [Conventions](#conventions)
+4. [Design reference](#design-reference)
+   - [Enclosure and front face](#enclosure-and-front-face)
+   - [Divider plate](#divider-plate)
+   - [Standoffs](#standoffs)
+   - [Front panel — upper (rear I/O)](#front-panel--upper-rear-io)
+   - [Front panel — lower (HDD / PSU side)](#front-panel--lower-hdd--psu-side)
+   - [Front panel mounting screws](#front-panel-mounting-screws)
+   - [CPU cooler and fan intake clearance](#cpu-cooler-and-fan-intake-clearance)
+   - [PSU 24-pin routing (SC Shift adaptors)](#psu-24-pin-routing-sc-shift-adaptors)
+5. [Printing](#printing)
+6. [Hardware and assembly](#hardware-and-assembly)
+7. [Self-checks (console warnings)](#self-checks-console-warnings)
+8. [Known open items](#known-open-items)
 
 ## Files
 
 | File | Purpose |
 |---|---|
-| `game_of_life_itx_case.scad` | The working model — everything described below. |
-| `asrock_b760m_itx_io_shield.scad` | Real, calipers-measured model of the ASRock B760M-ITX/D4 board's rear I/O port layout — developed standalone for fast iteration, then imported/subtracted into the front panel's I/O cutout (see "IO shield cutout" below). Exported as `asrock_b760m_itx_io_shield.stl`, which `game_of_life_itx_case.scad` actually imports. |
-| `basic_layout.scad` | An early snapshot, kept for reference. |
-| `4.7-Fish_-_spine.stl` | Original spine reference geometry (source: printables.com link above). Its front I/O opening dimensions, retention-groove geometry, mounting-hole layout, and outer-edge taper shape were all measured from this file; the new spine is otherwise built from scratch. |
-| `4.7-Fish_-_case.stl` | Original outer shell reference geometry — not yet used in the model. |
-| `4.7-fish-step.step` | Original design in STEP format. |
+| `game_of_life_itx_case.scad` | The working model — everything below. |
+| `c14_tool.scad` | Included by the main file. Cutting tools for the C14 inlet (flange lip + body), with per-axis fit trims. Profiles auto-generated from `c14_socket.stl`. |
+| `asrock_b860i_io_shield.scad` | Caliper-measured rear-I/O port layout for the ASRock B860I. Exported to `asrock_b860i_io_shield.stl`, which the main file imports and cuts into the front panel. |
+| `c14_socket.stl` / `c14_snap-fit_socket.stl` | C14 inlet models (screw-mount / snap-in), selected by `USE_SNAP_IN_C14`. |
+| `4.7-Fish_-_spine.stl` | Original spine reference. Front I/O opening, mounting holes, and taper shape were measured from it. |
+| `4.7-Fish_-_case.stl`, `4.7-fish-step.step` | Original shell / STEP reference — not used in the model yet. |
+| `asrock_b760m_itx_io_shield.scad`/`.stl`, `basic_layout.scad` | Legacy: the previous board's shield model and an early layout snapshot. Not used. |
 
-## Using this file
+## Using the model
 
-- Requires OpenSCAD **≥ 2019.05** (uses `offset()`, needed for the divider
-  plate's lightening pattern).
-- `used_components = false` near the top of `game_of_life_itx_case.scad` toggles
-  `SHOW_MB`/`SHOW_HDD`/`SHOW_GAN_PSU` together — flip it to `true` to show
-  translucent reference boxes for the actual hardware footprints alongside
-  the printed geometry, useful when checking clearances. Leave it `false`
-  for a clean export.
-- `SHOW_SPINE` / `spine_ref()` imports the *original* reference STL
-  (translated/rotated to a comparison pose) — this is how nearly every
-  "real" measurement in this file was taken (DXF projections and
-  cross-sections through it; see the Conventions section below). It's not
-  part of the printed model and should stay `false` unless you're
-  re-measuring something against the reference.
-- `SHOW_ODD` / `ODD_SIZE` / `ODD_POS` is a leftover placeholder for a slim
-  optical drive that was considered early on and never integrated — it's
-  not wired into `new_spine()` at all, just a floating reference box. Safe
-  to ignore or delete; it doesn't affect the real model.
-- To export a printable STL: set `SHOW_NEW_SPINE = true`, everything else
-  (`SHOW_SPINE`, `SHOW_ENCLOSURE`, `SHOW_ODD`, `used_components`) `false`,
-  then **F6 (Render)** before exporting — not F5 (Preview). The divider
-  plate's honeycomb/diamond lightening pattern in particular is slow
-  and can render incorrectly in Preview; always confirm on a full Render.
-- After changing any parameter, **check the console output for `WARNING:`
-  lines** before trusting the result — see Conventions below.
+- Requires OpenSCAD **≥ 2021.01** (function literals are used for the -Y
+  taper breakpoints). The manifold backend (`--backend=manifold`) is much faster.
+- `used_components` toggles `SHOW_MB` / `SHOW_HDD` / `SHOW_GAN_PSU` /
+  `SHOW_C14_SOCKET` together — translucent reference bodies for clearance
+  checks. **Set it `false` before exporting.**
+- `SHOW_SPINE` imports the *original* reference STL in a comparison pose;
+  most "real" measurements were taken against it. Not part of the print.
+- `SHOW_ODD` / `ODD_*` is a leftover slim-optical-drive placeholder, unused.
+- `SHOW_GAN_BLOCKS` shows the SC Shift adaptor bodies and enables their
+  report (see [PSU 24-pin routing](#psu-24-pin-routing-sc-shift-adaptors)).
+- **Export:** `SHOW_NEW_SPINE = true`, everything else (`SHOW_SPINE`,
+  `SHOW_ENCLOSURE`, `SHOW_ODD`, `used_components`) `false`, then a full
+  **Render (F6)** — the lightening pattern is slow and can be wrong in
+  Preview. CLI: `openscad --backend=manifold -D used_components=false -o game_of_life_itx_case.stl game_of_life_itx_case.scad`.
+- After any change, **read the console for `WARNING:` lines** (see
+  [Self-checks](#self-checks-console-warnings)).
 
 ## Conventions
 
-Ground rules this project has settled on, worth knowing before changing
-anything:
+- **Real vs free numbers.** Most dimensions come from a verifiable source
+  (datasheet, spec, manufacturer STEP, caliper, or the reference STL).
+  Others are free design choices. This README records which is which (the
+  code keeps only terse inline notes). When a free parameter is *meant* to
+  track a real value, the model computes that value each render and echoes a
+  `WARNING:` on drift instead of silently overriding you.
+- **Literals that can't be derived.** OpenSCAD evaluates top-level
+  assignments in order, so a few positions are literals that depend on
+  things defined later (`MB_POS[1]`, `GAN_PSU_POS[2]`, `ENCLOSURE_*` Z). Each
+  has a drift warning that prints the value to set.
+- **Manifold ≠ connected.** A watertight union can still contain disjoint
+  bodies. Verify connectivity with STL-intersection probes:
+  `intersection() { import("model.stl"); translate([x,y,z]) cube(s); }` —
+  empty output where there should be material means something is loose.
+- **Naming.** `PX`/`NX`/`PY`/`NY`/`PZ`/`NZ` = +X/-X/+Y/-Y/+Z/-Z edge or side.
+  `UPPER`/`LOWER` = Z (MB side / HDD-PSU side).
+- **Axes.** Front face at Y = 0, the case extends toward -Y. +Z is the MB
+  side of the plate, -Z the HDD/PSU side.
+- **Print orientation matters** — see [Printing](#printing) before assuming
+  a design choice is arbitrary.
 
-- **Real hardware numbers and free/adjustable numbers are both allowed,
-  but always labeled which is which.** Most dimensions here come from a
-  verifiable source (a datasheet, a spec whitepaper, a manufacturer's own
-  STEP file, or direct measurement off the reference STL) — comments say
-  exactly where each one came from and how confident it is. Some
-  parameters (taper `DEPTH`s, wedge geometry, lightening-pattern cell
-  size) have no real-world reference and are intentionally free — those
-  say so explicitly too. When a parameter defaults to a real-hardware
-  value but is still meant to be freely adjustable (e.g. the taper
-  `DEPTH`s), the model computes the real value at render time and
-  **echoes a `WARNING:`** if your number has drifted from it, rather than
-  silently accepting a mismatch or silently overriding your choice.
-- **A manifold render does not mean the parts are actually connected.**
-  OpenSCAD's `--render` "Top level object is a 3D object (manifold)"
-  check only proves the *union* is watertight — a union of two
-  individually-valid but spatially-disjoint solids still reports as
-  manifold. This bit twice during development (a taper cutting a standoff
-  loose from the plate; a wedge left floating past a panel edge) before
-  the STL-intersection-probe method below became standard practice.
-- **Verify real connectivity with STL-intersection probes, not just a
-  render.** Export the model to STL, then `intersection()` it against a
-  small probe cube at a specific coordinate in a throwaway scratch file:
-  `openscad --render -o probe.stl probe.scad` where `probe.scad` is
-  `intersection() { import("model.stl"); translate([x,y,z]) cube([s,s,s]); }`.
-  `Current top level object is empty` at a point that should have
-  material (or real vertex/facet output at a point that should be open
-  air) means something is actually wrong, even if the full-model render
-  reported no error. This is how every taper, wedge, and lightening-mode
-  change in this file has been checked.
-- **After changing any parameter, check the console for `WARNING:`
-  echoes.** The file has several deliberate self-checks built in (taper
-  `DEPTH` mismatches, MB-standoff disconnection risk from the -X taper,
-  wedges skipped for lack of IO-groove clearance) — they only help if
-  someone actually reads the console output after a render.
-- **Naming convention**: `PX`/`NX`/`NY`/`PZ`/`NZ` prefixes/suffixes mean
-  "which edge/side", not an arbitrary label — `PX` = +X edge, `NX` = -X
-  edge, `NY` = -Y edge, and so on, used consistently across the plate
-  tapers, the reinforcement wedges, and the IO groove widen parameters.
-  `UPPER`/`LOWER` on the wedges means Z (toward the MB compartment or the
-  HDD/GaN side), not X.
-- **This part has a specific intended print orientation** (+Y face down,
-  -Y "up") that isn't just a slicer setting — several design choices
-  (standoff ramps, the lightening-pattern mode default) exist because of
-  it. See "Print orientation" below before assuming a parameter choice is
-  arbitrary.
-
-## What's modeled
+## Design reference
 
 <img src="render_with_component_blocks.png" alt="Render with MB (blue), GaN PSU (black), and HDD (red) placeholder blocks shown" width="500">
 
-- **Divider plate**, shaped to match the reference STL's own outline (not a
-  plain rectangle) — trapezoidal taper cuts on all 3 non-I/O edges, flush
-  with the HDD standoffs on one side and the GaN PSU standoffs on another.
-  Standoffs for the motherboard rise from the top face; HDD and GaN PSU
-  standoffs hang from the underside.
-- **Front panel reinforcement wedges** — 4 triangular gussets tying the
-  (vertical) front panel to the (horizontal) divider plate at each of its
-  4 corners, auto-anchored to the plate's real edge so they can't be left
-  floating in open air if the taper parameters change later.
-- **Front I/O panel, upper portion**: a precise per-port I/O cutout carved
-  straight into the panel from a real, calipers-measured shield model
-  (`asrock_b760m_itx_io_shield.scad`/`.stl`) — no separate stamped-metal
-  shield insert or its retention collar/groove anymore, just one flat
-  panel with the actual port holes in it — plus 2 M3 corner mounting
-  screws with shell-mating tab slots.
-- **Front I/O panel, lower portion**: a GaN PSU power-cable opening, the
-  PSU's own front-mounting screws, an HDD honeycomb ventilation grill, a
-  small vertical-bar ventilation grill between the GaN cable cutout and
-  the MB compartment, and 2 more M3 corner mounting screws (matching the
-  upper panel).
-- **Divider plate lightening/ventilation pattern** — a honeycomb or
-  45°-rotated "diamond" cutout pattern through the plate itself, switchable
-  by a single parameter, with automatic clearance around every standoff and
-  the plate's own tapered edges.
-- **Standoff support ramps**: every standoff (MB/HDD/GaN) gets a 45°
-  self-supporting print ramp fused to its +Y side, so the peg doesn't need
-  print supports in this part's real print orientation (see below).
-- **Pass-through screw access**: the HDD and GaN PSU standoffs hang below
-  the plate where a screwdriver can't reach once the drive/PSU are
-  installed. Screws for those two joints go in from the **motherboard side**
-  instead — through an access hole in the plate, down through the standoff's
-  bore, and directly into the HDD's/PSU's own tapped mounting hole.
-- **HDD vibration isolation**: the HDD standoffs mount the drive through a
-  pair of silicone O-rings per screw instead of a rigid plastic-to-metal
-  clamp, so drive vibration doesn't couple straight into the plate (and
-  from there, the rest of the case). See "HDD vibration isolation" under
-  Hardware below for the real numbers and install instructions.
+### Enclosure and front face
 
-Most dimensions and hole patterns are pulled from real sources (datasheets,
-official spec whitepapers, or — for the GaN PSU — the manufacturer's own
-published STEP CAD file) rather than guessed. See the comments in
-`game_of_life_itx_case.scad` for exactly where each number came from and how confident
-it is; a few (the GaN PSU's front-panel cable/mount cutout, most notably)
-are explicitly flagged as simplified placeholders, not verified hardware.
+`ENCLOSURE_SIZE = [170.5, 178, 91.83]` @ `ENCLOSURE_POS = [2.75, -90, 14.585]`
+is the outer volume budget and defines the front face's X and Z extent.
 
-## Print orientation
+- **X: -82.5 .. 88.** +X is flush with the MB PCB. The Sep 25 test print
+  (170 wide @ X 3) had the board flush on +X but ~1 mm past the face on -X,
+  so the face grew 0.5 mm on -X only (free, from the test fit).
+- **Z: -31.33 .. 60.5** (the panel itself tops out at `FRONT_PANEL_TOP_Z` =
+  59.2, see [fan clearance](#cpu-cooler-and-fan-intake-clearance)). The
+  bottom sits `FRONT_PANEL_PSU_CABLE_GAP` = **10.5 mm** below the PSU's bottom
+  face (-20.83) — bend room for the 24-pin cable (free). History: 85 → 94
+  (+9 on -Z for cable room) → 91.83 (trimmed to the 10.5 mm target).
+  `front_panel_lower()` warns if the gap drifts.
+- When the bottom moved, the HDD grill's bottom margin and the C14 moved
+  with it (see [lower panel](#front-panel--lower-hdd--psu-side)); the lower
+  mount screws follow the edge automatically.
 
-This part is intended to print with the spine's **+Y face down on the
-build plate**, build direction running **+Y → -Y** — i.e. **-Y is "up"**
-from the bed's perspective, not the model's own Z axis. This isn't just a
-slicer setting; several design decisions in the model exist *because* of
-this orientation, and would need re-checking if you ever print it flat
-(Z-up) instead:
+### Divider plate
 
-- **Standoff bodies** (the MB/HDD/GaN pegs) are built along the model's Z
-  axis, which is **horizontal** in this orientation — a bare peg would be
-  a horizontal cantilever with nothing under it as it printed outward. The
-  45° `standoff_ramp()` fused to each peg's +Y side solves this: material
-  builds up gradually layer-by-layer *ahead* of the peg's own mass arriving,
-  instead of the peg overhanging with no lead-in. `STANDOFF_RAMP_RUN_FACTOR`
-  controls the ramp's slope (1.0 = 45°, self-supporting). Built as two
-  `hull()`s: the first blends the round peg into a flat, constant-width bar,
-  the second tapers that bar's height down to flush with the plate over `run`.
-- **Standoff/plate screw holes** (MB + GaN M3 bores, HDD 6-32 bore, the HDD
-  O-ring pockets) are likewise Z-axis, so also horizontal in this
-  orientation — but all of them are small enough (3.8–7.64mm diameter) to
-  self-bridge cleanly without dedicated supports; the O-ring pocket
-  (7.64mm) is the largest and the one worth test-printing first.
-- **Front panel screw holes** (corner mounts + GaN front-mount screws) are
-  cut with `rotate([-90,0,0])`, putting their axis along Y — which is
-  **vertical** in this orientation. These print as plain round holes with
-  zero overhang concern regardless of size.
-- **The divider plate's lightening pattern must avoid long straight walls
-  aligned with X.** A layer at a given Y is an X-Z cross-section; any
-  cutout-pattern wall that runs purely along X becomes a single print layer
-  spanning the *entire plate width*, resting only on whatever narrow
-  vertical struts happen to sit below it — a real, confirmed unsupported
-  bridge. This is why `"honeycomb"` (zigzag walls) and `"diamond"`
-  (45°-rotated grid, diagonal walls) are the only two lightening modes —
-  neither has a wall segment running purely along X or Y. A plain
-  axis-aligned grid was tried and dropped for exactly this reason: every
-  row needed print supports in this orientation. See "Divider plate
-  lightening pattern" below.
+#### Position and extent
 
-If you ever reorient this part to print flat (Z-up), none of the above
-constraints apply.
+`SPINE_PLATE_POS = [2.31, -89.5, 8.1]`, `SPINE_PLATE_SIZE = [170.6, 175, 3]`:
+plate Z 6.6 .. 9.6, Y -2.0 .. -177.
 
-## Technical reference
+- **The front edge (Y -2.0) must overlap the panel** (back face at
+  -`FRONT_PANEL_THICKNESS` = -2.5). It once stopped at -3.0; in the print
+  orientation (front face on the bed) the whole spine then started mid-air.
+- **X extent** comes from `SPINE_PLATE_NX_X` / `SPINE_PLATE_PX_X` (derived:
+  2 mm inside each MB edge, 166 mm wide), superseding `POS`/`SIZE` X and
+  `SPINE_PLATE_MARGIN_X`.
 
-Parameter-level detail that's genuinely useful to have somewhere other than
-inline comments — the comments in `game_of_life_itx_case.scad` are the authoritative
-source for the *exact* current values and any edge-case caveats, but the
-*why* behind each system is collected here so it isn't spread across
-hundreds of scattered comment blocks.
+#### Edge tapers
 
-### Divider plate position, size, and taper shape
+The outline copies the reference STL's trapezoidal notches on the three
+non-I/O edges, plus an optional second -Y notch:
 
-`SPINE_PLATE_POS`/`SIZE` are plain, independent `[x,y,z]`/`[w,d,t]` numbers
-— not live formulas — matching every other part's `POS`/`SIZE` in this
-file. `SPINE_PLATE_MARGIN_X` applies an additional, separately-adjustable
-X-only inset on top of those (shrinks the plate symmetrically, recentered);
-`0` means the plate's real edges are exactly `POS`/`SIZE` as given. At the
-current 0 margin, the plate's -X edge is flush with the front panel's own
--X edge, and its +X edge (before tapering) is flush with the HDD standoffs.
+| | `*_BEFORE` | `*_RUN` | `*_AFTER` | `*_DEPTH` |
+|---|---|---|---|---|
+| **+X** `SPINE_PLATE_TAPER_PX_*` | flat run from the front | Y-run of each slope | flat run from the back | X-depth into the plate |
+| **-Y** `SPINE_PLATE_TAPER_NY_*` | flat run from the -X end | X-run of each slope | flat run from the +X end | Y-depth into the plate |
+| **-Y #2** `SPINE_PLATE_TAPER_NY2_*` | same as -Y | same | same | same |
+| **-X** `SPINE_PLATE_TAPER_NX_*` | flat run from the front | Y-run of each slope | flat run from the back | X-depth into the plate |
 
-The plate's outline is **not a plain rectangle** — it copies the reference
-STL's own trapezoidal taper on all 3 non-I/O edges (+X, -Y, -X), each
-controlled by 3 independent parameters:
+- `RUN` values were measured from the reference STL; `BEFORE`/`AFTER`/
+  `DEPTH` are free.
+- `PX_DEPTH` defaults to flush with the HDD standoffs, `NY_DEPTH` to flush
+  with the GaN standoffs' -Y edge; `NY_DEPTH` warns when it no longer is.
+- **NY2** is an independent second notch on the back edge
+  (`SPINE_PLATE_TAPER_NY2_ENABLE`). The -Y edge is the *deeper* of the two
+  cuts at every X, so the notches may sit apart, touch, or overlap. The
+  edge is traced through the breakpoints of both tapers plus any point where
+  their slopes cross (`spine_plate_ny_breaks()`); the outline and the
+  lightening boundary share that list, so they always agree. With NY2
+  disabled the geometry is identical to the single-taper version.
+- **Checks:** `BEFORE + 2·RUN + AFTER` must fit the edge (else the outline
+  self-intersects); every taper warns if it cuts past any MB/HDD/GaN
+  standoff (the -Y check samples the edge across the standoff's whole width,
+  so a slope under it is caught).
+- Keep every taper that faces -Y at **RUN ≥ DEPTH** (≤ 45°) — with -Y up in
+  the print, steeper tapers overhang.
 
-| | `*_BEFORE` | `*_RUN` | `*_DEPTH` |
-|---|---|---|---|
-| **+X** (`SPINE_PLATE_TAPER_PX_*`) | flat full-width run before the taper starts | Y-run of the taper itself | X-depth of the indent, measured in from the front panel edge |
-| **-Y** (`SPINE_PLATE_TAPER_NY_*`) | flat full-depth run before the taper starts | X-run of the taper itself | Y-depth of the indent, measured in from the plate's full back edge |
-| **-X** (`SPINE_PLATE_TAPER_NX_*`) | flat full-width run before the taper starts | Y-run of the taper itself | X-depth of the indent, into the plate from its -X edge |
+#### Lightening pattern
 
-`BEFORE` and `RUN` are mirrored from both ends of their edge (front/back or
-left/right). All 3 `RUN` values were measured directly from the reference
-STL's own outline (DXF projection); `BEFORE` values are free/adjustable
-(no real reference — the reference STL doesn't have a "before" flat run at
-all, it tapers immediately).
+`SPINE_LIGHTENING_MODE` (`"diamond"` default, or `"honeycomb"`) cuts a
+pattern through the plate.
 
-`DEPTH` is where the +X/-Y tapers differ from -X: the +X taper's depth
-defaults to whatever keeps it flush with the **HDD standoffs**, and the -Y
-taper's defaults to flush with the **GaN PSU standoffs** — both are still
-plain, independently-adjustable numbers (not live formulas), but
-`new_spine()` computes the real flush value each render and **echoes a
-warning** if your `DEPTH` has drifted from it (e.g. after moving
-`GAN_PSU_POS` or `HDD_POS`). The -X taper's `DEPTH` has no single real
-value to flush against, so there's no mismatch warning for it — but it has
-a different safety check instead: pushing it too far can cut the plate's
--X edge back past an **MB standoff's own position**, disconnecting it from
-the plate (this happened once during development). `new_spine()` checks
-every MB standoff's own -X extent against the taper's real edge at that
-standoff's Y and echoes a warning if the taper has eaten into it.
-
-### Front panel reinforcement wedges
-
-4 triangular gussets (right-triangle cross-section in the Y-Z plane,
-extruded in X) tying the front panel to the divider plate at its 4
-corners: `WEDGE_PX_UPPER`, `WEDGE_PX_LOWER`, `WEDGE_NX_UPPER`,
-`WEDGE_NX_LOWER`. Naming: `PX`/`NX` = which plate edge it anchors to (+X
-near the HDD standoffs, -X on the opposite side — same convention as the
-taper parameters above); `UPPER`/`LOWER` = Z, reaching up toward the MB
-compartment or down toward the HDD/GaN side.
-
-Each wedge has independent `Y1`/`Z1`/`Y2`/`Z2`/`THICKNESS` — the
-right-angle corner sits at `(Y1, Z2)`, the real physical corner where the
-panel meets the plate. **X position is auto-anchored, not fully free**:
-each wedge sits flush with the plate's real edge at whatever X that edge
-is *at the wedge's own `Y2`* (via `spine_plate_px_edge()`/
-`spine_plate_nx_edge()`), so it stays correctly attached even if the taper
-parameters above change later — a plain fixed X would risk leaving the
-wedge disconnected from the plate if a taper ever moved past it. Each
-wedge also has an `X_OFFSET`, layered on top of that auto-anchor (same
-pattern as `SPINE_PLATE_MARGIN_X`): `0` reproduces the flush position,
-positive shifts toward +X, negative toward -X — regardless of which edge
-the wedge is on. Push it too far and it either buries into the plate
-(harmless) or pulls away from the real edge into open air (disconnects it)
-— worth a render + connectivity check after changing it.
-
-The two `UPPER` wedges additionally get their `Z1` clamped below the IO
-shield cutout's real, `MB_POS`-aware footprint (`io_groove_bounds()`), so a
-moved MB can't leave a wedge anchored to panel material the cutout has
-since hollowed out. If there's no clearance left at all, the wedge is
-skipped rather than built broken — watch the console for a
-`WEDGE_*_UPPER skipped` warning.
-
-### IO shield cutout
-
-The rear I/O opening isn't a generic rectangle anymore — it's carved
-directly from a real, calipers-measured model of the actual board's port
-layout (`asrock_b760m_itx_io_shield.scad`, exported to
-`asrock_b760m_itx_io_shield.stl`), imported and subtracted straight into
-the front panel (`IO_SHIELD_STL_FILE`/`IO_SHIELD_STL_SIZE` in
-`game_of_life_itx_case.scad`). No separate stamped-metal shield insert, no
-retention collar/groove for a folded lip to snap into — the panel itself
-*is* the shield, one continuous flat piece with the real per-port holes in
-it. The shield model is flattened (`projection()`) and re-extruded through
-the panel's own real thickness rather than trusting its own thin (0.25mm)
-export depth, and its solid/void sense has to be inverted before cutting
-— the raw projection is solid plate *with* holes, so the actual panel cut
-is the complement of that (a rectangle minus the projection), keeping only
-the hole shapes. It's centered within the real IO rectangle
-(`FRONT_PANEL_IO_OFFSET`, still real ATX-spec-derived) rather than filling
-it exactly, since the shield model is a bit smaller on purpose (see that
-file's own header for why).
-
-An earlier version of this file used a two-depth retention groove (a snug
-collar the shield's flat face registered against, then a wider recessed
-pocket for a stamped shield's folded-back lip) — that's gone now along
-with the stamped-shield concept it was built for; `io_groove_bounds()`
-still exists (same name, for the wedge-clamping check above) but now
-returns the shield cutout's own bounding box instead.
-
-### Divider plate lightening pattern
-
-`SPINE_LIGHTENING_MODE` (`"honeycomb"` or `"diamond"`) selects between 2
-interchangeable cutout patterns through the plate's own Z thickness — same
-idea as the HDD grill, but cut through the structural divider plate instead
-of a thin panel. A plain axis-aligned `"grid"` mode existed early on and
-was removed - see "Print orientation" above for why (every row would have
-needed print supports in this part's real orientation).
-
-**Where the pattern stops** is independent per side —
-`SPINE_LIGHTENING_MARGIN_PX/NX/PY/NY` (PX/NX/NY = same edges as the taper
-params; PY = the plate's plain, untapered +Y edge). Each is a real,
-independent limit, not layered on a shared floor: any of the 4 can go down
-to 0, or negative (letting the pattern reach past that edge, which the
-plate's own real outline then naturally clips), with no minimum enforced.
-
-That freedom is safe specifically because of *how* the margin is applied:
-as a plain axis-aligned box, not an `offset()` of the plate's own outline.
-That distinction matters for a real reason — an earlier version confined
-the pattern with a uniform `offset()` of the taper-notched outline, and the
-plate's 4 reflex (concave) taper-notch corners turned out to be numerically
-touchy: a diamond/grid line running close to one of those corners could
-leave a razor-thin sliver hole breaching all the way through the plate.
-That turned out to be a numerical artifact of running OpenSCAD's `offset()`
-against those specific corners — not a "needs N mm of clearance" issue —
-so a plain box, which never calls `offset()` at all, sidesteps it entirely
-(confirmed clean at all 4 corners even with every margin pushed down to 5).
-**If you ever reintroduce an outline-following `offset()` here, re-verify
-all 4 corners with a full render (F6), not just Preview** — a
-STL-intersection probe at each corner is the most reliable check.
-
-`SPINE_LIGHTENING_MARGIN_PX/NX/NY` each follow their own taper's real edge
-(`spine_plate_px_edge_points()`/`nx_edge_points()`/`ny_edge_points()`)
-instead of a flat line, staying a constant distance from that taper's
-actual shape through its notch, and automatically re-tracking it if the
-corresponding `SPINE_PLATE_TAPER_*` params are ever retuned. `PY` stays a
-flat line — the plate's own +Y edge isn't tapered, so there's no real edge
-shape for it to follow.
-
-**Every MB/HDD/GaN standoff keeps the pattern off itself and its
-print-support ramp** — not a plain keepout circle. This part prints **+Y
-face down**, so each standoff's ramp (see "Print orientation") needs real
-solid material to land on where it touches the plate, not just clearance
-around the peg. Every pattern cell is tested against the standoff's real
-footprint — the peg's own circle *and* its ramp's rectangular reach — and
-left un-cut (solid) if it overlaps, rather than just trimmed at the edge.
-OpenSCAD has no way to query "did this boolean produce empty geometry" as a
-condition, so this isn't a CSG operation at all: `grid_2d()` and
-`honeycomb_2d()` (`game_of_life_itx_case.scad`) compute each cell's position with plain
-trigonometry (matching whatever rotation/translation the caller is about to
-place the tiling with) *before* generating it, and skip cells whose center
-comes within `apothem - SPINE_LIGHTENING_STANDOFF_PROTECT_FUDGE` of the
-footprint — `apothem` being that cell's own guaranteed-solid inradius, so
-the test only needs a plain point-to-shape distance, not real polygon
-intersection. `standoff_lightening_protect()` builds one part's footprint
-list; `new_spine()` calls it once per part (MB/HDD/GaN) and concatenates
-the results.
-
-That function also drops any standoff whose whole footprint already falls
-outside the margin box on one side — already guaranteed solid by the flat
-margin there, so the per-cell test doesn't need to touch it too. Without
-this, a standoff sitting in (say) the `PX` rim could still trigger the
-per-cell test right at the margin's own boundary, leaving a small stray jog
-in what should be a clean straight edge — confirmed by a facet-count diff
-between the two, not just eyeballing it, since the artifact was small
-enough to miss in a tight crop.
-
-`SPINE_LIGHTENING_STANDOFF_PROTECT_FUDGE` (default 0.3mm) tunes the
-per-cell threshold: 0 protects a cell the moment it *could* touch the
-footprint at all; positive tolerates that many mm of encroachment first
-(e.g. to not bother filling in a cell over a fraction-of-a-mm sliver);
-negative protects even on near-misses. This deliberately isn't efficient —
-the whole cell gets kept solid, not just the overlapping sliver of it, so
-the result reads as clean, full diamonds/hexes/squares around every
-standoff rather than tiny fragments.
-
-**The row of "diamond"-mode cells nearest the -Y margin gets subdivided**
-instead of left full-size (`SPINE_LIGHTENING_NY_INLAY_SCALE`, default 0.4;
-0 disables it and reproduces a plain uniform grid). A full-size diamond
-straddling the NY margin/taper boundary gets sliced by the clip into a
-large, awkward partial shape — hard to print cleanly. Any cut-out
-(non-protected) cell whose own circumscribed radius could reach that real,
-taper-following boundary line gets replaced with a smaller self-similar
-`grid_2d()` tiling at `INLAY_SCALE` (both cell size and wall scale
-uniformly) instead of one big square — so if it does get clipped, only a
-small diamond is cut in half, not a full-size one. This only ever applies
-inside the branch that already decided a cell is a real cut-out; protected
-(standoff) cells are never touched by it. Only `"diamond"` mode has this —
-`honeycomb_2d()` doesn't take these params.
-
-| Mode | Cell size params | Tradeoff |
+| Mode | Cell params | Notes |
 |---|---|---|
-| `"honeycomb"` | `SPINE_HONEYCOMB_HEX_R`, `SPINE_HONEYCOMB_WALL` | Best airflow/weight savings per unit wall thickness; slowest to print (many small islands = many perimeter loops + travel moves). Zigzag walls, no support issue in the real print orientation. |
-| `"diamond"` (default) | `SPINE_GRID_SLOT_W/H`, `SPINE_GRID_WALL` | A plain square grid (`grid_2d()`), rotated 45° so no wall runs purely along X or Y (every one is a short diagonal) — no support needed in the real print orientation. Fewer, bigger cells than honeycomb at the same wall thickness. **Recommended default.** |
+| `"diamond"` | `SPINE_GRID_SLOT_W/H`, `SPINE_GRID_WALL` | Square grid rotated 45° — every wall is a short diagonal, no supports needed. Fewer, larger cells. **Default.** |
+| `"honeycomb"` | `SPINE_HONEYCOMB_HEX_R`, `SPINE_HONEYCOMB_WALL` | Best open area per wall; slowest to print. |
 
-### Hex/grid tiling helpers (`honeycomb_2d()`/`grid_2d()`)
+A plain axis-aligned grid was removed: with -Y up, any wall running purely
+along X becomes a full-width unsupported bridge.
 
-Both (used by the divider plate pattern above and the HDD grill below)
-share the same shape: an oversized virtual field of cells, intersected
-against a `[w,h]` rectangle for a clean straight border, rather than
-clipping individual cells at the boundary.
+- **Where it stops:** `SPINE_LIGHTENING_MARGIN_PX/NX/PY/NY`, independent,
+  may be 0 or negative. PX/NX/NY follow their taper's real edge
+  (`spine_plate_*_edge_points()`); PY is a flat line.
+- **Applied as an axis-aligned box, not an `offset()` of the outline.** An
+  outline `offset()` once left razor-thin through-slivers at the notches'
+  reflex corners (a numerical artefact). If you reintroduce one, re-verify
+  all notch corners with a full render and probes.
+- **Standoff protection:** each standoff's peg *and* its print ramp stay
+  solid. Cells aren't clipped by CSG; `grid_2d()`/`honeycomb_2d()` compute
+  each cell's world position and skip any whose centre comes within
+  `apothem − SPINE_LIGHTENING_STANDOFF_PROTECT_FUDGE` (0.3) of a footprint,
+  so protected cells stay whole. `standoff_lightening_protect()` builds the
+  footprints and drops standoffs already inside the solid margin (otherwise
+  they leave a jog in the margin edge).
+- **-Y inlay:** in diamond mode, cut cells whose circumradius reaches the
+  -Y boundary are subdivided at `SPINE_LIGHTENING_NY_INLAY_SCALE` (0.4; 0 =
+  off), so the clip halves small diamonds instead of big ones.
 
-`honeycomb_2d()` tiles on an enlarged virtual hex radius
-(`r_tile = hex_r + wall/√3`) and cuts the smaller real `hex_r` inside each
-tile — shrinking each of two hexagons sharing a tiling edge by half the
-wall thickness opens a gap of exactly `wall` between them everywhere, not
-just along one axis, which is why the tiling radius isn't simply
-`hex_r + wall`. `grid_2d()` skips this trick — a square grid's wall
-thickness is already uniform on a plain `(slot_w + wall)` pitch.
+#### Tiling helpers
 
-`honeycomb_2d()` generates hexes via `circle($fn=6)` at angle 0 (flat-top,
-pointy left/right), which tiles with alternating **columns** offset
-vertically by half a row — not alternating rows offset horizontally, the
-other hex orientation's tiling.
+`honeycomb_2d()` / `grid_2d()` tile an oversized field and intersect it with
+a `[w, h]` rectangle. `honeycomb_2d()` tiles on `r_tile = hex_r + wall/√3`
+so the gap between neighbours is exactly `wall` in every direction;
+flat-top hexes (`$fn = 6`) tile in columns offset by half a row.
+`world_rot`/`world_translate` map cell centres into the frame the protect
+data was computed in. `grid_2d()` also takes `inlay_edge_pts`/`inlay_scale`
+and recurses once to subdivide a cell near that polyline.
 
-Both take the same `protect_pts`/`protect_rects`/`protect_fudge`/
-`world_rot`/`world_translate` params — see "Divider plate lightening
-pattern" above for what they do; `world_rot`/`world_translate` only exist
-to map each cell's local center into the same world space the protect data
-was computed in (defaults leave the tiling a plain, unprotected shape).
+### Standoffs
 
-`grid_2d()` additionally takes `inlay_edge_pts`/`inlay_scale` (see the -Y
-row subdivision described above). `point_seg_dist()`/`point_polyline_dist()`
-give the world-space distance from a cell center to that boundary polyline,
-the same "how close is this cell to X" idea as `lightening_protect_dist()`
-but against a line instead of circles/rects. When a cell is close enough
-(within its own circumscribed radius of the line), `grid_2d()` calls itself
-once to tile that cell's own `[slot_w,slot_h]` footprint with smaller
-`inlay_scale`-sized cells instead of emitting one square — no separate
-subdivision primitive needed.
+All standoffs are built along Z, which is **horizontal** as printed. Each
+gets a 45° `standoff_ramp()` on its +Y side (`STANDOFF_RAMP_RUN_FACTOR`, 1.0
+= 45°) so it grows out of the plate without supports.
 
-### HDD ventilation grill (front panel)
+#### Motherboard (M3, heat-set inserts)
 
-`HDD_GRILL_MODE` (`"honeycomb"` or `"diamond"`) picks the pattern, sized
-around the HDD's own front-face footprint with 4 independent margins
-(`HDD_GRILL_MARGIN_LEFT/RIGHT/TOP/BOTTOM`) rather than one shared value —
-lets the boundary be pushed unevenly (e.g. more clearance along the top
-than the bottom). `HDD_GRILL_WALL` is the wall thickness for **either**
-mode; cell size is per-mode: `"honeycomb"` uses `HDD_GRILL_HEX_R`,
-`"diamond"` uses its own independent `HDD_GRILL_DIAMOND_SLOT_W/H` (not
-tied to the divider plate's `SPINE_GRID_SLOT_W/H` — this grill isn't
-structural, so it can run a finer/coarser pattern than the plate) via a
-plain rotated `grid_2d()`, oversized then clipped to the grill's own
-`[grill_w, grill_h]` rectangle the same way `new_spine()` clips its own
-diamond field. `FRONT_PANEL_CORNER_INFILL_X/Z` cuts a guard wedge out of
-the pattern itself (either mode) near the +X/-Z corner screw, guaranteeing
-solid material around that screw regardless of where the
-tiling's walls happen to land.
+- **Holes** (`MB_HOLES_RAW`): standard mITX pattern. Edge insets are 5.84 mm
+  (-X) / 6.86 mm (+X). `MB_HOLES_X_SHIFT` moves only the standoff pattern
+  (and so the board), not the panel; it is 0 = the Sep 25 print, where +X
+  sat flush. The ~1 mm -X overhang was fixed by widening the face instead
+  (1.02 was never printed and would push +X ~1 mm proud).
+- **Height:** plate top 9.6 → PCB underside 15.6 (6 mm).
+  `MB_POS[1]` = -`FRONT_PANEL_THICKNESS` - `MB_PANEL_GAP` - 85 = -87.8
+  (PCB edge 0.3 mm behind the panel; was -90 / 2.5 mm).
+- **Heat-set inserts** (`MB_HEAT_INSERT = true`, default): a blind bore of
+  `MB_INSERT_HOLE_DIA` (4.0) × `MB_INSERT_LEN + MB_INSERT_DEPTH_EXTRA`
+  (5.7 + 1.0) from the standoff top, for a common M3×5.7 insert (Ruthex /
+  CNC Kitchen style, knurl OD ~4.6). The M3 clearance bore
+  (`STANDOFF_HOLE_R` 1.9) continues below it. The bore is deeper than the
+  6 mm peg, so it is also cut into the plate (bottom Z 8.9).
+- **Wall:** `MB_STANDOFF_R = max(STANDOFF_R, hole/2 + MB_INSERT_MIN_WALL)` =
+  max(3.5, 2.0 + 1.8) = **3.8 mm** (7.6 OD; still inside the ~10 mm ITX
+  mounting-hole keep-out). 1.8 rather than the usual ~1.5 because the
+  insert's radial push acts across layer lines in this orientation. 2.0
+  would put the two -X standoffs 0.16 mm past the plate edge (the edge is
+  2 mm inside the MB, the holes 5.84 mm in). With inserts off, the
+  standoffs revert to 3.5 mm with a plain clearance bore.
 
-**`"diamond"` mode only:** up to 4 independent shapes are kept solid
-(uncut) on the grill — decorative, not structural or airflow-related.
-Each slot is a `[SHAPE, ANCHOR]` pair, `GOL_Grill_1_SHAPE`/
-`GOL_Grill_1_ANCHOR` through `_4_`. Set `SHAPE` to `GOL_OFF` to turn that
-slot off explicitly (this is the intended way - `ANCHOR = []` also
-disables a slot, kept only so an old anchor value can be commented out
-without touching `SHAPE`). Otherwise `SHAPE` is one of the patterns below
-(`[di,dj]` live-cell offset lists, defined just above `HDD_GRILL_MODE`).
+#### HDD (6-32 UNC, O-ring isolated)
 
-`LIFE_*` are silhouettes of the named Game of Life still lifes, not exact
-copies: `LIFE_BLOCK` (2×2, simplest - a solid square, so it's the one
-exact copy, already fully edge-connected on its own), `LIFE_BEEHIVE`
-(hexagonal, 10 cells), `LIFE_POND` (12 cells, a square ring/"0"). The
-real BEEHIVE/POND still lifes rely on diagonal (Moore) adjacency for
-their Game of Life stability, which - like the arrows below - only
-touches at a single corner point once rendered as solid grid cells, not
-a full edge, and reads as a thin, weak pinch there rather than a joined
-shape. BEEHIVE/POND each have one bridge cell added at every such
-diagonal junction (toward the shape's *outside*, not into its hollow) so
-every cell shares a full edge with its neighbor; this means they're no
-longer verified-stable if actually simulated, but the added cells keep
-the silhouette recognizable while making it print/render as one solid,
-clearly joined shape rather than corner-connected fragments.
+- **Holes** (SFF-8301 Rev 1.9, Fig 3-1 / Table 3-1): A5 = 3.18 in from each
+  long side (95.25 across); A7 = 41.28 from the connector end (-Y) to the
+  first pair; A13 = 76.20 from *that pair* to the far pair (A6 = 44.45 for
+  drives with only the middle pair). Seagate Exos uses A7 + A13 → a
+  95.25 × 76.20 rectangle. (A13 was once wrongly measured from the drive
+  end, putting the second pair only 34.92 mm behind the first.)
+- `HDD_STANDOFF_R` 5, bore `HDD_STANDOFF_HOLE_R` 2.3, O-ring pocket
+  `HDD_ORING_POCKET_DEPTH` 1.56 (~12.5% compression of AS568-007).
+- **Pass-through access:** screws go in from the MB side, through the
+  plate and standoff, into the drive's own threads.
 
-`LIFE_HEX_RING` (6 cells) is BEEHIVE's own hex outline again, but this
-time deliberately left *without* the bridge cells - a second, hex-shaped
-"0" distinct from POND's square one. It keeps the thin corner-touch
-joints described above (a deliberate choice for this shape, not an
-oversight); everywhere else on this grill favors the bridged/joined
-version, so treat this one as the exception if you're looking for a
-model of "how not to do it."
+#### GaN PSU (M3 nylon flat heads, O-ring thermal break)
 
-`ARROW_*` are **not** still lifes or any real Life
-pattern — just plain `>`/`<` chevrons for decoration: two straight
-index-space lines, one along each grid axis, sharing a corner cell.
-`grid_2d()`'s cells are already tiled on a 45°-rotated square lattice, so
-a plain straight run of cells along either axis *already* renders as a
-diagonal line of diamonds once rotated — no diagonal stepping needed in
-the index data itself. Two such lines meeting at a shared corner render
-as two diagonal lines meeting at a clean point, i.e. a chevron, with the
-corner cell keeping them solidly joined (every cell in each line shares a
-full edge with its neighbor, not just a corner touch). `ARROW_GT_2`/
-`ARROW_LT_2` have 2-cell arms (5 cells total, including the shared
-corner); `ARROW_GT_3`/`ARROW_LT_3` have 3-cell arms (7 cells total).
+- **Holes** (`GAN_PSU_HOLES`) from HDPLEX's STEP ("same as HDPLEX 200W /
+  400W ACDC"). Screw sites (world) X 39.85 / 73.15, Y -18 / -162 — all under
+  the MB.
+- **Stack:** plate underside 6.6 → peg `GAN_STANDOFF_H` **1.0** (free; was
+  2.67, shortened to lift the PSU) → O-ring gap `GAN_ORING_POCKET_DEPTH`
+  1.43 → PSU top. So `GAN_PSU_POS[2]` = 6.6 − 1.0 − 1.43 − 12.5 = **-8.33**
+  (a literal; `new_spine()` warns if it drifts from `GAN_STANDOFF_H`). The
+  O-rings, not the peg, are the thermal break, so the short peg only trades
+  air gap above the PSU.
+- **Countersink:** `GAN_SCREW_CS_DIA` 6.4 × `GAN_SCREW_CS_ANGLE` 90° in the
+  plate's top face, full diameter exactly at the surface so the head sits
+  flush (a DIN 965 M3 head is 5.5–6.0, so it lands flush to ~0.45 mm under).
+  It prints as a horizontal 45° cone. Bore `GAN_STANDOFF_HOLE_R` 1.9; the
+  countersink centres the screw.
+- **PSU DC outputs:** all four headers (24-pin Molex 46207-1024, 8-pin EPS,
+  8-pin PCIe, 4-pin SATA) are on one 170×55 face within ~30 mm of one end.
+  Here that face is -Z and the cluster is at the rear (-Y); the AC pigtail
+  exits the front toward the C14.
 
-Only slot 1 (`LIFE_HEX_RING`, +X side) is currently active; slots 2-4 are
-off. Every other `LIFE_*`/`ARROW_*` pattern is still defined and
-available - set any `GOL_Grill_N_SHAPE` to one of them to use it. This
-changes often during tuning - treat the code's own `GOL_Grill_*` values
-as the source
-of truth over this paragraph if they ever disagree.
+### Front panel — upper (rear I/O)
 
-`ANCHOR` is a `grid_2d()` lattice index `[i0,j0]` in the *pre-rotation*
-square grid — adjacency there is what Game of Life actually cares about,
-the 45° rotation "diamond" mode applies is just a cosmetic render
-transform on top, not a change to which cells are neighbors — with
-lattice step `HDD_GRILL_DIAMOND_SLOT_W/H + HDD_GRILL_WALL`. The default
-anchors were each picked by rotating a target on-grill position back into
-that lattice (pond +X side, loaf -X side, the two arrows spread across
-the center) and rounding to the nearest index; expect to iterate by trial
-render if you move one, since the index space isn't the same as the
-rendered space, and check the *whole* shape's extent, not just its
-anchor corner — a shape whose corner is safely on-grill can still have
-cells further out that land past the grill's real edge, where there's no
-hole to protect in the first place (silently doing nothing there rather
-than erroring), which is exactly the kind of thing a facet/genus-count
-diff against a known-good render (see "Divider plate lightening pattern"
-above for why that's the reliable check) will catch and eyeballing won't
-always. Implementation: `life_pattern_protect_pts()`
-(`game_of_life_itx_case.scad`) converts a still life's `[di,dj]` live-cell offsets
-into zero-radius world-space `protect_pts` at exactly those cells' real
-rendered positions — reusing `grid_2d()`'s existing standoff-protection
-mechanism (see "Divider plate lightening pattern" above) to leave
-precisely those cells solid, nothing more. The 4 slots are collected into
-one list and flattened with a single list comprehension in
-`front_panel_lower()` — trivial to extend to a 5th slot if wanted.
+`FRONT_PANEL_THICKNESS` = 2.5 (front face Y = 0). Spans the plate bottom
+to `FRONT_PANEL_TOP_Z`.
 
-### Front panel ventilation grill (MB ↔ GaN PSU airflow)
+#### Port cutout
 
-A separate small row of vertical bars (`FRONT_VENT_POS/SIZE`,
-`FRONT_VENT_SLOT_W`, `FRONT_VENT_WALL`) cut straight through the **front
-panel's** Y thickness — not the divider plate — sitting in the one clear
-strip of solid material between the GaN PSU's cable cutout and where the
-upper panel piece begins. Placement is pinned to `GAN_PSU_POS` and the
-plate's own Z position; re-check clearance if either moves.
+The panel is the I/O shield: the port holes come straight from
+`asrock_b860i_io_shield.stl`, flattened with `projection()` and extruded
+through the full panel thickness (the STL's own 0.25 mm depth isn't
+trusted).
 
-### Fan intake clearance (CPU cooler ↔ side panel)
+- The projection is solid *with* holes, so the cut is its complement inside
+  a square inset by `IO_SHIELD_EDGE_INSET` (1.0) — the inset keeps the
+  shield outline itself from cutting a slot; it must stay smaller than the
+  nearest port's distance to the shield edge.
+- `IO_SHIELD_STL_SIZE = [155.0, 40.5]` must equal the STL's bounding box.
+  (It was [154.75, 40.75]; the extra 0.25 mm cut a hairline slot across the
+  panel at Z ≈ 55.3, hidden until the panel grew above 55.)
+- It is centred in the ATX-derived I/O rectangle `FRONT_PANEL_IO_OFFSET`
+  (`[x_min, x_max, z_min, z_max]` relative to `MB_POS[0]` / board bottom).
+  Shield-local y = 0 is the HDMI/DP end, which maps to world Z under
+  `rotate([90,0,0])` (verified: DP renders above HDMI).
+- `IO_SHIELD_Z_SHIFT = 2.0` is a test-fit correction: the first print had
+  the ports ~2.0 mm (-X end) / ~1.5 mm (+X end) above their cutouts. 2.0 is
+  taken from the -X end, which has a standoff 9.5 mm from the I/O edge;
+  the +X end's nearest standoff is ~32 mm back, so it can sag. Moves only
+  the cutouts.
 
-The CPU cooler is a downdraft unit: the fan sits on top of the fin stack
-and fires **−Z** into the CPU, so the panel above it faces the fan's
-**intake**. Intakes are more sensitive to a nearby surface than exhausts
-— they draw from a hemisphere, and a close wall both starves the outer
-blade span and reflects blade-passing noise.
+#### Port pocket
 
-**The clearance is 5 mm** (`FAN_PANEL_GAP`), measured from the fan's
-intake face to the **inner** face of the panel.
+A recess in the panel's back face under the port cluster, so connectors
+that stick out past the PCB can nest into the panel and plugs pass through
+less wall.
 
-#### Why 5 and not less
+| Parameter | Value | Real / free |
+|---|---|---|
+| `MB_PANEL_GAP` | 0.3 | free — PCB edge to panel back face |
+| `IO_PORT_OVERHANG` | 1.0 | **real** — calipered (furthest housing) |
+| `IO_PORT_CLEARANCE` | 0.5 | free — connectors get 1.0 + 0.5 = 1.5 mm of room |
+| `IO_POCKET_DEPTH` | 1.2 | free — 0.3 + 1.2 = 1.5 mm; leaves a **1.3 mm** skin over the ports |
+| `IO_POCKET_MARGIN` | 2.0 | free — housing size beyond its hole, per side |
+| `IO_POCKET_EXTRA_NX` | 2.5 | free — extra on -X only (below) |
+| `IO_POCKET_EXTRA_PZ` | 3.0 | free — extra on +Z only (below) |
+| `IO_POCKET_SCREW_WALL` | 1.0 | free — solid ring kept around each top-edge countersink |
 
-The gap and the vent pattern cannot be designed independently. If the
-gap is smaller than the vent's cell size, air arrives at the blades as
-discrete jets rather than a uniform stream. So `cell ≤ gap`. But
-honeycomb open area is `(c/(c+t))²` and the printable web `t` bottoms out
-around 1.0 mm, so shrinking the gap shrinks the cell, which lets the webs
-eat the open area. **Tightening the gap costs you twice.**
+- **One rectangle**: the hull of per-column bands from the PCB top (the
+  housings sit on the board) to the highest opening, grown by the margin.
+  One big pocket gives more room for error than per-stack pockets, at the
+  cost of the ribs between stacks. (An earlier hull-of-holes version cut
+  ~2 mm into the video and audio stacks' boxes.)
+- **Audio housing:** the audio stack (-X-most column, jacks at X
+  -56.61..-48.61) has a metal housing reaching 2 mm past its holes on -X —
+  exactly the margin, i.e. zero air. `IO_POCKET_EXTRA_NX` stretches the
+  pocket 2.5 mm further on -X (4.5 mm past the jacks). The nearest feature
+  is the -X corner screw's keep-out, ~12 mm away.
+- **Wi-Fi housing:** the metal housing around the antenna connectors hit
+  the panel above the pocket in a test fit, so `IO_POCKET_EXTRA_PZ` raises
+  the pocket's top by 3 mm (54.23 → 57.23), leaving a 1.97 mm full-thickness
+  strip below the panel's top edge (59.2). The top-edge screw keep-outs are
+  still subtracted.
+- Pocket extent: X -61.12 .. 83.75, Z 15.20 .. 57.23. It's on the back face
+  (the top as printed), so no supports.
+- `front_panel_upper()` warns if the overhang plus clearance doesn't fit, or
+  if `MB_POS[1]` drifts from `MB_PANEL_GAP`.
 
-Modelling the panel as a thick orifice plate
-(`K = (1/(Cd·σ))² − 1`, `Cd ≈ 0.88` chamfered) against a 92 mm fan moving
-~40 CFM (face velocity 3.5 m/s, dynamic head 7.4 Pa):
+#### USB-C overmold relief
+
+USB Type-C leaves almost no room for a panel in front of the receptacle
+(USB Type-C Cable and Connector Spec R2.0): the plug's exposed shell is
+**≥ 6.51 mm** (Fig 3-3), the receptacle's effective shell length is
+**6.20 ± 0.20 mm** (Fig 3-1, note 7), and the overmold should clear the
+exterior surface by **≥ 0.05 mm** when seated (Fig 3-80). That allows
+6.51 − 6.20 − 0.05 ≈ **0.26 mm** between the receptacle front and the outside
+of the case nominally, and ~0.06 mm worst case — effectively flush. Here
+the receptacle front sits ~1.8 mm behind the face (PCB edge Y -2.8 + ~1 mm
+port overhang), so only cables with extra-long plugs seat. Shaving 0.3 mm
+off the skin would leave 1.5 mm — still far outside the spec.
+
+Instead, `USB_C_RELIEF` cuts an overmold-sized pill (`USB_C_RELIEF_SIZE`
+13 × 7, free) through the panel around the USB-C port, so the overmold
+passes the face into the pocket and the plug seats regardless of panel
+thickness. `USB_C_RELIEF_CENTER` is the port centre in shield-STL
+coordinates ([116.14, 5.25], from `asrock_b860i_io_shield.scad`: mirrored
+stack-1 X plus `usbc_x_offset`). World extent X 42.63..55.63, Z 18.52..25.52,
+leaving 2.25 mm of wall below the USB-A above it. Caliper your cable's
+overmold and resize if it is larger (thick braided cables can be).
+
+### Front panel — lower (HDD / PSU side)
+
+#### HDD grill
+
+`HDD_GRILL_MODE` (`"diamond"` / `"honeycomb"`) around the drive's front
+face, with independent `HDD_GRILL_MARGIN_*`. `HDD_GRILL_MARGIN_BOTTOM` =
+6.83 extends it down into the grown face while keeping a ~1.46 mm solid
+border above the bottom edge (9 when the face was 94 tall, −2.17 with the
+trim). `HDD_GRILL_WALL` applies to both modes; diamond cells use their own
+`HDD_GRILL_DIAMOND_SLOT_W/H`.
+
+- Any cell within `FRONT_PANEL_SCREW_GRILL_WALL` (1.2) of a mount-screw
+  countersink stays solid. In grill-local coordinates x = X − grill_x,
+  y = −(Z − grill_z); the protect test is centre-vs-apothem, so the rotated
+  cell's circumradius is added.
+- `FRONT_PANEL_CORNER_INFILL_X/Z` cuts a guard wedge out of the pattern at
+  the +X/−Z corner screw.
+
+#### Game of Life shapes (diamond mode)
+
+Up to four `[SHAPE, ANCHOR]` slots (`GOL_Grill_N_SHAPE` / `_ANCHOR`) leave
+cells solid in a pattern. `SHAPE = GOL_OFF` disables a slot. Currently slots
+1 and 3 use `LIFE_HEX_RING`; 2 and 4 are off.
+
+- `LIFE_BLOCK` (2×2), `LIFE_BEEHIVE`, `LIFE_POND` are still-life
+  silhouettes. BEEHIVE/POND get a bridge cell at each diagonal-only joint so
+  every cell shares a full edge (no longer Life-stable, but prints as one
+  shape). `LIFE_HEX_RING` is BEEHIVE's outline deliberately *without*
+  bridges.
+- `ARROW_GT_2/3`, `ARROW_LT_2/3` are plain chevrons: two straight index-space
+  lines sharing a corner cell; the grid's 45° rotation renders them
+  diagonal.
+- `ANCHOR` is a `grid_2d()` index `[i0, j0]` in the *pre-rotation* lattice
+  (step = slot + wall); `diamond_anchor(x, y)` converts intuitive steps.
+  Check the whole shape lands on the grill, not just the anchor — cells past
+  the grill edge silently do nothing. `life_pattern_protect_pts()` turns a
+  shape into zero-radius protect points, reusing the standoff-protection
+  mechanism.
+
+#### C14 inlet
+
+- **Current socket:** the HDPLEX-supplied screw-mount C14, switching to a
+  variant with **right-angle pins**, which removes the earlier clash between
+  the socket's rear body/terminals and the HDD (the straight socket reached
+  Y -28.6 vs the drive front at -22.5). The model still uses
+  `c14_socket.stl` for the cutout — confirm the right-angle socket's front
+  lip and flange match it.
+- `C14_POS = [-52.5, -2, -9.83]` (X free; Z free — lowered 4 mm when the
+  face grew, then raised 2.17 with the bottom trim). `C14_ROT = [270, 180, 0]`.
+- **Mounting:** socket from inside, eared flange against the back face;
+  M3×10 90° countersunk from outside → panel → flange → **M3 nyloc nut**
+  (the flange holes are plain 3.2 mm clearance). `C14_SCREW_PITCH` 42 runs
+  along world X for this `C14_ROT` (re-check if the rotation changes);
+  countersinks match the front-panel screws (6.4 × 90°).
+- **Datum:** the socket's front face is flush with Y = 0.
+  `c14_solid_tool()` pockets the 2 mm front lip and cuts the body; the
+  eared flange spans Y -5..-2 against a back face at -2.5, so
+  `c14_flange_pocket()` cuts the flange outline into the back face (sliced
+  from the STL mid-flange at local z -1.5, screw holes closed, +0.3 mm
+  clearance). Screw-mount only.
+- **Fit trims** (`c14_tool.scad`, total mm, negative grows; local X → world
+  X, local Y → world Z): test fit had the lip pocket ~1.0 mm too tall and
+  ~0.25 mm too wide, so 31.6 × 22.6 → 31.35 × 21.6
+  (`C14_FLANGE_TRIM_X/Z` = 0.25 / 1.0). `c14_trim_2d()` keeps corner radii
+  and is valid while each straight side is longer than the trim. Base fit
+  clearance 0.3 mm.
+- `USE_SNAP_IN_C14` switches to the snap-in model (cutout
+  `C14_SNAP_CUTOUT_W/H` 28 × 20.5).
+
+#### Disabled features
+
+The GaN power-cable opening, the PSU front-mount screws, and the small
+MB↔PSU vent-bar grill are **not cut** (their code was disabled, and has
+been removed from the file; it's in git history). `GAN_CABLE_CUTOUT_*`,
+`GAN_FRONT_MOUNT_*` and `FRONT_VENT_*` remain as unused parameters. The
+front-mount spacing was never verified — the real PSU uses a length-wise
+rail (177 × 35 mm, M3).
+
+### Front panel mounting screws
+
+Six M3 × 90° countersunk holes, heads flush at Y = 0: the four outer
+corners plus mid-X on the top and bottom edges.
+
+- Insets `FRONT_PANEL_SCREW_X/Z_INSET` = 5 to the hole centre, so the
+  countersink edge is 5 − 3.2 = **1.8 mm** from the panel edge (was
+  3.5/4.0 → 0.3/0.8 mm).
+- `FRONT_PANEL_SCREW_R` 1.7 (3.4 mm clearance; was 1.5, a thread-forming
+  fit). Cone reaches full diameter exactly at the face (it used to leave
+  heads 0.5 mm proud).
+- X positions derive from the enclosure X extent (outer corners 5 mm in,
+  mid at the face centre X 2.75); Z from each panel's outer edge.
+  `FRONT_PANEL_MOUNT_OFFSET_UPPER/LOWER` add per-hole `[dx, dz]` nudges (all
+  0 now); the grill keep-out follows.
+- The lower +X corner used to be skipped for the GaN PSU; since the face
+  grew it sits well below the PSU.
+
+### CPU cooler and fan intake clearance
+
+The cooler is a downdraft unit: the fan sits on the fin stack and fires
+**−Z**, so the panel above faces the fan's **intake**. `FAN_PANEL_GAP` =
+**5 mm** from the intake face to the panel's inner face (free; don't go
+below ~4).
+
+#### Why 5 mm
+
+Vent cell size must be ≤ the gap (or the blades see jets), and honeycomb
+open area is `(c/(c+t))²` with a printable web `t` ≈ 1.0 mm — so a smaller
+gap forces smaller cells and less open area. Thick-orifice model
+(`K = (1/(Cd·σ))² − 1`, `Cd ≈ 0.88` chamfered), 92 mm fan at ~40 CFM
+(3.5 m/s, 7.4 Pa dynamic head):
 
 | Gap | Max cell | Open area | ΔP sharp | ΔP chamfered |
 |----:|---------:|----------:|---------:|-------------:|
@@ -571,197 +469,206 @@ Modelling the panel as a thick orifice plate
 | 8 mm | 8 mm | 79% | 23 Pa | 8 Pa |
 | 15 mm | 15 mm | 88% | 17 Pa | 5 Pa |
 
-A low-profile 92 mm fan has roughly **15–25 Pa** of static pressure at
-full speed. Read the chamfered column against that: below ~4 mm the vent
-alone consumes a serious fraction of the fan's entire head. Above ~6 mm
-the curve flattens. **5 mm is the knee** — it buys ~95% of the available
-performance for the least height.
+A low-profile 92 mm fan makes ~15–25 Pa. Below ~4 mm the vent eats a large
+share of that; above ~6 mm the curve flattens. **5 mm is the knee.** A
+*solid* panel vented only at the perimeter would need ~19 mm instead.
 
-If the panel above the fan were *solid*, with venting only around the
-perimeter, air would have to enter radially and the gap would be the
-entire inlet. Area-matching the annulus to the swept area then needs
-~19 mm. That is the number to use if the vent ever moves off the fan.
+Vent rules that go with it: cells ≤ 5 mm with ~1.0 mm webs (hex, not round
+punch — punch patterns are only 35–40% open); **chamfer the intake side**
+(Cd 0.6 → 0.88, roughly halving the loss); perforate out to ~112 mm square
+over the fan and no further.
 
-#### Vent design rules that go with the 5 mm
-
-- **Cell ≤ 5 mm**, ~1.0 mm webs → ~69% open. Hex, not round-hole punch:
-  a typical punch pattern is only 35–40% open and quietly costs more
-  than several mm of gap would.
-- **Chamfer the intake side of every hole.** Sharp edges give
-  `Cd ≈ 0.6`; a chamfer gives ~0.88, which roughly *halves* the loss
-  (32 Pa → 12 Pa above). On a printed panel this is free geometry and is
-  worth about 2 mm of gap. Skipping it is the usual way a good pattern
-  gets wasted.
-- **Perforate out to ~112 mm square** over the fan (fan diameter + 4×
-  the gap). Air entering outside the fan footprint has to travel
-  sideways through the gap, and that catchment only reaches about 2–3×
-  the gap past the fan perimeter. At 5 mm that is ~1.5× effective area,
-  worth ΔP/2.2. Beyond ~112 mm you are removing material for nothing.
-
-#### What it drives in the model
-
-`FRONT_PANEL_TOP_Z` used to be hard-coded to **55**, measured off the
-reference STL. It is now derived:
+#### Stack-up
 
 ```
 MB_PCB_TOP_Z      17.2   = MB_POS[2] − MB_SIZE[2]/2 + MB_PCB_THICK
 CPU_COOLER_HEIGHT 37.0   real, Thermalright low-profile, PCB top → fan top
 CPU_COOLER_TOP_Z  54.2
 FAN_PANEL_GAP      5.0
-FAN_PANEL_INNER_Z 59.2   = FRONT_PANEL_TOP_Z
+FAN_PANEL_INNER_Z 59.2   = FRONT_PANEL_TOP_Z   (was a hard-coded 55 from the reference STL)
 ```
 
-So the front face grew by **4.2 mm**. It still fits the outer volume
-budget with 1.3 mm to spare (`ENCLOSURE` top = 60.5).
+The cooler block uses `MB_PCB_TOP_Z`, so it must stay below the MB block in
+the file. `cooler_clearance_report()` echoes this every render and warns if
+the gap drops below 4 mm, the panel overshoots the enclosure top (60.5), or
+`MB_SIZE[2]` understates the cooler.
 
-`cooler_clearance_report()` echoes this stack-up on every render and
-warns if the gap drops below 4 mm, if the panel overshoots the enclosure
-budget, or if `MB_SIZE[2]` understates the real cooler height.
+> **Assumption:** `CPU_COOLER_FAN_D = 92` (AXP90 class) — verify. The table's
+> percentages are portable; the Pascals are a first-order Idelchik model,
+> ±40%.
 
-> **Assumption to verify:** `CPU_COOLER_FAN_D = 92` (AXP90 class). The
-> gap scales with fan diameter — the table's percentages, not its
-> millimetres, are the portable result. The ΔP figures are a first-order
-> Idelchik orifice model, not CFD; treat the *shape* of the curve and
-> the 5 mm knee as solid and the absolute Pascals as ±40%.
+> **Known discrepancy:** `MB_SIZE[2] = 38` puts the MB envelope top at 53.6,
+> 0.6 mm below the cooler. Don't fix it by editing `MB_SIZE[2]` alone —
+> `FRONT_PANEL_IO_OFFSET` hangs off the board bottom, so also move
+> `MB_POS[2]` by half the change.
 
-> **Known discrepancy:** `MB_SIZE[2] = 38` puts the MB envelope top at
-> 53.6, which is 0.6 mm *below* the real cooler top of 54.2. Do **not**
-> fix this by editing `MB_SIZE[2]` alone — `mb_bottom` is derived as
-> `MB_POS[2] − MB_SIZE[2]/2`, and `FRONT_PANEL_IO_OFFSET` hangs off
-> `mb_bottom`, so growing the envelope would drag the I/O cutout down
-> with it. Adjust `MB_POS[2]` by half the delta at the same time.
+### PSU 24-pin routing (SC Shift adaptors)
 
-## Hardware / screws needed
+Enabled with `SHOW_GAN_BLOCKS`. Plan: Singularity Computers "Shift
+Motherboard 24pin 180 Degree Adaptor Short" (SC-A-180-24-S, rigid dual-layer
+PCB), one on each header, turning the two sockets to face each other.
 
-Two different thread standards are used in this build — **M3** everywhere
-except the HDD, which uses the drive industry's standard **6-32 UNC**
-(imperial, not metric). Don't mix them up when buying screws.
+- `SC_ADAPTOR_SIZE = [52, 32, 22]` (real). The 32 is the **lateral offset**
+  between its two connectors, not a length; it runs along world -Y here.
+  (The non-Short variant is 42 × 52 × 22: 52 mm offset.)
+- PSU side: mates onto the down-facing 24-pin (`GAN_24PIN_*`: Mini-Fit Jr
+  12×2 @ 4.2 mm, 51 × 10, header 11 mm — real; inset 8 mm from the rear end
+  — free), turns it up, offset -Y so the socket clears the plate's rear
+  edge. MB side: mates onto the up-facing MB 24-pin and turns it down,
+  landing above the PSU adaptor's socket.
+- **Unconfirmed:** assumes the MB 24-pin sits at `MB_24PIN_IMPLIED`; not yet
+  checked against the real B860I.
+- 24-pin cables are specified connector face to face, so
+  `SC_CABLE_FREE_SPAN` (board top − PSU bottom) *is* the cable length to
+  order. Practical floors: `SC_MIN_SPAN_FLAT` 45 mm (flat/ribbon custom),
+  `SC_MIN_SPAN_ROUND` 70 mm (round bundle; the HDPLEX in-box short cable is
+  ~70). `gan_adaptor_report()` echoes the span, the implied MB header
+  position, the rear chase depth, and warns if the span is too short or the
+  junction still overlaps the plate.
+- `SHOW_GAN_PSU_500W` shows a fit-check box for the HDPLEX 500W GaN
+  (200.2 × 55 × 40) in the same slot.
+
+## Printing
+
+### Orientation
+
+Print with the spine's **+Y face (the front panel) down**, build direction
++Y → −Y. Consequences:
+
+- **Standoffs** lie horizontal, so each has a 45° ramp on its +Y side. The
+  ramp is two `hull()`s: peg → constant-width bar, then the bar tapering
+  flush to the plate over `run`.
+- **Standoff and plate bores** (3.8–7.64 mm) are horizontal but small enough
+  to bridge; the 7.64 mm HDD O-ring pocket is the one to test first. MB
+  insert bores (4.0 mm) may print slightly oval — heat inserts tolerate it.
+- **Front-panel holes** are vertical in this orientation — no concern.
+- **The I/O pocket and C14 flange pocket** are on the panel's back face, the
+  top as printed.
+- **No lightening wall may run purely along X** (see
+  [Lightening pattern](#lightening-pattern)).
+- **-Y-facing tapers ≤ 45°** (RUN ≥ DEPTH).
+
+### Print guide
+
+Tested on a Prusa MK4S, PETG, 0.4 nozzle, 0.25 mm profile (~4.5 h). The spine
+is a 3 mm wall ~175 mm tall anchored only at the front panel, so the top
+half tends to wobble. In order of cost:
+
+1. **Orient on the bed (free).** The MK4S bed moves in Y. Put the front
+   panel's 170 mm edge front-to-back so bed motion runs along the plate's
+   stiff in-plane direction.
+2. **Minimum layer time 8–10 s** (Filament → Cooling). ~No added time.
+3. **Slow the top ~75 mm** (above ~100 mm), +45–90 min. Either live
+   (**Tune → Speed → 60–70%** at ~100 mm) or baked in via a custom G-code at
+   ~100 mm on the layer slider:
+   ```
+   M220 S65          ; 65% speed from here up
+   M201 X1000 Y1000  ; cap acceleration (verify your firmware honours it)
+   ```
+   A height-range modifier changes speeds but not accelerations — weakest.
+4. **Still wobbling?** `SPINE_GRID_WALL` toward 2.0–2.5, a larger
+   `SPINE_LIGHTENING_MARGIN_NY`, or breakaway braces from the front panel.
+
+## Hardware and assembly
+
+Two thread standards: **M3** everywhere except the HDD's **6-32 UNC**.
 
 | Joint | Qty | Thread | Length | Head | Notes |
 |---|---|---|---|---|---|
-| Motherboard → standoffs | 4 | M3 | ~6mm | pan/socket | Standard mITX standoff screw length. The standoffs themselves are printed plastic with a plain clearance bore — they need **M3 heat-set threaded inserts**, or M3 thread-forming ("PT"/plastic) screws, since there's no metal thread to bite into. |
-| HDD → standoffs (from MB side) | 4 | **6-32 UNC** | 3/8" (9.53mm)† | pan/button (flat underside) | Threads directly into the drive's own tapped bottom-mount holes. Vibration-isolated (see below) — the screw touches nothing but the two O-rings and the drive's threads the whole way through the plate and standoff. **Not** flat/countersunk — a countersunk head has no flat face to compress an O-ring evenly against. |
-| HDD standoff isolation O-rings | 8 | — | AS568-007 (ID 0.145"/3.68mm, OD 0.285"/7.24mm, CS 0.070"/1.78mm) | silicone (VMQ), 70A | Two per standoff — one under the screw head, one between the standoff and the HDD's mounting boss. This is what actually isolates HDD vibration from the plate; the screw and standoff themselves never touch each other rigidly. See "HDD vibration isolation" below for install compression. |
-| GaN PSU → standoffs (from MB side) | 4 | M3 | 16-18mm‡ | pan/socket (flat underside) | Threads directly into the PSU's own tapped mounting holes (verified from HDPLEX's STEP file, "same as HDPLEX 200W ACDC / 400W ACDC" pattern). Same access-from-above arrangement as the HDD. **Not** flat/countersunk — same reason as the HDD: needs a flat face to compress an O-ring evenly. |
-| GaN standoff isolation O-rings | 8 | — | 5/32" ID × 9/32" OD × 1/16" CS (ID 3.97mm, OD 7.14mm, CS 1.59mm) | silicone, 70A | Two per standoff — one under the screw head, one between the standoff and the PSU's aluminum body. A **thermal** break (the GaN PSU's case runs meaningfully warmer than PETG's heat-deflection point under sustained load), not vibration isolation like the HDD's — see "GaN PSU thermal isolation" below. |
-| Front panel → case shell (all 4 corners, upper + lower) | 4 | M3 | TBD | flat/countersunk, 90° | Attaches the spine assembly to the outer case shell. Each hole also has a shell-mating tab slot cut into the panel's inside face — the eventual shell gets a matching tab that this same screw clamps in place. Length depends on the shell's own screw boss depth, which hasn't been designed yet. |
-| GaN PSU → front panel (cable-side mounts) | 4 | M3 | TBD | flat/countersunk, 90° | **Placeholder, not verified real hardware** — the GaN PSU's actual front-mounting bracket is a length-wise rail (177×35mm hole spacing, confirmed M3) rather than a small end-cap plate like this cutout assumes. Keep these for now, but don't treat the spacing as matching the real PSU rail. |
+| Motherboard → standoffs | 4 | M3 | 6 mm (8 max) | pan / socket | Into **M3×5.7 heat-set inserts** (4). M3×6 through the 1.6 mm PCB engages ~4.4 mm; M3×8 still bottoms clear. With `MB_HEAT_INSERT = false`: M3 thread-forming screws into a 3.8 mm bore. |
+| HDD → standoffs (from MB side) | 4 | **6-32 UNC** | 3/8" (9.53 mm)† | pan / button | Into the drive's bottom holes. The screw touches only the two O-rings and the drive threads. **Not** countersunk — the O-ring needs a flat face. |
+| HDD isolation O-rings | 8 | — | AS568-007 (ID 3.68, OD 7.24, CS 1.78 mm) | silicone 70A | Two per standoff: under the head and between standoff and drive. |
+| GaN PSU → standoffs (from MB side) | 4 | M3 | **10 or 12 mm**‡ | **nylon, 90° flat head** (DIN 965 / ISO 7046) | Into the PSU's tapped holes. Head flush in the plate top, so nothing stands proud under the MB's solder pins. |
+| GaN isolation O-rings | 4 | — | 5/32" ID × 9/32" OD × 1/16" CS (3.97 / 7.14 / 1.59 mm) | silicone 70A | **One** per screw, between standoff face and PSU body. Thermal break. |
+| Front panel → shell | 6 | M3 | TBD | 90° flat head | All four corners + top/bottom mid. Length depends on the unbuilt shell. |
+| C14 inlet → panel | 2 | M3 | 10 mm | 90° flat head | From outside, with **M3 nyloc nuts** behind the flange. |
 
-† A real stack-up calculation, not a rule of thumb: plate thickness (3mm) +
-standoff gap + ~3mm thread engagement (WD SFF-8301's own minimum) needs to
-land exactly on a standard screw length. The HDD's own Z position
-(`HDD_POS[2]` in `game_of_life_itx_case.scad`) was adjusted specifically to make that
-land on 3/8" - the next standard size down (5/16") leaves only 0.38mm of
-printed wall around the O-ring pocket (too thin to print reliably), and the
-next size up (7/16") pushes the drive past the enclosure's own floor. See
-the `HDD_ORING_POCKET_DEPTH` comment in `game_of_life_itx_case.scad` for the full math.
+† Plate 3 mm + standoff gap + ≥3 mm engagement (SFF-8301 minimum) was made
+to land on 3/8" by adjusting `HDD_POS[2]`. 5/16" leaves only 0.38 mm of wall
+around the O-ring pocket; 7/16" pushes the drive past the enclosure floor.
 
-‡ Assumes ~4.5mm of M3 thread engagement into the PSU's aluminum body (a
-general engineering guideline — the PSU's tapped-hole *depth* wasn't
-extracted from the STEP file, only hole position and diameter), plus the
-standoff run and plate thickness the screw passes through — the two O-ring
-pockets are recesses cut *into* that existing material, not added height,
-so they don't change this length by themselves. The range instead comes
-from the screw head itself: it sits in a shallow 1.43mm pocket, and most
-M3 pan/socket heads are taller than that, so expect it to stand a bit
-proud of the plate rather than sitting flush - go with 18mm if the head
-looks tall, 16mm if it's a low-profile one. Verify once real screws are
-in hand.
+‡ Flat-head length includes the head: plate 3 + peg 1.0 + O-ring gap 1.43 =
+5.43 mm before the PSU body. M3×10 leaves ~4.6 mm of thread in the PSU,
+M3×12 ~6.6 mm. Nylon threads are weak, so **use M3×12 if the PSU's holes are
+≥ 7 mm deep**, otherwise M3×10. The depth isn't in the STEP — probe it.
 
-### GaN PSU thermal isolation - install notes
+### GaN PSU thermal isolation
 
-Same two-O-rings-in-series arrangement as the HDD (see below), but for a
-different reason: this joint's screws thread straight into the GaN PSU's
-aluminum body, and a stress-tested HDPLEX 250W GaN unit was measured at up
-to 58°C at the case surface - within reach of PETG's heat-deflection
-point, especially at a point under constant clamping load for years. The
-O-rings are a thermal break, not a vibration isolator, so the target
-compression here is much lighter than the HDD's - just enough to
-guarantee metal never touches PETG directly, not enough to actually damp
-anything.
+A stress-tested HDPLEX 250W GaN measured up to 58 °C at the case surface —
+close to PETG's heat-deflection point for a joint under constant load. One
+silicone O-ring per screw keeps the aluminium off the plastic; compression is
+deliberately light.
 
-- **Target: ~5-10% compression per O-ring** (vs. the HDD's 10-15% - this
-  joint doesn't need to absorb energy, just not conduct heat/touch
-  directly).
-- Same series-doubling logic as the HDD: two O-rings per screw split the
-  compression, so hand-thread to first resistance (both O-rings just
-  touching), then turn an additional **1/3 to 2/3 turn** past that - M3's
-  0.5mm/turn pitch covers 5-10% compression on both O-rings together over
-  that range.
-- `GAN_ORING_POCKET_DEPTH` in `game_of_life_itx_case.scad` targets 10% (assuming
-  the O-ring's free height matches the 1/16" nominal cross-section
-  exactly) - treat the turn-count instruction as the real install
-  reference, same caveat as the HDD's own pocket depth.
-- The screw itself still conducts *some* heat straight through the O-rings
-  (a solid metal fastener is a much better conductor than silicone even at
-  a small cross-section) - stainless screws over plain/zinc-plated steel
-  meaningfully reduce this, at no extra cost or complexity.
+Why nylon flat heads (replacing steel pan heads on a second O-ring):
 
-### HDD vibration isolation - install notes
+- **Heat:** nylon conducts ~100× less than steel, so the screw no longer
+  bridges heat past the O-ring — the head-side O-ring was dropped.
+- **Board clearance:** the screws sit 6 mm under the PCB. A pan head on an
+  O-ring stood ~4 mm proud (~2 mm from the solder pins); the countersunk head
+  is flush, and nylon can't short anything.
+- **Strength:** an M3 nylon 6/6 screw holds ~200 N+; the PSU is well under
+  1 kg across four screws.
 
-### HDD vibration isolation - install notes
+Install:
 
-The HDD isn't rigidly bolted to the spine. Two silicone O-rings per
-standoff (screw-head side and standoff-to-HDD side) carry the entire
-clamping load - the screw never touches the plate or the standoff, only
-the O-rings and the drive's threads. That only works if the O-rings end up
-compressed to roughly the right amount, and this joint has **no hard
-mechanical stop** - past the target, tightening further just keeps
-compressing the O-rings, so "screw it down snug" is the wrong instinct
-here.
+- **Target ~5–10% compression.** Thread in until the O-ring just touches
+  both faces, then **1/6–1/3 turn** more (0.5 mm pitch → 0.08–0.17 mm of the
+  1.59 mm cross-section). One O-ring means each turn compresses twice as
+  much as the old two-O-ring stack.
+- The seated head is a stop for the head only — further turning keeps
+  squeezing the O-ring. **Don't torque nylon:** M3 strips at ~0.3 N·m.
+- `GAN_ORING_POCKET_DEPTH` (1.43) is the nominal gap (~10%); the turn count
+  is the real reference.
+- Nylon creeps when warm; re-snug ~1/8 turn if the PSU ever rattles.
 
-- **Target: 10-15% compression** (soft enough to actually damp vibration,
-  firm enough to hold the drive securely - see the design discussion for
-  why softer beats a fully-torqued rigid joint here).
-- Because each screw has **two** O-rings in series (not one), the
-  compression splits between them - a given amount of screw travel only
-  buys half the compression you'd get with a single isolator. Install by
-  hand-threading until resistance is first felt (both O-rings just
-  touching, zero compression), then turn an additional **1/2 to 2/3 turn**
-  past that point - 6-32's 32 TPI thread advances 0.79mm per full turn, so
-  that range covers 10-15% compression on both O-rings together. (A single
-  O-ring reaching 15% alone would only take about 1/3 turn - it's the
-  two-in-series setup that doubles it.)
-- `HDD_ORING_POCKET_DEPTH` in `game_of_life_itx_case.scad` targets 12.5% (the middle of
-  that range) assuming the O-ring's free height matches the AS568-007 spec
-  exactly (1.78mm cross-section) - real parts vary a little from nominal,
-  so treat the 1/2-2/3 turn instruction as the actual install reference,
-  not the pocket depth number.
+### HDD vibration isolation
+
+Two O-rings per standoff carry the whole clamp load; there is **no hard
+stop**, so "snug it down" is wrong here.
+
+- **Target 10–15% compression.** Thread until resistance is first felt, then
+  **1/2–2/3 turn** more (6-32 advances 0.79 mm/turn; the two O-rings in
+  series halve the compression per turn).
+- `HDD_ORING_POCKET_DEPTH` targets 12.5% assuming a nominal 1.78 mm
+  cross-section; the turn count is the real reference.
+
+### Motherboard heat-set inserts
+
+Press the M3×5.7 inserts in with a soldering-iron tip at PETG temperature,
+straight down the standoff axis. The 1 mm of extra bore depth takes the
+displaced plastic. If you use a different insert, set `MB_INSERT_HOLE_DIA`
+/ `MB_INSERT_LEN` to its spec — the standoff radius and bore depth follow,
+and warnings fire if the wall drops below `MB_INSERT_MIN_WALL` or the bore
+leaves < 1 mm of plate.
+
+## Self-checks (console warnings)
+
+| Warning | Fires when |
+|---|---|
+| `PCB front edge is … not MB_PANEL_GAP` | `MB_POS[1]` drifts from the gap |
+| `IO connectors stick out …` | overhang + clearance > gap + pocket depth |
+| `panel bottom is … below the PSU` | face bottom drifts from `FRONT_PANEL_PSU_CABLE_GAP` |
+| `SPINE_PLATE_TAPER_* BEFORE + 2*RUN + AFTER …` | a taper doesn't fit its edge |
+| `SPINE_PLATE_TAPER_NY_DEPTH … no longer matches` | NY waist not flush with the GaN standoffs |
+| `… cuts past a MB/HDD/GaN standoff` | a PX, NX, or NY/NY2 taper eats into a standoff |
+| `MB insert wall is …` / `MB insert bore bottom …` | insert wall too thin / bore too deep |
+| `GaN standoff pegs are …` | `GAN_PSU_POS[2]` drifts from `GAN_STANDOFF_H` |
+| `FAN_PANEL_GAP …`, `MB envelope top …`, `panel top …` | cooler clearance report |
+| `span …`, `the adaptor junction …` | SC adaptor report (`SHOW_GAN_BLOCKS`) |
+
+Currently firing: `SPINE_PLATE_TAPER_NY_DEPTH` (NY_DEPTH 38 vs a flush value
+of 10 — set it or accept the mismatch) and the MB envelope
+discrepancy above.
 
 ## Known open items
 
-- Outer case shell not yet modeled — the shell-mating tab slots on the
-  front panel and the front-panel-to-shell screw length both assume a
-  shell design that doesn't exist yet.
-- Lower front panel's GaN PSU mount screws are a simplified stand-in, not
-  the PSU's real mounting rail (see hardware table above).
-- Neither the divider-plate lightening pattern nor the front ventilation
-  grill has been thermally validated — both are sized for print
-  practicality and a reasonable-looking amount of open area, not against
-  any actual airflow/thermal target.
-- GaN PSU standoff screw length (16-18mm‡) is a stack-up estimate, not
-  verified against real screws - depends on the actual head height once
-  hardware is bought (see the hardware table's `‡` note).
-
-
-## Developer Notes & Expanded Code Comments
-
-
-## Developer Notes & Expanded Code Comments
-- **Fit-check ATX PSU**: // Dummy fit-check block, not used elsewhere - HDPLEX 500W GaN AIO ATX (hdplex.com),\n// same POS/ROT slot as the 250W above for a direct size comparison.
-- **M3 clearance with O-ring margin**: // M3 clearance\n// Widened from the shared STANDOFF_R (like HDD_STANDOFF_R) so both O-ring pockets\n// below fit inside the peg with a real wall margin, not just the screw clearance hole.
-- **PSU thermal break O-rings**: // O-ring at both standoff faces (PSU side + screw-head/plate side) as a thermal\n// break from the GaN PSU\'s aluminum body - see README. Light compression on\n// purpose (not a seal): ~10% of GAN_ORING_CS.
-- **Direct Motherboard IO port cutout**: // Precise per-port IO cutout - carved straight into the panel from the real, calipers-\n// measured shield model (asrock_b760m_itx_io_shield.scad/.stl), replacing the old generic\n// rectangle + metal-shield retention collar/groove entirely (no separate insert piece\n// anymore - see README). Centered within the real IO rectangle (io[] below).\n// Must match asrock_b760m_itx_io_shield.scad\'s plate_width/plate_height.
-- **Game of Life grill shapes**: // Game of Life-inspired shapes for GOL_Grill_*_SHAPE below - [di,dj] live-cell\n// offsets on a square lattice. See README ("HDD ventilation grill").
-- **Chevron grill shapes**: // Not still lifes - plain ">"/"<" chevrons, two straight lines sharing a corner\n// cell (the grid\'s own 45deg rotation makes them diagonal). _2/_3 = arm length.
-- **Grill solid anchors**: // "diamond" mode only: up to 4 [SHAPE, ANCHOR] slots kept solid on the grill.\n// ANCHOR is a grid_2d index [i0,j0], lattice step = SLOT+WALL. See README.
-- **Corner screw guard**: // Guard wedge cut out of the HDD grill pattern near the +X/-Z corner screw\n// so it keeps solid material regardless of where the hex tiling lands.
-- **Bounds check**: // Distance from wp to nearest protected footprint (circles [x,y,r], rects\n// [x_min,y_min,x_max,y_max]); 0 if inside. See README.
-- **Grid cell projection**: // World-space protect_pts for a [di,dj] shape anchored at grid_2d index [i0,j0];\n// pitch_x/y and world_rot must match the grid_2d() call this feeds. See README.
-- **PCB clearance bounding box**: // One part\'s standoff+ramp footprints as world-space [protect_pts, protect_rects].\n// Drops standoffs already covered by the flat margin box. See README.
-- **Hexagon grill generator**: // Hex field tiling [w,h], clipped to a straight border. protect_* keep cells\n// over a footprint solid instead of generated. See README ("Hex/grid tiling helpers").
-- **Square grill generator**: // Square grid, used rotated 45deg for "diamond" mode. Same params as honeycomb_2d()\n// above, plus inlay_edge_pts/inlay_scale (subdivide cells near an edge). See README.
-- **Enclosure debug frame**: // Wireframe cage (12 edge rods, no faces) - can\'t occlude anything, sidestepping\n// OpenSCAD\'s transparency-through-boolean limitation.
-- **Spine edge polygon**: // *_edge() above, shifted by margin, as a polyline following the real taper.\n// pad extends past the plate so callers can intersect against a taller/shorter box.
-- **Taper-aware spine outline**: // The plate\'s real (taper-aware) outline polygon - keep in sync with\n// spine_plate_px_edge()/nx_edge()/ny_edge() above.
-- **Angled PCB standoffs**: // Standoffs at [x,y] local hole points, each with a drilled through-hole\n// and a +Y ramp. z_from is always the plate-contact end.
+- Outer shell not modeled; front-panel-to-shell screw length is TBD.
+- The C14 cutout still uses the straight-pin `c14_socket.stl`; confirm the
+  right-angle socket's lip/flange match.
+- The GaN power-cable opening, PSU front mounts, and MB↔PSU vent grill are
+  disabled (see [Disabled features](#disabled-features)).
+- Lightening pattern and grills are sized for printability, not validated
+  thermally.
+- MB 24-pin position for the SC adaptor plan is unconfirmed.
+- MB envelope is 0.6 mm shorter than the cooler (see
+  [fan clearance](#cpu-cooler-and-fan-intake-clearance)).
