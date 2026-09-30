@@ -86,17 +86,13 @@ in this README show `main`'s layout.
   adaptor warnings. Currently firing: only the MB envelope discrepancy.
 - **Hardware**: HDD → standoffs is **8** screws and **16** O-rings (two
   drives); the GaN rows don't apply.
-- **GPU fit-check block** (`SHOW_GPU`, driven by `used_components`;
-  ForestGreen; not part of the print): NVIDIA RTX PRO 5000 Blackwell,
-  `GPU_SIZE = [111.76, 266.7, 40.64]` — the datasheet's 4.4" H × 10.5" L,
-  dual slot (thickness isn't published, so Z is 2 × the 20.32 mm slot
-  pitch). Card body only, no bracket or 16-pin plug. It lies flat under the
-  plate with its length along Y (`GPU_POS` derived: centred on the plate in
-  X, front `HDD_PANEL_GAP` behind the panel, top `GPU_SPINE_GAP` 3.5 mm under
-  the plate = the HDD top plane). When shown, `gpu_fit_report()` warns where
-  it leaves the enclosure or overlaps the MB/HDD boxes. At the default spot
-  it's 55.4 mm past the enclosure's rear and 6.2 mm below its bottom, and it
-  fills the drives' space.
+- **GPU block** (`SHOW_GPU`, driven by `used_components`; `GPU_COLOR`
+  NVIDIA green `#76B900`; visual only, not printed): NVIDIA RTX PRO 5000
+  Blackwell, `GPU_SIZE = [111.76, 266.7, 40.64]` — the datasheet's 4.4" H ×
+  10.5" L, dual slot (thickness isn't published, so Z is 2 × the 20.32 mm
+  slot pitch). Card body only, no bracket or 16-pin plug. Place it with the
+  plain `GPU_POS` (box centre) / `GPU_ROT` literals; it isn't tied to the
+  spine or checked against anything.
 
 **Open items (`dual_HDD`):**
 

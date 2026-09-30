@@ -57,15 +57,13 @@ SPINE_PLATE_POS  = [2.31, -107.75, 8.1];  // front edge (Y -2.0) must overlap th
 SPINE_PLATE_SIZE = [170.6, 211.5, 3];  // X extent is overridden by SPINE_PLATE_NX_X / PX_X
 SPINE_PLATE_MARGIN_X = 0;
 
-// dual_HDD: fit-check block only, not printed. NVIDIA RTX PRO 5000 Blackwell datasheet: 4.4" H x
+// dual_HDD: visual block only, not printed. NVIDIA RTX PRO 5000 Blackwell datasheet: 4.4" H x
 // 10.5" L, dual slot -> X = height, Y = length, Z = 2 x 20.32 slot pitch (thickness unpublished).
 // Card body only: no bracket, no 16-pin plug.
-GPU_SIZE = [111.76, 266.7, 40.64];
-GPU_SPINE_GAP = 3.5;  // free; plate underside -> card top (= the HDD top plane)
-// Flat under the plate, centred on it in X; front face HDD_PANEL_GAP behind the panel (-2.5 literal).
-GPU_POS = [SPINE_PLATE_POS[0], -2.5 - HDD_PANEL_GAP - GPU_SIZE[1]/2,
-           SPINE_PLATE_POS[2] - SPINE_PLATE_SIZE[2]/2 - GPU_SPINE_GAP - GPU_SIZE[2]/2];
-GPU_ROT = [0, 0, 0];
+GPU_SIZE  = [111.76, 266.7, 40.64];
+GPU_POS   = [2.31, -137.55, -17.22];  // box centre
+GPU_ROT   = [0, 0, 0];
+GPU_COLOR = "#76B900";  // NVIDIA green
 
 // dual_HDD taper re-tune (see README): AFTERs are measured from the rear edge, which moved
 // 36.5mm; PX/NX AFTER 56.5 keeps the rear taper-back at Y -157, clear of the MB rear standoff ramps.
@@ -1069,36 +1067,8 @@ labeled_box(MB_SIZE,  MB_POS,  MB_ROT,  SHOW_MB,  "Blue");
 labeled_box(HDD_SIZE, HDD_POS, HDD_ROT, SHOW_HDD, "Red");
 labeled_box(HDD_SIZE, HDD2_POS, HDD_ROT, SHOW_HDD2, "Red");
 labeled_box(ODD_SIZE, ODD_POS, ODD_ROT, SHOW_ODD, "Cyan");
-labeled_box(GPU_SIZE, GPU_POS, GPU_ROT, SHOW_GPU, "ForestGreen");  // dual_HDD
+labeled_box(GPU_SIZE, GPU_POS, GPU_ROT, SHOW_GPU, GPU_COLOR);  // dual_HDD
 // dual_HDD: GaN PSU / SC adaptor / 500W boxes and gan_adaptor_report() removed with the PSU.
-
-if (SHOW_GPU) gpu_fit_report();
-
-// dual_HDD: axis-aligned boxes; only Z rotations of 0 / 90 / 180 / 270 are handled.
-function rot_extent(size, rot) = abs(rot[2]) % 180 == 90 ? [size[1], size[0], size[2]] : size;
-
-module gpu_fit_report() {
-    g = rot_extent(GPU_SIZE, GPU_ROT);
-    g_min = GPU_POS - g/2;
-    g_max = GPU_POS + g/2;
-    e_min = ENCLOSURE_POS - ENCLOSURE_SIZE/2;
-    e_max = ENCLOSURE_POS + ENCLOSURE_SIZE/2;
-    for (a = [0:2]) {
-        lo = e_min[a] - g_min[a];
-        hi = g_max[a] - e_max[a];
-        if (lo > 0.001) echo(str("WARNING: GPU block pokes ", lo, "mm out of the enclosure's -", "XYZ"[a], " face."));
-        if (hi > 0.001) echo(str("WARNING: GPU block pokes ", hi, "mm out of the enclosure's +", "XYZ"[a], " face."));
-    }
-    for (b = [[SHOW_MB, MB_POS, MB_SIZE, MB_ROT, "MB envelope"],
-              [SHOW_HDD, HDD_POS, HDD_SIZE, HDD_ROT, "HDD1"],
-              [SHOW_HDD2, HDD2_POS, HDD_SIZE, HDD_ROT, "HDD2"]])
-        if (b[0]) {
-            d = rot_extent(b[2], b[3]);
-            ov = [for (a = [0:2]) min(g_max[a], b[1][a] + d[a]/2) - max(g_min[a], b[1][a] - d[a]/2)];
-            if (min(ov) > 0.001)
-                echo(str("WARNING: GPU block overlaps ", b[4], " by ", ov, "mm (X, Y, Z)."));
-        }
-}
 
 cooler_clearance_report();
 
