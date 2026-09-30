@@ -399,7 +399,7 @@ cells solid in a pattern. `SHAPE = GOL_OFF` disables a slot. Currently slots
 - `C14_POS = [-52.5, -2, -9.83]` (X free; Z free — lowered 4 mm when the
   face grew, then raised 2.17 with the bottom trim). `C14_ROT = [270, 180, 0]`.
 - **Mounting:** socket from inside, eared flange against the back face;
-  M3×10 90° countersunk from outside → panel → flange → **M3 nyloc nut**
+  M3×10 nylon 90° flat head from outside → panel → flange → **M3 nylon (nyloc) nut**
   (the flange holes are plain 3.2 mm clearance). `C14_SCREW_PITCH` 42 runs
   along world X for this `C14_ROT` (re-check if the rotation changes);
   countersinks match the front-panel screws (6.4 × 90°).
@@ -571,26 +571,43 @@ half tends to wobble. In order of cost:
 
 ## Hardware and assembly
 
-Two thread standards: **M3** everywhere except the HDD's **6-32 UNC**.
+Two thread standards: **M3** everywhere except the HDD's **6-32 UNC**. All
+M3 joints except the motherboard use one screw: **M3×10 nylon 90° flat head**.
+
+**Buy list:**
+
+| Item | Qty | For |
+|---|---|---|
+| M3×10 nylon 90° flat head (DIN 965 / ISO 7046) | 12 (+4 spare) | GaN ×4, C14 ×2, front panel ×6 |
+| M3×6 pan head (steel OK) | 4 | Motherboard |
+| M3×5.7 heat-set insert (knurl OD ~4.6) | 4 | Motherboard standoffs |
+| 6-32 UNC × 3/8" pan / button head | 4 | HDD |
+| AS568-007 silicone O-ring | 8 | HDD |
+| 5/32" ID × 9/32" OD × 1/16" CS silicone O-ring | 4 | GaN |
+| M3 nut, nylon (nyloc preferred) | 2 | C14 |
+
+All three countersinks (GaN, C14, front panel) are Ø6.4 × 90° over a
+3.4–3.5 mm hole, ~1.5 mm deep; a DIN 965 head (Ø5.5–6.0) lands flush to
+~0.45 mm under. Flat-head length includes the head.
 
 | Joint | Qty | Thread | Length | Head | Notes |
 |---|---|---|---|---|---|
-| Motherboard → standoffs | 4 | M3 | 6 mm (8 max) | pan / socket | Into **M3×5.7 heat-set inserts** (4). M3×6 through the 1.6 mm PCB engages ~4.4 mm; M3×8 still bottoms clear. With `MB_HEAT_INSERT = false`: M3 thread-forming screws into a 3.8 mm bore. |
+| Motherboard → standoffs | 4 | M3 | 6 mm (8 max) | pan / socket | Into **M3×5.7 heat-set inserts** (4). M3×6 through the 1.6 mm PCB engages ~4.4 mm; M3×8 still bottoms clear. The only non-×10 M3: a ×10 would hit the insert-bore floor. With `MB_HEAT_INSERT = false`: M3 thread-forming screws into a 3.8 mm bore. |
 | HDD → standoffs (from MB side) | 4 | **6-32 UNC** | 3/8" (9.53 mm)† | pan / button | Into the drive's bottom holes. The screw touches only the two O-rings and the drive threads. **Not** countersunk — the O-ring needs a flat face. |
 | HDD isolation O-rings | 8 | — | AS568-007 (ID 3.68, OD 7.24, CS 1.78 mm) | silicone 70A | Two per standoff: under the head and between standoff and drive. |
-| GaN PSU → standoffs (from MB side) | 4 | M3 | **10 or 12 mm**‡ | **nylon, 90° flat head** (DIN 965 / ISO 7046) | Into the PSU's tapped holes. Head flush in the plate top, so nothing stands proud under the MB's solder pins. |
+| GaN PSU → standoffs (from MB side) | 4 | M3 | **10 mm**‡ | **nylon, 90° flat head** (DIN 965 / ISO 7046) | Into the PSU's tapped holes. Head flush in the plate top, so nothing stands proud under the MB's solder pins. |
 | GaN isolation O-rings | 4 | — | 5/32" ID × 9/32" OD × 1/16" CS (3.97 / 7.14 / 1.59 mm) | silicone 70A | **One** per screw, between standoff face and PSU body. Thermal break. |
-| Front panel → shell | 6 | M3 | TBD | 90° flat head | All four corners + top/bottom mid. Length depends on the unbuilt shell. |
-| C14 inlet → panel | 2 | M3 | 10 mm | 90° flat head | From outside, with **M3 nyloc nuts** behind the flange. |
+| Front panel → shell | 6 | M3 | 10 mm | nylon, 90° flat head | All four corners + top/bottom mid. 2.5 mm panel leaves **7.5 mm** of screw — the shell's bosses/inserts must accept it (e.g. 5.7 mm insert + ≥ 2.5 mm blind bore beyond). |
+| C14 inlet → panel | 2 | M3 | 10 mm | nylon, 90° flat head | From outside: panel 2.0 + flange 3.0 leaves 5.0 mm for a 4.0 mm **nylon (nyloc) nut** behind the flange. Hand-tight. |
 
 † Plate 3 mm + standoff gap + ≥3 mm engagement (SFF-8301 minimum) was made
 to land on 3/8" by adjusting `HDD_POS[2]`. 5/16" leaves only 0.38 mm of wall
 around the O-ring pocket; 7/16" pushes the drive past the enclosure floor.
 
-‡ Flat-head length includes the head: plate 3 + peg 1.0 + O-ring gap 1.43 =
-5.43 mm before the PSU body. M3×10 leaves ~4.6 mm of thread in the PSU,
-M3×12 ~6.6 mm. Nylon threads are weak, so **use M3×12 if the PSU's holes are
-≥ 7 mm deep**, otherwise M3×10. The depth isn't in the STEP — probe it.
+‡ Plate 3 + peg 1.0 + O-ring gap 1.43 = 5.43 mm before the PSU body, so
+M3×10 leaves ~4.6 mm (~7.6 threads) in the PSU. **Probe the PSU's holes:
+they must be ≥ 5 mm deep** (not in the STEP). If shallower, fall back to
+M3×8 (~2.6 mm engagement, marginal in nylon).
 
 ### GaN PSU thermal isolation
 
@@ -662,7 +679,7 @@ discrepancy above.
 
 ## Known open items
 
-- Outer shell not modeled; front-panel-to-shell screw length is TBD.
+- Outer shell not modeled; its front-panel bosses must take M3×10 flat heads (≥ 7.5 mm past the 2.5 mm panel).
 - The C14 cutout still uses the straight-pin `c14_socket.stl`; confirm the
   right-angle socket's lip/flange match.
 - The GaN power-cable opening, PSU front mounts, and MB↔PSU vent grill are
