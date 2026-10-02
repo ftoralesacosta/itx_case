@@ -1,25 +1,26 @@
-// Game of Life ITX case spine. Design notes, sources, parameter reference: README.md.
+// Shared model for spine.scad and io_plate.scad. Opened directly it shows the live assembly. Design notes: README.md.
 include <c14_tool.scad>
+
+ASSEMBLY_PREVIEW = true;   // part files set this false
 
 SHOW_SPINE      = false;
 SHOW_ENCLOSURE  = false;
 SHOW_ODD        = false;
 
-used_components = false;
+used_components = true;
 
 SHOW_MB         = used_components;
 SHOW_HDD        = used_components;
 SHOW_GAN_PSU    = used_components;
 
-SHOW_NEW_SPINE  = true;
 SHOW_FRONT_PANEL = true;
 SHOW_FRONT_PANEL_LOWER = true;
 
 SPINE_ALPHA     = 0.9;
 ENCLOSURE_ALPHA = 0.55;
 
-ENCLOSURE_SIZE = [170.5, 178, 91.83];
-ENCLOSURE_POS  = [2.75, -90, 14.585];
+ENCLOSURE_SIZE = [170.5, 178, 91.96];
+ENCLOSURE_POS  = [2.75, -90, 14.52];
 FRONT_PANEL_PSU_CABLE_GAP = 10.5;
 ENCLOSURE_ROT  = [0, 0, 0];
 ENCLOSURE_EDGE_R = 1.0;
@@ -37,7 +38,7 @@ ODD_POS  = [30, -70, -50];
 ODD_ROT  = [0, 0, 0];
 
 GAN_PSU_SIZE = [170, 55, 25];  // [D, W, H] - ROT 90 turns D along world Y
-GAN_PSU_POS  = [56.5, -89, -8.33];  // Z is a literal (plate defined later); new_spine() warns on drift
+GAN_PSU_POS  = [52.5, -89, -8.46];  // Z is a literal (plate defined later); new_spine() warns on drift
 GAN_PSU_ROT  = [0, 0, 90];
 
 GAN_24PIN_LEN   = 51.0;
@@ -78,8 +79,8 @@ SC_MIN_SPAN_ROUND = 70.0;
 SHOW_GAN_PSU_500W = false;
 GAN_PSU_500W_SIZE = [200.2, 55, 40];
 
-SPINE_PLATE_POS  = [2.31, -89.5, 8.1];  // front edge (Y -2.0) must overlap the panel (back face -2.5) or the spine prints floating
-SPINE_PLATE_SIZE = [170.6, 175, 3];  // X extent is overridden by SPINE_PLATE_NX_X / PX_X
+SPINE_PLATE_POS  = [2.31, -89.75, 8.1];  // literal: front edge must equal -(FRONT_PANEL_THICKNESS + SPINE_PANEL_GAP); warned on drift
+SPINE_PLATE_SIZE = [170.6, 174.5, 3];  // X extent is overridden by SPINE_PLATE_NX_X / PX_X
 SPINE_PLATE_MARGIN_X = 0;
 
 SPINE_PLATE_PX_X = MB_POS[0] + MB_SIZE[0]/2 - 2.0;
@@ -110,12 +111,14 @@ STANDOFF_HOLE_R = 1.9;
 STANDOFF_MARGIN = 8;
 STANDOFF_RAMP_RUN_FACTOR = 1.0;  // 1.0 = 45deg, self-supporting
 
-MB_HEAT_INSERT          = true;
-MB_INSERT_HOLE_DIA      = 4.0;
-MB_INSERT_LEN           = 5.7;
-MB_INSERT_DEPTH_EXTRA   = 1.0;
+// One heat-set insert for the whole build: the MB holes and the spine <-> I/O plate joints both use these.
+MB_INSERT_HOLE_DIA      = 3.6;  // M3 x 4 x 4 (OD 4.0); set to the insert listing's recommended hole
+MB_INSERT_LEN           = 4.0;  // M3 x 4; the MB boss under each hole grows with it (warned vs PSU / HDD / C14)
+MB_INSERT_EXTRA         = 0.9;  // extra bore depth below the insert for displaced plastic (bore is open below)
+MB_BOSS_CHAMFER         = 0.5;  // 45deg chamfer on the MB boss's bottom edge
 MB_INSERT_MIN_WALL      = 1.8;
-MB_STANDOFF_R = MB_HEAT_INSERT ? max(STANDOFF_R, MB_INSERT_HOLE_DIA/2 + MB_INSERT_MIN_WALL) : STANDOFF_R;
+MB_STANDOFF_H           = 6.0;  // real part: M3 x 6 brass hex standoff (M-F, 3-4 mm male thread); MB_POS[2] must put the PCB underside this far above the plate (warned)
+MB_INSERT_RING_R = MB_INSERT_HOLE_DIA/2 + MB_INSERT_MIN_WALL;
 
 MB_HOLES_X_SHIFT = 0;
 MB_HOLES_RAW = [
@@ -151,11 +154,12 @@ GAN_PSU_HOLES = [
 GAN_STANDOFF_HOLE_R = 1.9;
 GAN_STANDOFF_R = 5;
 GAN_STANDOFF_H = 1.0;
-GAN_ORING_OD = 7.14;
-GAN_ORING_CS = 1.59;
+// Same O-ring as the HDD (AS568-007) - one part for both.
+GAN_ORING_OD = HDD_ORING_OD;
+GAN_ORING_CS = HDD_ORING_CS;
 GAN_ORING_POCKET_CLEARANCE = 0.4;
 GAN_ORING_POCKET_DIA   = GAN_ORING_OD + GAN_ORING_POCKET_CLEARANCE;
-GAN_ORING_POCKET_DEPTH = 1.43;
+GAN_ORING_POCKET_DEPTH = HDD_ORING_POCKET_DEPTH;
 GAN_SCREW_CS_DIA   = 6.4;
 GAN_SCREW_CS_ANGLE = 90;
 
@@ -277,6 +281,229 @@ module front_panel_mount_holes(pts) {
             FRONT_PANEL_SCREW_CS_DIA, FRONT_PANEL_SCREW_CS_ANGLE);
 }
 
+// Spine <-> I/O plate joints: M3 flat heads through the panel into heat inserts in bosses on the spine's front edge.
+// One X list drives both the panel countersinks and the spine bosses, so they always line up.
+//SPINE_PANEL_SCREW_X      = [-68, -24, 20];
+SPINE_PANEL_SCREW_X      = [-70, 0, 84];
+SPINE_PANEL_GAP          = 0.0;
+SPINE_PANEL_SCREW_LEN    = 10;  // flat head: length includes the head
+SPINE_PANEL_INSERT_DIA   = MB_INSERT_HOLE_DIA;  // same insert as the MB holes
+SPINE_PANEL_INSERT_LEN   = MB_INSERT_LEN;
+SPINE_PANEL_INSERT_EXTRA = 1.0;
+SPINE_PANEL_INSERT_WALL  = 1.8;
+SPINE_PANEL_TIP_CLEARANCE = 1.0;
+SPINE_PANEL_BOSS_END     = 1.5;
+SPINE_PANEL_MIN_CLEARANCE = 0.5;
+
+SPINE_PANEL_BOSS_R  = SPINE_PANEL_INSERT_DIA/2 + SPINE_PANEL_INSERT_WALL;
+SPINE_PANEL_PLATE_TOP_Z = SPINE_PLATE_POS[2] + SPINE_PLATE_SIZE[2]/2;
+SPINE_PANEL_PLATE_BOT_Z = SPINE_PLATE_POS[2] - SPINE_PLATE_SIZE[2]/2;
+// Bore sits one wall under the MB face so the boss stays flush with it (spine prints MB face down).
+SPINE_PANEL_SCREW_Z = SPINE_PANEL_PLATE_TOP_Z - SPINE_PANEL_BOSS_R;
+SPINE_PANEL_FRONT_Y = -FRONT_PANEL_THICKNESS - SPINE_PANEL_GAP;
+SPINE_PANEL_BORE_LEN = max(SPINE_PANEL_INSERT_LEN + SPINE_PANEL_INSERT_EXTRA,
+                           SPINE_PANEL_SCREW_LEN - FRONT_PANEL_THICKNESS - SPINE_PANEL_GAP + SPINE_PANEL_TIP_CLEARANCE);
+SPINE_PANEL_BOSS_LEN = SPINE_PANEL_BORE_LEN + SPINE_PANEL_BOSS_END;
+
+// Spine channel: two ribs on the I/O plate's back face, above and below the spine's front edge.
+SPINE_RIB_ENABLE          = true;
+SPINE_RIB_DEPTH           = 2.0;   // how far the ribs stand off the panel back (Y)
+SPINE_RIB_THICK           = 1.6;   // rib thickness (Z)
+SPINE_RIB_CLEARANCE       = 0.2;   // per side, rib to spine plate
+SPINE_RIB_RAMP            = 1.5;   // 45deg root ramp on each rib's outer side; capped at SPINE_RIB_DEPTH
+SPINE_RIB_LEAD_IN         = 0.4;   // chamfer on the channel side of each rib tip
+SPINE_RIB_NOTCH_CLEARANCE = 0.3;   // lower-rib gap each side of a joint boss (X)
+SPINE_RIB_X_INSET         = 0;     // trims both rib ends in from the spine's front-edge width
+SPINE_RIB_MB_CLEARANCE    = 2.0;   // upper rib to the MB PCB underside (through-hole pins)
+HDD_GRILL_RIB_GAP         = 1.25;  // solid face between the grill top and the lower rib's footprint
+
+SPINE_RIB_ROOT_Y   = -FRONT_PANEL_THICKNESS;
+SPINE_RIB_TIP_Y    = SPINE_RIB_ROOT_Y - SPINE_RIB_DEPTH;
+SPINE_RIB_RAMP_EFF = max(min(SPINE_RIB_RAMP, SPINE_RIB_DEPTH), 0);
+SPINE_RIB_UPPER_Z  = [SPINE_PANEL_PLATE_TOP_Z + SPINE_RIB_CLEARANCE, SPINE_PANEL_PLATE_TOP_Z + SPINE_RIB_CLEARANCE + SPINE_RIB_THICK];
+SPINE_RIB_LOWER_Z  = [SPINE_PANEL_PLATE_BOT_Z - SPINE_RIB_CLEARANCE - SPINE_RIB_THICK, SPINE_PANEL_PLATE_BOT_Z - SPINE_RIB_CLEARANCE];
+SPINE_RIB_UPPER_FOOT_Z = SPINE_RIB_UPPER_Z[1] + SPINE_RIB_RAMP_EFF;  // highest point on the panel back
+SPINE_RIB_LOWER_FOOT_Z = SPINE_RIB_LOWER_Z[0] - SPINE_RIB_RAMP_EFF;  // lowest point on the panel back
+
+function spine_rib_x() = [spine_plate_nx_edge(SPINE_PANEL_FRONT_Y - 0.01) + SPINE_RIB_X_INSET,
+                          spine_plate_px_edge(SPINE_PANEL_FRONT_Y - 0.01) - SPINE_RIB_X_INSET];
+
+// YZ profile; s = +1 upper rib (ramp above), -1 lower rib (ramp below). Root sinks 0.01 into the panel.
+function spine_rib_profile(s) =
+    let(z_in  = s > 0 ? SPINE_RIB_UPPER_Z[0] : SPINE_RIB_LOWER_Z[1],
+        z_out = s > 0 ? SPINE_RIB_UPPER_Z[1] : SPINE_RIB_LOWER_Z[0],
+        yr = SPINE_RIB_ROOT_Y + 0.01, yt = SPINE_RIB_TIP_Y,
+        li = min(SPINE_RIB_LEAD_IN, SPINE_RIB_THICK/2, SPINE_RIB_DEPTH/2),
+        rp = SPINE_RIB_RAMP_EFF)
+    [[yr, z_in], [yt + li, z_in], [yt, z_in + s*li], [yt, z_out],
+     [SPINE_RIB_ROOT_Y - rp, z_out], [SPINE_RIB_ROOT_Y, z_out + s*rp], [yr, z_out + s*rp]];
+
+module spine_ribs() {
+    if (SPINE_RIB_ENABLE) {
+        xs = spine_rib_x();
+        notch_hw = SPINE_PANEL_BOSS_R + SPINE_RIB_NOTCH_CLEARANCE;
+        for (s = [1, -1])
+            difference() {
+                translate([xs[0], 0, 0]) rotate([90, 0, 90])
+                    linear_extrude(height = xs[1] - xs[0]) polygon(spine_rib_profile(s));
+                if (s < 0)
+                    for (x = SPINE_PANEL_SCREW_X)
+                        translate([x - notch_hw, SPINE_RIB_TIP_Y - 1, SPINE_RIB_LOWER_FOOT_Z - 1])
+                            cube([2*notch_hw, SPINE_RIB_DEPTH + 1.02, SPINE_RIB_LOWER_Z[1] - SPINE_RIB_LOWER_FOOT_Z + 2]);
+            }
+    }
+}
+
+// Lowest Z of the lower rib at Y = y (between root and tip).
+function spine_rib_lower_bottom_at(y) =
+    let(ramp_end = SPINE_RIB_ROOT_Y - SPINE_RIB_RAMP_EFF)
+    y <= ramp_end ? SPINE_RIB_LOWER_Z[0] : SPINE_RIB_LOWER_Z[0] - (y - ramp_end);
+
+module spine_rib_checks() {
+    if (SPINE_RIB_ENABLE) {
+        xs = spine_rib_x();
+        if (SPINE_RIB_RAMP > SPINE_RIB_DEPTH)
+            echo(str("WARNING: SPINE_RIB_RAMP ", SPINE_RIB_RAMP, " exceeds SPINE_RIB_DEPTH ", SPINE_RIB_DEPTH, " - capped to the depth."));
+        if (SPINE_LIGHTENING_MARGIN_PY < SPINE_RIB_DEPTH)
+            echo(str("WARNING: SPINE_LIGHTENING_MARGIN_PY ", SPINE_LIGHTENING_MARGIN_PY, " < SPINE_RIB_DEPTH ", SPINE_RIB_DEPTH,
+                     " - the spine edge inside the channel is not solid."));
+        // Components below the lower rib: [name, x span, front Y, top Z].
+        for (b = [["GaN PSU", [GAN_PSU_POS[0] - GAN_PSU_SIZE[1]/2, GAN_PSU_POS[0] + GAN_PSU_SIZE[1]/2],
+                   GAN_PSU_POS[1] + GAN_PSU_SIZE[0]/2, GAN_PSU_POS[2] + GAN_PSU_SIZE[2]/2],
+                  ["HDD", [HDD_POS[0] - HDD_SIZE[0]/2, HDD_POS[0] + HDD_SIZE[0]/2],
+                   HDD_POS[1] + HDD_SIZE[1]/2, HDD_POS[2] + HDD_SIZE[2]/2],
+                  ["C14 body", [C14_POS[0] - C14_BODY_HALF_W, C14_POS[0] + C14_BODY_HALF_W],
+                   0, C14_POS[2] + C14_BODY_TOP_DZ]])
+            if (_span_overlap(xs[0], xs[1], b[1][0], b[1][1]) && b[2] > SPINE_RIB_TIP_Y) {
+                gap = spine_rib_lower_bottom_at(min(b[2], SPINE_RIB_ROOT_Y)) - b[3];
+                echo(str("Spine rib: lower rib is ", gap, "mm above the ", b[0], "."));
+                if (gap < SPINE_PANEL_MIN_CLEARANCE)
+                    echo(str("WARNING: lower spine rib is only ", gap, "mm above the ", b[0],
+                             " (< SPINE_PANEL_MIN_CLEARANCE ", SPINE_PANEL_MIN_CLEARANCE, "). Reduce SPINE_RIB_THICK / RAMP."));
+            }
+        pcb_bot = MB_POS[2] - MB_SIZE[2]/2;
+        pcb_front_y = MB_POS[1] + MB_SIZE[1]/2;
+        upper_top = SPINE_RIB_UPPER_Z[1] + max(SPINE_RIB_RAMP_EFF - (SPINE_RIB_ROOT_Y - min(pcb_front_y, SPINE_RIB_ROOT_Y)), 0);
+        mb_gap = pcb_bot - upper_top;
+        echo(str("Spine rib: upper rib is ", mb_gap, "mm below the MB PCB."));
+        if (mb_gap < SPINE_RIB_MB_CLEARANCE)
+            echo(str("WARNING: upper spine rib is only ", mb_gap, "mm below the MB PCB (< SPINE_RIB_MB_CLEARANCE ",
+                     SPINE_RIB_MB_CLEARANCE, "). Reduce SPINE_RIB_THICK / RAMP."));
+        if (SPINE_RIB_UPPER_FOOT_Z > MB_PCB_TOP_Z - IO_POCKET_MARGIN - 1.0)
+            echo(str("WARNING: upper spine rib foot (Z ", SPINE_RIB_UPPER_FOOT_Z, ") is within 1mm of the I/O pocket."));
+    }
+}
+
+// Measured from c14_socket.stl at C14_POS / C14_ROT: body X +-25.0, top at C14_POS[2] + 11.0. Re-measure for the right-angle socket.
+C14_BODY_HALF_W   = 25.0;
+C14_BODY_TOP_DZ   = 11.0;
+C14_BODY_DEPTH    = 28.6;
+
+function spine_panel_screw_pts() = [for (x = SPINE_PANEL_SCREW_X) [x, SPINE_PANEL_SCREW_Z]];
+
+module spine_panel_screw_holes() {
+    front_panel_mount_holes(spine_panel_screw_pts());
+}
+
+module spine_panel_bosses() {
+    r = SPINE_PANEL_BOSS_R;
+    for (x = SPINE_PANEL_SCREW_X)
+        hull() {
+            translate([x, SPINE_PANEL_FRONT_Y, SPINE_PANEL_SCREW_Z])
+                rotate([90, 0, 0])
+                    cylinder(h = SPINE_PANEL_BOSS_LEN, r = r, $fn = 48);
+            translate([x - r, SPINE_PANEL_FRONT_Y - SPINE_PANEL_BOSS_LEN, SPINE_PANEL_PLATE_BOT_Z])
+                cube([2*r, SPINE_PANEL_BOSS_LEN, SPINE_PLATE_SIZE[2]]);
+        }
+}
+
+module spine_panel_boss_bores() {
+    for (x = SPINE_PANEL_SCREW_X)
+        translate([x, SPINE_PANEL_FRONT_Y + 0.5, SPINE_PANEL_SCREW_Z])
+            rotate([90, 0, 0]) {
+                cylinder(h = SPINE_PANEL_INSERT_LEN + SPINE_PANEL_INSERT_EXTRA + 0.5, r = SPINE_PANEL_INSERT_DIA/2, $fn = 32);
+                cylinder(h = SPINE_PANEL_BORE_LEN + 0.5, r = FRONT_PANEL_SCREW_R, $fn = 24);
+            }
+}
+
+// Footprint [x0, y0, x1, y1] kept solid by the lightening pattern.
+function spine_panel_boss_protect_rects(wall) =
+    [for (x = SPINE_PANEL_SCREW_X)
+        [x - SPINE_PANEL_BOSS_R - wall, SPINE_PANEL_FRONT_Y - SPINE_PANEL_BOSS_LEN - wall,
+         x + SPINE_PANEL_BOSS_R + wall, SPINE_PANEL_FRONT_Y + 1]];
+
+function _span_overlap(a0, a1, b0, b1) = min(a1, b1) > max(a0, b0);
+
+// XZ gap from the D-shaped boss at x to a component top at Z `top` spanning X [a0, a1]; negative = overlap.
+function spine_panel_boss_gap(x, a0, a1, top) =
+    let(r  = SPINE_PANEL_BOSS_R,
+        dz = max(SPINE_PANEL_SCREW_Z - top, 0),
+        round_part = norm([max(a0 - x, x - a1, 0), dz]) - r,
+        flat_part  = norm([max(a0 - (x + r), (x - r) - a1, 0), dz]))
+    min(round_part, flat_part);
+
+function _rect_pt_dist(x0, x1, y0, y1, p) = norm([max(x0 - p[0], p[0] - x1, 0), max(y0 - p[1], p[1] - y1, 0)]);
+
+module spine_panel_joint_checks() {
+    r = SPINE_PANEL_BOSS_R;
+    by0 = SPINE_PANEL_FRONT_Y - SPINE_PANEL_BOSS_LEN;
+    by1 = SPINE_PANEL_FRONT_Y;
+    plate_front = SPINE_PLATE_POS[1] + SPINE_PLATE_SIZE[1]/2;
+    plate_rear  = SPINE_PLATE_POS[1] - SPINE_PLATE_SIZE[1]/2;
+    if (abs(plate_front - SPINE_PANEL_FRONT_Y) > 0.01)
+        echo(str("WARNING: spine front edge is Y ", plate_front, ", not -(FRONT_PANEL_THICKNESS + SPINE_PANEL_GAP) = ",
+                 SPINE_PANEL_FRONT_Y, ". Set SPINE_PLATE_POS[1] to ", (SPINE_PANEL_FRONT_Y + plate_rear)/2,
+                 " and SPINE_PLATE_SIZE[1] to ", SPINE_PANEL_FRONT_Y - plate_rear, " to keep the rear edge at ", plate_rear, "."));
+    gan_x = [GAN_PSU_POS[0] - GAN_PSU_SIZE[1]/2, GAN_PSU_POS[0] + GAN_PSU_SIZE[1]/2];
+    gan_y = [GAN_PSU_POS[1] - GAN_PSU_SIZE[0]/2, GAN_PSU_POS[1] + GAN_PSU_SIZE[0]/2];
+    gan_top = GAN_PSU_POS[2] + GAN_PSU_SIZE[2]/2;
+    hdd_x = [HDD_POS[0] - HDD_SIZE[0]/2, HDD_POS[0] + HDD_SIZE[0]/2];
+    hdd_y = [HDD_POS[1] - HDD_SIZE[1]/2, HDD_POS[1] + HDD_SIZE[1]/2];
+    hdd_top = HDD_POS[2] + HDD_SIZE[2]/2;
+    c14_x = [C14_POS[0] - C14_BODY_HALF_W, C14_POS[0] + C14_BODY_HALF_W];
+    c14_y = [C14_POS[1] - C14_BODY_DEPTH, 0];
+    c14_top = C14_POS[2] + C14_BODY_TOP_DZ;
+    case_x = [ENCLOSURE_POS[0] - ENCLOSURE_SIZE[0]/2, ENCLOSURE_POS[0] + ENCLOSURE_SIZE[0]/2];
+    cs_r = FRONT_PANEL_SCREW_CS_DIA/2;
+    pocket_bot = MB_PCB_TOP_Z - IO_POCKET_MARGIN;
+    standoffs = concat(
+        [for (wp = world_holes(HDD_POS, HDD_HOLES, HDD_ROT[2])) ["HDD standoff", wp, HDD_STANDOFF_R]],
+        [for (wp = world_holes(GAN_PSU_POS, GAN_PSU_HOLES, GAN_PSU_ROT[2])) ["GaN standoff", wp, GAN_STANDOFF_R]]);
+    for (x = SPINE_PANEL_SCREW_X) {
+        bx0 = x - r;
+        bx1 = x + r;
+        for (b = [["GaN PSU", gan_x, gan_y, gan_top], ["HDD", hdd_x, hdd_y, hdd_top], ["C14 body", c14_x, c14_y, c14_top]])
+            if (_span_overlap(by0, by1, b[2][0], b[2][1])) {
+                gap = spine_panel_boss_gap(x, b[1][0], b[1][1], b[3]);
+                if (gap < 2)
+                    echo(str("Spine joint X ", x, ": boss is ", gap, "mm from the ", b[0], "."));
+                if (gap < SPINE_PANEL_MIN_CLEARANCE)
+                    echo(str("WARNING: spine joint boss at X ", x, (gap < 0 ? " overlaps" : " is only " ), (gap < 0 ? "" : str(gap, "mm from")),
+                             " the ", b[0], " (< SPINE_PANEL_MIN_CLEARANCE ", SPINE_PANEL_MIN_CLEARANCE, "). Move it in SPINE_PANEL_SCREW_X."));
+            }
+        for (k = standoffs)
+            if (_rect_pt_dist(bx0, bx1, by0, by1, k[1]) < k[2] + 0.01)
+                echo(str("WARNING: spine joint boss at X ", x, " overlaps the ", k[0], " at [", k[1][0], ",", k[1][1], "]."));
+        // MB insert bores are re-cut after the bosses, so only the joint's own insert bore can clash with them.
+        for (wp = world_holes(MB_POS, MB_HOLES, MB_ROT[2])) {
+            bore_gap = _rect_pt_dist(x - SPINE_PANEL_INSERT_DIA/2, x + SPINE_PANEL_INSERT_DIA/2,
+                                     SPINE_PANEL_FRONT_Y - SPINE_PANEL_BORE_LEN, SPINE_PANEL_FRONT_Y, wp) - MB_INSERT_HOLE_DIA/2;
+            if (bore_gap < SPINE_PANEL_MIN_CLEARANCE)
+                echo(str("WARNING: spine joint insert bore at X ", x, " is ", bore_gap, "mm from the MB insert bore at [",
+                         wp[0], ",", wp[1], "] (< SPINE_PANEL_MIN_CLEARANCE ", SPINE_PANEL_MIN_CLEARANCE, ")."));
+        }
+        if (bx0 < case_x[0] - 0.01 || bx1 > case_x[1] + 0.01)
+            echo(str("WARNING: spine joint boss at X ", x, " spans X ", bx0, "..", bx1, ", past the case side (X ",
+                     case_x[0], "..", case_x[1], ") - it would hit the side wall."));
+        if (bx0 < spine_plate_nx_edge(SPINE_PANEL_FRONT_Y - 0.01) || bx1 > spine_plate_px_edge(SPINE_PANEL_FRONT_Y - 0.01))
+            echo(str("Spine joint X ", x, ": boss hangs past the spine plate's front edge (fine)."));
+        if (_span_overlap(x - cs_r, x + cs_r, c14_x[0], c14_x[1]) && SPINE_PANEL_SCREW_Z - cs_r < c14_top + 1.0)
+            echo(str("WARNING: spine joint countersink at X ", x, " is within 1mm of the C14 flange (top Z ", c14_top, ")."));
+        if (SPINE_PANEL_SCREW_Z + cs_r > pocket_bot - 1.0)
+            echo(str("WARNING: spine joint countersink at X ", x, " is within 1mm of the I/O pocket."));
+    }
+}
+
 // The shield projection is solid WITH holes; its complement inside an inset square is the holes only.
 module io_port_holes_2d() {
     difference() {
@@ -391,7 +618,7 @@ FRONT_VENT_WALL   = 1.6;
 SPINE_LIGHTENING_MODE = "diamond";  // "honeycomb" or "diamond"
 SPINE_LIGHTENING_MARGIN_PX = 3;
 SPINE_LIGHTENING_MARGIN_NX = 3;
-SPINE_LIGHTENING_MARGIN_PY = 0;
+SPINE_LIGHTENING_MARGIN_PY = 3;
 SPINE_LIGHTENING_MARGIN_NY = 3;
 
 SPINE_LIGHTENING_STANDOFF_PROTECT_FUDGE = 0.3;
@@ -557,7 +784,9 @@ module front_panel_lower(show, plate_top, col, alpha) {
                 grill_w = HDD_GRILL_W;
         grill_x = HDD_GRILL_POS_X;
         grill_z_min = HDD_POS[2] - HDD_SIZE[2]/2 - HDD_GRILL_MARGIN_BOTTOM;
-        grill_z_max = HDD_POS[2] + HDD_SIZE[2]/2 + HDD_GRILL_MARGIN_TOP;
+        // With the spine ribs on, the grill top sits HDD_GRILL_RIB_GAP below the lower rib's footprint (HDD_GRILL_MARGIN_TOP is unused).
+        grill_z_max = SPINE_RIB_ENABLE ? SPINE_RIB_LOWER_FOOT_Z - HDD_GRILL_RIB_GAP
+                                       : HDD_POS[2] + HDD_SIZE[2]/2 + HDD_GRILL_MARGIN_TOP;
         grill_h = grill_z_max - grill_z_min;
         grill_z = (grill_z_min + grill_z_max) / 2;
 
@@ -579,7 +808,7 @@ module front_panel_lower(show, plate_top, col, alpha) {
                     ? sqrt(pow(HDD_GRILL_DIAMOND_SLOT_W, 2) + pow(HDD_GRILL_DIAMOND_SLOT_H, 2))/2
                         - min(HDD_GRILL_DIAMOND_SLOT_W, HDD_GRILL_DIAMOND_SLOT_H)/2
                     : HDD_GRILL_HEX_R * (1 - cos(30));
-                grill_screw_protect = [for (p = concat(front_panel_mount_holes_lower(), front_panel_mount_holes_upper()))
+                grill_screw_protect = [for (p = concat(front_panel_mount_holes_lower(), front_panel_mount_holes_upper(), spine_panel_screw_pts()))
                     [p[0] - grill_x, -(p[1] - grill_z),
                      FRONT_PANEL_SCREW_CS_DIA/2 + FRONT_PANEL_SCREW_GRILL_WALL + grill_cell_corner_extra]];
 
@@ -846,17 +1075,18 @@ module spine_plate_taper_warnings() {
             ", would need NY_DEPTH = ", gan_y_min_edge - plate_y_min,
             ") - the -Y taper's waist is no longer flush with the GaN PSU standoffs."));
     }
-    for (set = [["MB",  MB_POS,      MB_HOLES,      MB_ROT[2],      MB_STANDOFF_R],
+    for (set = [["MB",  MB_POS,      MB_HOLES,      MB_ROT[2],      MB_INSERT_RING_R],
                 ["HDD", HDD_POS,     HDD_HOLES,     HDD_ROT[2],     HDD_STANDOFF_R],
                 ["GaN", GAN_PSU_POS, GAN_PSU_HOLES, GAN_PSU_ROT[2], GAN_STANDOFF_R]])
         for (wp = world_holes(set[1], set[2], set[3])) {
-            ny_edge_here = max([for (dx = [-set[4], 0, set[4]]) spine_plate_ny_edge(wp[0] + dx)]);
-            if (wp[1] - set[4] < ny_edge_here - 0.01)
-                echo(str("WARNING: SPINE_PLATE_TAPER_NY/NY2 cuts past a ", set[0], " standoff at [",
-                    wp[0], ",", wp[1], "] - standoff -Y edge = ", wp[1] - set[4],
-                    ", plate -Y edge there = ", ny_edge_here, " - this standoff may be disconnected from the plate."));
+            // Smallest distance (in Y) between the standoff circle's -Y rim and the -Y edge, sampled across the circle.
+            rim_gap = min([for (i = [0 : 40]) let(dx = set[4] * (i/20 - 1))
+                           (wp[1] - sqrt(max(set[4]*set[4] - dx*dx, 0))) - spine_plate_ny_edge(wp[0] + dx)]);
+            if (rim_gap < -0.01)
+                echo(str("WARNING: SPINE_PLATE_TAPER_NY/NY2 cuts ", -rim_gap, "mm into the ", set[0], " standoff at [",
+                    wp[0], ",", wp[1], "] - this standoff may be disconnected from the plate."));
         }
-    for (set = [["MB",  MB_POS,      MB_HOLES,      MB_ROT[2],      MB_STANDOFF_R],
+    for (set = [["MB",  MB_POS,      MB_HOLES,      MB_ROT[2],      MB_INSERT_RING_R],
                 ["HDD", HDD_POS,     HDD_HOLES,     HDD_ROT[2],     HDD_STANDOFF_R],
                 ["GaN", GAN_PSU_POS, GAN_PSU_HOLES, GAN_PSU_ROT[2], GAN_STANDOFF_R]])
         for (wp = world_holes(set[1], set[2], set[3])) {
@@ -867,7 +1097,7 @@ module spine_plate_taper_warnings() {
                     "] - standoff -X edge = ", wp[0] - set[4], ", plate -X edge there = ",
                     nx_edge_here, " - this standoff may be disconnected from the plate."));
         }
-    for (set = [["MB",  MB_POS,      MB_HOLES,      MB_ROT[2],      MB_STANDOFF_R],
+    for (set = [["MB",  MB_POS,      MB_HOLES,      MB_ROT[2],      MB_INSERT_RING_R],
                 ["HDD", HDD_POS,     HDD_HOLES,     HDD_ROT[2],     HDD_STANDOFF_R],
                 ["GaN", GAN_PSU_POS, GAN_PSU_HOLES, GAN_PSU_ROT[2], GAN_STANDOFF_R]])
         for (wp = world_holes(set[1], set[2], set[3])) {
@@ -929,20 +1159,46 @@ module standoffs(pos, local_pts, rot_z, r, hole_r, z_from, z_to) {
     }
 }
 
-module mb_insert_bores(mb_bottom) {
-    if (MB_HEAT_INSERT) {
-        depth = MB_INSERT_LEN + MB_INSERT_DEPTH_EXTRA;
-        plate_bot_z = SPINE_PLATE_POS[2] - SPINE_PLATE_SIZE[2]/2;
-        wall = MB_STANDOFF_R - MB_INSERT_HOLE_DIA/2;
-        if (wall < MB_INSERT_MIN_WALL - 0.001)
-            echo(str("WARNING: MB insert wall is ", wall, "mm (< MB_INSERT_MIN_WALL ", MB_INSERT_MIN_WALL, ")."));
-        if (mb_bottom - depth < plate_bot_z + 1)
-            echo(str("WARNING: MB insert bore bottom Z ", mb_bottom - depth, " leaves < 1mm of plate (plate bottom ",
-                     plate_bot_z, ") - use a shorter insert."));
+function mb_plate_top_z() = SPINE_PLATE_POS[2] + SPINE_PLATE_SIZE[2]/2;
+function mb_plate_bot_z() = SPINE_PLATE_POS[2] - SPINE_PLATE_SIZE[2]/2;
+function mb_boss_bot_z()  = min(mb_plate_top_z() - MB_INSERT_LEN - MB_INSERT_EXTRA, mb_plate_bot_z());
+
+module mb_insert_bores() {
+    for (wp = world_holes(MB_POS, MB_HOLES, MB_ROT[2]))
+        translate([wp[0], wp[1], mb_boss_bot_z() - 0.5])
+            cylinder(h = mb_plate_top_z() - mb_boss_bot_z() + 1, r = MB_INSERT_HOLE_DIA/2, $fn = 32);
+}
+
+// Bosses under the plate so the MB insert can be longer than the plate is thick.
+module mb_insert_bosses() {
+    bot = mb_boss_bot_z();
+    h = mb_plate_bot_z() - bot;
+    c = min(MB_BOSS_CHAMFER, h);
+    if (h > 0.01)
         for (wp = world_holes(MB_POS, MB_HOLES, MB_ROT[2]))
-            translate([wp[0], wp[1], mb_bottom - depth])
-                cylinder(h = depth + 0.5, r = MB_INSERT_HOLE_DIA/2, $fn = 32);
-    }
+            translate([wp[0], wp[1], bot]) {
+                cylinder(h = c, r1 = MB_INSERT_RING_R - c, r2 = MB_INSERT_RING_R, $fn = 48);
+                translate([0, 0, c]) cylinder(h = h - c + 0.01, r = MB_INSERT_RING_R, $fn = 48);
+            }
+}
+
+module mb_boss_checks() {
+    bot = mb_boss_bot_z();
+    r = MB_INSERT_RING_R;
+    for (wp = world_holes(MB_POS, MB_HOLES, MB_ROT[2]))
+        for (b = [["GaN PSU", [GAN_PSU_POS[0] - GAN_PSU_SIZE[1]/2, GAN_PSU_POS[0] + GAN_PSU_SIZE[1]/2],
+                   [GAN_PSU_POS[1] - GAN_PSU_SIZE[0]/2, GAN_PSU_POS[1] + GAN_PSU_SIZE[0]/2], GAN_PSU_POS[2] + GAN_PSU_SIZE[2]/2],
+                  ["HDD", [HDD_POS[0] - HDD_SIZE[0]/2, HDD_POS[0] + HDD_SIZE[0]/2],
+                   [HDD_POS[1] - HDD_SIZE[1]/2, HDD_POS[1] + HDD_SIZE[1]/2], HDD_POS[2] + HDD_SIZE[2]/2],
+                  ["C14 body", [C14_POS[0] - C14_BODY_HALF_W, C14_POS[0] + C14_BODY_HALF_W],
+                   [C14_POS[1] - C14_BODY_DEPTH, 0], C14_POS[2] + C14_BODY_TOP_DZ]])
+            if (_rect_pt_dist(b[1][0], b[1][1], b[2][0], b[2][1], wp) < r) {
+                gap = bot - b[3];
+                echo(str("MB boss at [", wp[0], ",", wp[1], "]: bottom Z ", bot, " is ", gap, "mm above the ", b[0], "."));
+                if (gap < SPINE_PANEL_MIN_CLEARANCE)
+                    echo(str("WARNING: MB insert boss at [", wp[0], ",", wp[1], "] is only ", gap, "mm above the ", b[0],
+                             " (< SPINE_PANEL_MIN_CLEARANCE ", SPINE_PANEL_MIN_CLEARANCE, "). Shorten MB_INSERT_LEN / MB_INSERT_EXTRA."));
+            }
 }
 
 module new_spine(show, col, alpha) {
@@ -964,9 +1220,17 @@ module new_spine(show, col, alpha) {
             echo(str("WARNING: GaN standoff pegs are ", gan_peg_h, "mm, not GAN_STANDOFF_H = ",
                      GAN_STANDOFF_H, ". Set GAN_PSU_POS[2] to ",
                      plate_bot - GAN_STANDOFF_H - GAN_ORING_POCKET_DEPTH - GAN_PSU_SIZE[2]/2, "."));
+        if (abs((mb_bottom - plate_top) - MB_STANDOFF_H) > 0.01)
+            echo(str("WARNING: PCB underside is ", mb_bottom - plate_top, "mm above the plate, not MB_STANDOFF_H = ",
+                     MB_STANDOFF_H, ". Set MB_POS[2] to ", plate_top + MB_STANDOFF_H + MB_SIZE[2]/2,
+                     " (the I/O cut-outs follow MB_POS)."));
         plate_outline = spine_plate_outline();
 
-        color(col, alpha) {
+        spine_panel_joint_checks();
+        mb_boss_checks();
+
+        color(col, alpha) difference() {
+          union() {
             difference() {
                 translate([0, 0, plate_z])
                     linear_extrude(height = plate_t, center = true)
@@ -988,8 +1252,7 @@ module new_spine(show, col, alpha) {
                     translate([wx, wy, plate_top - 0.001])
                         cylinder(h = 1, r = GAN_SCREW_CS_DIA/2, $fn = 48);
                 }
-                // The insert bore is deeper than the 6mm peg, so it also cuts the plate.
-                mb_insert_bores(mb_bottom);
+                mb_insert_bores();
                 lightening_px_limit = (ENCLOSURE_POS[0] + ENCLOSURE_SIZE[0]/2) - SPINE_LIGHTENING_MARGIN_PX;
                 lightening_nx_limit = SPINE_PLATE_NX_X + SPINE_LIGHTENING_MARGIN_NX;
                 lightening_py_limit = (plate_y + plate_d/2) - SPINE_LIGHTENING_MARGIN_PY;
@@ -1015,14 +1278,15 @@ module new_spine(show, col, alpha) {
                      [lightening_ny_edge_pts[0][0], 100000]]
                 );
                 lightening_box_center = [(lightening_nx_limit + lightening_px_limit)/2, (lightening_ny_limit + lightening_py_limit)/2];
-                mb_lightening_protect = standoff_lightening_protect(MB_POS, MB_HOLES, MB_ROT[2], MB_STANDOFF_R, plate_top, mb_bottom,
+                mb_lightening_protect = standoff_lightening_protect(MB_POS, MB_HOLES, MB_ROT[2], MB_INSERT_RING_R, plate_top, plate_top,
                     lightening_nx_limit, lightening_px_limit, lightening_ny_limit, lightening_py_limit);
                 hdd_lightening_protect = standoff_lightening_protect(HDD_POS, HDD_HOLES, HDD_ROT[2], HDD_STANDOFF_R, plate_bot, hdd_top,
                     lightening_nx_limit, lightening_px_limit, lightening_ny_limit, lightening_py_limit);
                 gan_lightening_protect = standoff_lightening_protect(GAN_PSU_POS, GAN_PSU_HOLES, GAN_PSU_ROT[2], GAN_STANDOFF_R, plate_bot, gan_top,
                     lightening_nx_limit, lightening_px_limit, lightening_ny_limit, lightening_py_limit);
                 lightening_protect_pts = concat(mb_lightening_protect[0], hdd_lightening_protect[0], gan_lightening_protect[0]);
-                lightening_protect_rects = concat(mb_lightening_protect[1], hdd_lightening_protect[1], gan_lightening_protect[1]);
+                lightening_protect_rects = concat(mb_lightening_protect[1], hdd_lightening_protect[1], gan_lightening_protect[1],
+                                                  spine_panel_boss_protect_rects(SPINE_GRID_WALL));
                 translate([0, 0, plate_bot - 0.5])
                     linear_extrude(height = plate_t + 1)
                         intersection() {
@@ -1052,10 +1316,8 @@ module new_spine(show, col, alpha) {
                         }
             }
 
-            difference() {
-                standoffs(MB_POS, MB_HOLES, MB_ROT[2], MB_STANDOFF_R, STANDOFF_HOLE_R, plate_top, mb_bottom);
-                mb_insert_bores(mb_bottom);
-            }
+            spine_panel_bosses();
+            mb_insert_bosses();
 
             difference() {
                 union() {
@@ -1069,10 +1331,54 @@ module new_spine(show, col, alpha) {
                     standoff_holes(GAN_PSU_POS, GAN_PSU_HOLES, GAN_PSU_ROT[2], GAN_STANDOFF_HOLE_R, plate_bot, gan_top + GAN_ORING_POCKET_DEPTH);
             }
 
-            front_panel_upper(SHOW_FRONT_PANEL, plate_bot, col, alpha);
-            front_panel_lower(SHOW_FRONT_PANEL_LOWER, plate_top, col, alpha);
-
+          }
+          spine_panel_boss_bores();
+          mb_insert_bores();
         }
+    }
+}
+
+module io_plate(show, col, alpha) {
+    if (show) {
+        plate_top = SPINE_PLATE_POS[2] + SPINE_PLATE_SIZE[2]/2;
+        plate_bot = SPINE_PLATE_POS[2] - SPINE_PLATE_SIZE[2]/2;
+        spine_rib_checks();
+        color(col, alpha) difference() {
+            union() {
+                front_panel_upper(SHOW_FRONT_PANEL, plate_bot, col, alpha);
+                front_panel_lower(SHOW_FRONT_PANEL_LOWER, plate_top, col, alpha);
+                spine_ribs();
+            }
+            spine_panel_screw_holes();
+        }
+    }
+}
+
+// Reference bodies, component boxes and reports shared by spine.scad and io_plate.scad.
+module render_references() {
+    if (SHOW_C14_SOCKET)
+        color("LawnGreen")
+            translate(C14_POS)
+                rotate(C14_ROT)
+                    import(C14_STL_FILE);
+    spine_ref(SHOW_SPINE, [80, 0, 0], [0, -90, 0], SPINE_ALPHA);
+    enclosure_ref(ENCLOSURE_SIZE, ENCLOSURE_POS, ENCLOSURE_ROT, SHOW_ENCLOSURE, "Gray", ENCLOSURE_ALPHA, ENCLOSURE_EDGE_R);
+    labeled_box(MB_SIZE,  MB_POS,  MB_ROT,  SHOW_MB,  "Blue");
+    labeled_box(HDD_SIZE, HDD_POS, HDD_ROT, SHOW_HDD, "Red");
+    labeled_box(ODD_SIZE, ODD_POS, ODD_ROT, SHOW_ODD, "Cyan");
+    labeled_box(GAN_PSU_SIZE, GAN_PSU_POS, GAN_PSU_ROT, SHOW_GAN_PSU, "#222222");
+    labeled_box(GAN_BLOCK1_SIZE, GAN_BLOCK1_POS, GAN_BLOCK_ROT, SHOW_GAN_BLOCKS, "Yellow");
+    labeled_box(GAN_BLOCK2_SIZE, GAN_BLOCK2_POS, GAN_BLOCK_ROT, SHOW_GAN_BLOCKS, "Orange");
+    labeled_box(GAN_PSU_500W_SIZE, GAN_PSU_POS, GAN_PSU_ROT, SHOW_GAN_PSU_500W, "Purple", 0.5);
+    gan_adaptor_report();
+    cooler_clearance_report();
+}
+
+// Other part's STL in grey: world coords, so it lines up. Set SHOW_OTHER_PART = false before exporting.
+module other_part(file, show) {
+    if (show) {
+        echo(str("NOTE: showing ", file, " in grey - set SHOW_OTHER_PART = false before exporting."));
+        color("Gray") import(file);
     }
 }
 
@@ -1084,29 +1390,6 @@ module spine_ref(show, pos, rot, alpha) {
                     import("4.7-Fish_-_spine.stl");
     }
 }
-
-if (SHOW_C14_SOCKET) {
-    color("LawnGreen")
-    translate(C14_POS)
-        rotate(C14_ROT)
-            import(C14_STL_FILE);
-}
-
-spine_ref(SHOW_SPINE, [80, 0, 0], [0, -90, 0], SPINE_ALPHA);
-new_spine(SHOW_NEW_SPINE, "Orange", 1);
-
-enclosure_ref(ENCLOSURE_SIZE, ENCLOSURE_POS, ENCLOSURE_ROT, SHOW_ENCLOSURE, "Gray", ENCLOSURE_ALPHA, ENCLOSURE_EDGE_R);
-
-labeled_box(MB_SIZE,  MB_POS,  MB_ROT,  SHOW_MB,  "Blue");
-labeled_box(HDD_SIZE, HDD_POS, HDD_ROT, SHOW_HDD, "Red");
-labeled_box(ODD_SIZE, ODD_POS, ODD_ROT, SHOW_ODD, "Cyan");
-labeled_box(GAN_PSU_SIZE, GAN_PSU_POS, GAN_PSU_ROT, SHOW_GAN_PSU, "#222222");
-labeled_box(GAN_BLOCK1_SIZE, GAN_BLOCK1_POS, GAN_BLOCK_ROT, SHOW_GAN_BLOCKS, "Yellow");
-labeled_box(GAN_BLOCK2_SIZE, GAN_BLOCK2_POS, GAN_BLOCK_ROT, SHOW_GAN_BLOCKS, "Orange");
-labeled_box(GAN_PSU_500W_SIZE, GAN_PSU_POS, GAN_PSU_ROT, SHOW_GAN_PSU_500W, "Purple", 0.5);
-
-gan_adaptor_report();
-cooler_clearance_report();
 
 module cooler_clearance_report() {
     mb_env_top   = MB_POS[2] + MB_SIZE[2]/2;
@@ -1187,4 +1470,10 @@ module gan_adaptor_report() {
                      ") - the plate needs a notch here, or the PSU must shift -Y."));
         }
     }
+}
+
+if (ASSEMBLY_PREVIEW) {
+    new_spine(true, "Orange", 1);
+    io_plate(true, "Orange", 1);
+    render_references();
 }
