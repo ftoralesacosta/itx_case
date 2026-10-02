@@ -177,13 +177,13 @@ FRONT_PANEL_IO_OFFSET = [-72.01, 86.99, -2.83, 41.67];  // [x_min, x_max, z_min,
 IO_SHIELD_STL_FILE = "asrock_b860i_io_shield.stl";
 IO_SHIELD_STL_SIZE = [155.0, 40.5];  // must match the STL bbox exactly - larger cuts a slot across the panel
 IO_SHIELD_EDGE_INSET = 1.0;  // must stay < the nearest port's distance to the shield edge
-IO_SHIELD_Z_SHIFT = 2.0;
+IO_SHIELD_Z_SHIFT = 0.0;
 
 IO_POCKET_DEPTH  = 1.2;
 IO_POCKET_MARGIN = 2.0;
 IO_POCKET_SCREW_WALL = 1.0;
 IO_POCKET_EXTRA_NX = 2.5;
-IO_POCKET_EXTRA_PZ = 3.0;
+IO_POCKET_EXTRA_PZ = 5.0;  // fixed to the Wi-Fi housing: re-add any IO_SHIELD_Z_SHIFT change here with opposite sign
 MB_PANEL_GAP = 0.3;
 IO_PORT_OVERHANG = 1.0;
 IO_PORT_CLEARANCE = 0.5;

@@ -32,6 +32,11 @@ study for the spine only.
    - [CPU cooler and fan intake clearance](#cpu-cooler-and-fan-intake-clearance)
    - [PSU 24-pin routing (SC Shift adaptors)](#psu-24-pin-routing-sc-shift-adaptors)
 5. [Printing](#printing)
+   - [Orientation](#orientation)
+   - [Tested profile](#tested-profile)
+   - [Why these settings](#why-these-settings)
+   - [If it still wobbles](#if-it-still-wobbles)
+   - [Before slicing](#before-slicing)
 6. [Hardware and assembly](#hardware-and-assembly)
 7. [Self-checks (console warnings)](#self-checks-console-warnings)
 8. [Known open items](#known-open-items)
@@ -47,6 +52,8 @@ study for the spine only.
 | `4.7-Fish_-_spine.stl` | Original spine reference. Front I/O opening, mounting holes, and taper shape were measured from it. |
 | `4.7-Fish_-_case.stl`, `4.7-fish-step.step` | Original shell / STEP reference — not used in the model yet. |
 | `asrock_b760m_itx_io_shield.scad`/`.stl`, `basic_layout.scad` | Legacy: the previous board's shield model and an early layout snapshot. Not used. |
+| `print/game_of_life_itx_case_0.25mm_STRUCTURAL_PETG_MK4S.3mf` | PrusaSlicer project with the [tested print profile](#tested-profile). Embeds the Sep 29 mesh — reload the STL from disk before slicing. |
+| `game_of_life_itx_case_0.4n_0.25mm_PETG_MK4S_4h2?m.bgcode` | **Stale:** Sep 25 slices with the stock profile (2 perimeters, 15 % grid) and old geometry. |
 
 ## Using the model
 
@@ -284,11 +291,15 @@ trusted).
   (`[x_min, x_max, z_min, z_max]` relative to `MB_POS[0]` / board bottom).
   Shield-local y = 0 is the HDMI/DP end, which maps to world Z under
   `rotate([90,0,0])` (verified: DP renders above HDMI).
-- `IO_SHIELD_Z_SHIFT = 2.0` is a test-fit correction: the first print had
-  the ports ~2.0 mm (-X end) / ~1.5 mm (+X end) above their cutouts. 2.0 is
-  taken from the -X end, which has a standoff 9.5 mm from the I/O edge;
-  the +X end's nearest standoff is ~32 mm back, so it can sag. Moves only
-  the cutouts.
+- `IO_SHIELD_Z_SHIFT = 0.0` (free, test-fit). History: the first print
+  read as ports ~2.0 mm above their cutouts, so it was set to +2.0. The
+  Oct 1 fit (board screwed down) had the cutouts ~1.5–2 mm *above* the
+  ports, the same on both ends, and the board height had not changed in
+  between, so the first correction went the wrong way; it is back to 0.0.
+  Model check at 0.0: the lowest USB-A hole bottom is at Z 17.22 vs the PCB
+  top at 17.2, flush with a stacked USB-A's bottom shell. The shift moves the
+  holes, the USB-C relief and the pocket; **change `IO_POCKET_EXTRA_PZ` by
+  the opposite amount** so the pocket top stays put for the Wi-Fi housing.
 
 #### Port pocket
 
@@ -304,7 +315,7 @@ less wall.
 | `IO_POCKET_DEPTH` | 1.2 | free — 0.3 + 1.2 = 1.5 mm; leaves a **1.3 mm** skin over the ports |
 | `IO_POCKET_MARGIN` | 2.0 | free — housing size beyond its hole, per side |
 | `IO_POCKET_EXTRA_NX` | 2.5 | free — extra on -X only (below) |
-| `IO_POCKET_EXTRA_PZ` | 3.0 | free — extra on +Z only (below) |
+| `IO_POCKET_EXTRA_PZ` | 5.0 | free — extra on +Z only (below) |
 | `IO_POCKET_SCREW_WALL` | 1.0 | free — solid ring kept around each top-edge countersink |
 
 - **One rectangle**: the hull of per-column bands from the PCB top (the
@@ -318,11 +329,12 @@ less wall.
   pocket 2.5 mm further on -X (4.5 mm past the jacks). The nearest feature
   is the -X corner screw's keep-out, ~12 mm away.
 - **Wi-Fi housing:** the metal housing around the antenna connectors hit
-  the panel above the pocket in a test fit, so `IO_POCKET_EXTRA_PZ` raises
-  the pocket's top by 3 mm (54.23 → 57.23), leaving a 1.97 mm full-thickness
-  strip below the panel's top edge (59.2). The top-edge screw keep-outs are
-  still subtracted.
-- Pocket extent: X -61.12 .. 83.75, Z 15.20 .. 57.23. It's on the back face
+  the panel above the pocket in a test fit, so the pocket top was raised
+  3 mm to **Z 57.23**, leaving a 1.97 mm full-thickness strip below the
+  panel's top edge (59.2). `IO_POCKET_EXTRA_PZ` is 5.0 = those 3 mm plus
+  the 2 mm the holes dropped when `IO_SHIELD_Z_SHIFT` went 2.0 → 0.0. The
+  top-edge screw keep-outs are still subtracted.
+- Pocket extent: X -61.12 .. 83.75, Z 15.02 .. 57.23. It's on the back face
   (the top as printed), so no supports.
 - `front_panel_upper()` warns if the overhang plus clearance doesn't fit, or
   if `MB_POS[1]` drifts from `MB_PANEL_GAP`.
@@ -345,7 +357,7 @@ Instead, `USB_C_RELIEF` cuts an overmold-sized pill (`USB_C_RELIEF_SIZE`
 passes the face into the pocket and the plug seats regardless of panel
 thickness. `USB_C_RELIEF_CENTER` is the port centre in shield-STL
 coordinates ([116.14, 5.25], from `asrock_b860i_io_shield.scad`: mirrored
-stack-1 X plus `usbc_x_offset`). World extent X 42.63..55.63, Z 18.52..25.52,
+stack-1 X plus `usbc_x_offset`). World extent X 42.63..55.63, Z 16.52..23.52,
 leaving 2.25 mm of wall below the USB-A above it. Caliper your cable's
 overmold and resize if it is larger (thick braided cables can be).
 
@@ -547,27 +559,71 @@ Print with the spine's **+Y face (the front panel) down**, build direction
 - **No lightening wall may run purely along X** (see
   [Lightening pattern](#lightening-pattern)).
 - **-Y-facing tapers ≤ 45°** (RUN ≥ DEPTH).
+- **On the bed (MK4S):** the 170 mm edge runs **left–right (along bed X)**,
+  as tested.
 
-### Print guide
+### Tested profile
 
-Tested on a Prusa MK4S, PETG, 0.4 nozzle, 0.25 mm profile (~4.5 h). The spine
-is a 3 mm wall ~175 mm tall anchored only at the front panel, so the top
-half tends to wobble. In order of cost:
+Prusa MK4S, 0.4 HF nozzle, PrusaSlicer 2.9.2. Based on the stock
+**0.25mm STRUCTURAL** print profile and **Generic PETG**, tuned for a tall,
+thin part. **~6 h 34 m, ~63 g** (stock profile: 4 h 24 m, 60 g). Project file:
+`print/game_of_life_itx_case_0.25mm_STRUCTURAL_PETG_MK4S.3mf`.
 
-1. **Orient on the bed (free).** The MK4S bed moves in Y. Put the front
-   panel's 170 mm edge front-to-back so bed motion runs along the plate's
-   stiff in-plane direction.
-2. **Minimum layer time 8–10 s** (Filament → Cooling). ~No added time.
-3. **Slow the top ~75 mm** (above ~100 mm), +45–90 min. Either live
-   (**Tune → Speed → 60–70%** at ~100 mm) or baked in via a custom G-code at
-   ~100 mm on the layer slider:
+| Group | Setting |
+|---|---|
+| Filament | PETG, 250 °C first layer / **240 °C**, bed **90 °C**, max volumetric **12 mm³/s** |
+| Layers | **0.25 mm** (first 0.2), top 4 / bottom 3 (min 0.7 / 0.5 mm) |
+| Walls | **3 perimeters**, Arachne, seam aligned |
+| Infill | **25 % gyroid**; top monotonic lines, bottom monotonic |
+| Adhesion | **5 mm outer brim** (0.1 gap), no skirt, elephant-foot comp 0.2 |
+| Supports | none |
+| Speeds (mm/s) | ext perim 30, perim 45, small perim 25, infill / solid 70, top 45, gap fill 35, bridge 50, first layer 20, travel 180 |
+| Accel (mm/s²) | default 1000, ext perim 600, perim / bridge / top 800, solid 1000, infill 1200, first layer 500, travel 1500 |
+| Cooling | fan always on 35–60 %, off for layers 1–3, bridges 40 %; full fan below a 30 s layer; slow down below a 12 s layer (min 10 mm/s) |
+| Travel | avoid crossing perimeters, Z-lift **0.3**, retract 0.8 mm |
+| Custom G-code | `M221 S95 ; 95% flow for top of spine` at **Z 129.2** (layer slider) |
+
+### Why these settings
+
+The spine is a 3 mm wall ~177 mm tall anchored only at the bed, so its top
+sways. Changes from the stock base:
+
+- **Lower accelerations** (default 2500→1000, infill 4000→1200, travel
+  4000→1500) and **speeds** (ext perim 45→30, perim 80→45, infill 120→70,
+  travel 300→180): most of the sway comes from inertial kicks at direction
+  changes.
+- **Volumetric cap 21→12 mm³/s, nozzle 250→240 °C:** cooler, stiffer
+  extrusions.
+- **Min layer time 7→12 s, fan threshold 20→30 s, fan 20–40→35–60 %:** thin
+  top layers set before the nozzle returns.
+- **3 perimeters + 25 % gyroid** (from 2 + 15 % grid): stiffer while
+  printing, and stronger standoffs and insert bores.
+- **Z-lift 0.15→0.3, avoid crossing perimeters:** fewer nozzle strikes on the
+  swaying top.
+- **Bed 85→90 °C first layer, 5 mm brim:** holds the base of the tall lever
+  arm.
+- **`M221 S95` above Z 129.2:** slightly less material on the top section, so
+  the nozzle doesn't drag on it and start it wobbling.
+
+### If it still wobbles
+
+1. **Slow the top further:** live (**Tune → Speed → 60–70 %** at ~100 mm), or
+   add a custom G-code at ~100 mm alongside the M221:
    ```
    M220 S65          ; 65% speed from here up
    M201 X1000 Y1000  ; cap acceleration (verify your firmware honours it)
    ```
    A height-range modifier changes speeds but not accelerations — weakest.
-4. **Still wobbling?** `SPINE_GRID_WALL` toward 2.0–2.5, a larger
+2. **Geometry:** `SPINE_GRID_WALL` toward 2.0–2.5, a larger
    `SPINE_LIGHTENING_MARGIN_NY`, or breakaway braces from the front panel.
+
+### Before slicing
+
+Re-export the STL with `used_components = false` (see
+[Using the model](#using-the-model)), open the 3mf, and right-click the
+object → **Reload from disk**. The settings and the M221 carry over. The 3mf
+points at `/Users/ftorales/Projects/itx_case/game_of_life_itx_case.stl`; on
+another machine, use **Replace with STL** instead.
 
 ## Hardware and assembly
 
