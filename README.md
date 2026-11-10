@@ -14,8 +14,14 @@ around different hardware:
 - **ATX/FlexATX PSU → HDPLEX 250W GaN AIO ATX PSU**, thermally isolated on O-rings
 - Board: **ASRock B860I** (Mini-ITX)
 
-The outer shell has not been redesigned yet — this is a layout and mounting
-study for the spine only.
+The outer shell is redesigned too (`shell.scad`, see
+[Outer shell](#outer-shell)): a rounded tube closed at the front, printed
+front face down, that the spine + I/O plate assembly slides into.
+
+**`flat_print` branch:** the spine and the front plane are two separate
+parts, each printed flat and joined by M3 flat-head screws into heat inserts
+(see [Spine ↔ I/O plate joints](#spine--io-plate-joints)). The printed MB
+standoffs are replaced by metal M3 standoffs.
 
 ## Contents
 
@@ -29,15 +35,22 @@ study for the spine only.
    - [Front panel — upper (rear I/O)](#front-panel--upper-rear-io)
    - [Front panel — lower (HDD / PSU side)](#front-panel--lower-hdd--psu-side)
    - [Front panel mounting screws](#front-panel-mounting-screws)
+   - [Spine ↔ I/O plate joints](#spine--io-plate-joints)
+   - [Spine channel ribs](#spine-channel-ribs)
    - [CPU cooler and fan intake clearance](#cpu-cooler-and-fan-intake-clearance)
    - [PSU 24-pin routing (SC Shift adaptors)](#psu-24-pin-routing-sc-shift-adaptors)
+   - [Outer shell](#outer-shell)
 5. [Printing](#printing)
    - [Orientation](#orientation)
+   - [Flat-part slicer profiles](#flat-part-slicer-profiles)
    - [Tested profile](#tested-profile)
    - [Why these settings](#why-these-settings)
    - [If it still wobbles](#if-it-still-wobbles)
    - [Before slicing](#before-slicing)
 6. [Hardware and assembly](#hardware-and-assembly)
+   - [Hardware](#hardware)
+   - [Assembly steps](#assembly-steps)
+   - [Hardware details](#hardware-details)
 7. [Self-checks (console warnings)](#self-checks-console-warnings)
 8. [Known open items](#known-open-items)
 
@@ -45,7 +58,10 @@ study for the spine only.
 
 | File | Purpose |
 |---|---|
-| `game_of_life_itx_case.scad` | The working model — everything below. |
+| `case_common.scad` | The shared model: every parameter and module (was `game_of_life_itx_case.scad`). Renders the live assembly (both parts) when opened directly; edit parameters here. |
+| `spine.scad` | Renders the **spine** part (Orange) plus `io_plate.stl` in grey. Exports `spine.stl`. |
+| `io_plate.scad` | Renders the **I/O plate** — the whole front plane: rear I/O, HDD grill, C14 (Orange) plus `spine.stl` in grey. Exports `io_plate.stl`. |
+| `shell.scad` | Renders the **outer shell** around the live spine + I/O plate (Orange), the cooler block, the rear USB-C board and the power button. Exports `shell.stl`. See [Outer shell](#outer-shell). |
 | `c14_tool.scad` | Included by the main file. Cutting tools for the C14 inlet (flange lip + body), with per-axis fit trims. Profiles auto-generated from `c14_socket.stl`. |
 | `asrock_b860i_io_shield.scad` | Caliper-measured rear-I/O port layout for the ASRock B860I. Exported to `asrock_b860i_io_shield.stl`, which the main file imports and cuts into the front panel. |
 | `c14_socket.stl` / `c14_snap-fit_socket.stl` | C14 inlet models (screw-mount / snap-in), selected by `USE_SNAP_IN_C14`. |
@@ -67,10 +83,28 @@ study for the spine only.
 - `SHOW_ODD` / `ODD_*` is a leftover slim-optical-drive placeholder, unused.
 - `SHOW_GAN_BLOCKS` shows the SC Shift adaptor bodies and enables their
   report (see [PSU 24-pin routing](#psu-24-pin-routing-sc-shift-adaptors)).
-- **Export:** `SHOW_NEW_SPINE = true`, everything else (`SHOW_SPINE`,
-  `SHOW_ENCLOSURE`, `SHOW_ODD`, `used_components`) `false`, then a full
-  **Render (F6)** — the lightening pattern is slow and can be wrong in
-  Preview. CLI: `openscad --backend=manifold -D used_components=false -o game_of_life_itx_case.stl game_of_life_itx_case.scad`.
+- **Edit in `case_common.scad`.** Every parameter lives there (e.g.
+  `SPINE_PANEL_SCREW_X` for the joint positions). Opened directly it shows
+  the live assembly, both parts rebuilt from the current parameters, so a
+  change shows on both at once without re-exporting. `ASSEMBLY_PREVIEW`
+  switches this off; the part files set it `false`. Don't export from here.
+- **Two part files.** Open `spine.scad` or `io_plate.scad`; each includes
+  `case_common.scad`, renders its part in Orange and, with
+  `SHOW_OTHER_PART = true`, imports the *other* part's STL in grey (world
+  coordinates, so they line up). A missing STL only gives an import warning.
+  The grey part is the last export, so re-export after changing parameters.
+- **Export:** `SHOW_OTHER_PART = false` and `used_components = false` (the
+  grey import and the component boxes would otherwise end up in the STL;
+  a `NOTE:` echoes while the grey part is shown), then a full **Render
+  (F6)** — the lightening pattern is slow and can be wrong in Preview. CLI:
+  ```
+  openscad --backend=manifold -D used_components=false -D SHOW_OTHER_PART=false -o spine.stl spine.scad
+  openscad --backend=manifold -D used_components=false -D SHOW_OTHER_PART=false -o io_plate.stl io_plate.scad
+  openscad --backend=manifold -D used_components=false -D SHOW_ASSEMBLY=false -D FOR_PRINT=true -o shell.stl shell.scad
+  ```
+  The spine and I/O plate STLs are in world coordinates; orient them in the
+  slicer (see [Printing](#printing)). `FOR_PRINT` already lays the shell
+  front face down at z = 0.
 - After any change, **read the console for `WARNING:` lines** (see
   [Self-checks](#self-checks-console-warnings)).
 
@@ -103,32 +137,53 @@ study for the spine only.
 
 ### Enclosure and front face
 
-`ENCLOSURE_SIZE = [170.5, 178, 91.83]` @ `ENCLOSURE_POS = [2.75, -90, 14.585]`
-is the outer volume budget and defines the front face's X and Z extent.
+`ENCLOSURE_SIZE = [170.5, 184, 94.96]` @ `ENCLOSURE_POS = [2.75, -93, 16.02]`
+is the outer volume budget and defines the front face's X and Z extent. The
+shell's inner wall sits `SHELL_FIT_CLEARANCE` (0.2) outside it.
 
 - **X: -82.5 .. 88.** +X is flush with the MB PCB. The Sep 25 test print
   (170 wide @ X 3) had the board flush on +X but ~1 mm past the face on -X,
   so the face grew 0.5 mm on -X only (free, from the test fit).
-- **Z: -31.33 .. 60.5** (the panel itself tops out at `FRONT_PANEL_TOP_Z` =
-  59.2, see [fan clearance](#cpu-cooler-and-fan-intake-clearance)). The
-  bottom sits `FRONT_PANEL_PSU_CABLE_GAP` = **10.5 mm** below the PSU's bottom
-  face (-20.83) — bend room for the 24-pin cable (free). History: 85 → 94
-  (+9 on -Z for cable room) → 91.83 (trimmed to the 10.5 mm target).
-  `front_panel_lower()` warns if the gap drifts.
+- **Y: 0 .. -184** — 178 + `SPINE_PLATE_REAR_EXT` (6) for SATA / power
+  cable room behind the boards.
+- **Z: -31.46 .. 63.5** (the panel itself tops out at `FRONT_PANEL_TOP_Z` =
+  62.2, see [fan clearance](#cpu-cooler-and-fan-intake-clearance)). The top
+  grew 3 mm with `CPU_COOLER_FIT_OFFSET`. The bottom sits
+  `FRONT_PANEL_PSU_CABLE_GAP` = **10.5 mm** below the PSU's bottom
+  face (-20.96) — bend room for the 24-pin cable (free). History: 85 → 94
+  (+9 on -Z for cable room) → 91.83 (trimmed to the 10.5 mm target) → 91.96
+  (+0.13 when the GaN PSU moved to the HDD's thicker O-ring) → 94.96 (+3 on
+  +Z, cooler test fit). `front_panel_lower()` warns if the gap drifts.
 - When the bottom moved, the HDD grill's bottom margin and the C14 moved
   with it (see [lower panel](#front-panel--lower-hdd--psu-side)); the lower
   mount screws follow the edge automatically.
+- The +3 mm top only moved the top edge and the upper mount screws (still
+  5 mm from the edge); the I/O cutouts hang off the board and didn't move.
+- **Rounded corners** (`FRONT_PANEL_CORNER_ROUND`): the I/O plate's outline
+  is the shell's inner outline minus `SHELL_FIT_CLEARANCE`, so its corners
+  follow the shell's smoothed corners (see [Outer shell](#outer-shell)).
+  Square corners would poke through the shell wall. `front_panel_corner_checks()`
+  echoes the material left around each corner screw (≈1.1 mm) and warns
+  under 1 mm.
 
 ### Divider plate
 
 #### Position and extent
 
-`SPINE_PLATE_POS = [2.31, -89.5, 8.1]`, `SPINE_PLATE_SIZE = [170.6, 175, 3]`:
-plate Z 6.6 .. 9.6, Y -2.0 .. -177.
+`SPINE_PLATE_POS = [2.31, -89.75 - EXT/2, 8.1]`, `SPINE_PLATE_SIZE = [170.6, 174.5 + EXT, 3]`
+with `EXT = SPINE_PLATE_REAR_EXT` = 6: plate Z 6.6 .. 9.6, Y -2.5 .. -183.
 
-- **The front edge (Y -2.0) must overlap the panel** (back face at
-  -`FRONT_PANEL_THICKNESS` = -2.5). It once stopped at -3.0; in the print
-  orientation (front face on the bed) the whole spine then started mid-air.
+- **Rear extension** (`SPINE_PLATE_REAR_EXT`, free): 6 mm more spine at the
+  back for SATA and power cables. The front edge stays put. The rear-referenced
+  taper values (`PX_AFTER`, `NX_AFTER`, `NY_DEPTH`, `NY2_DEPTH`) each add
+  `EXT`, so the notches keep their positions relative to the boards.
+- **The front edge butts against the I/O plate's back face** (Y −2.5 =
+  −(`FRONT_PANEL_THICKNESS` + `SPINE_PANEL_GAP`), gap 0, free). It's a
+  literal because the panel is defined later; the spine warns with the
+  values to set if it drifts. (On `main` the edge overlapped the panel by
+  0.5 mm, because the two were one print.) The PX/NX taper `BEFORE` runs
+  are measured from this edge, so they sit 0.5 mm further back than on
+  `main`.
 - **X extent** comes from `SPINE_PLATE_NX_X` / `SPINE_PLATE_PX_X` (derived:
   2 mm inside each MB edge, 166 mm wide), superseding `POS`/`SIZE` X and
   `SPINE_PLATE_MARGIN_X`.
@@ -206,33 +261,60 @@ and recurses once to subdivide a cell near that polyline.
 
 ### Standoffs
 
-All standoffs are built along Z, which is **horizontal** as printed. Each
-gets a 45° `standoff_ramp()` on its +Y side (`STANDOFF_RAMP_RUN_FACTOR`, 1.0
-= 45°) so it grows out of the plate without supports.
+The HDD and GaN standoffs hang off the plate's underside, built along Z.
+Printed flat (MB face down) they grow straight up; the 45° `standoff_ramp()`
+on each +Y side (`STANDOFF_RAMP_RUN_FACTOR`, 1.0 = 45°) is left over from the
+upright print and is no longer needed.
 
-#### Motherboard (M3, heat-set inserts)
+#### Motherboard (M3, metal standoffs)
 
 - **Holes** (`MB_HOLES_RAW`): standard mITX pattern. Edge insets are 5.84 mm
   (-X) / 6.86 mm (+X). `MB_HOLES_X_SHIFT` moves only the standoff pattern
   (and so the board), not the panel; it is 0 = the Sep 25 print, where +X
   sat flush. The ~1 mm -X overhang was fixed by widening the face instead
   (1.02 was never printed and would push +X ~1 mm proud).
-- **Height:** plate top 9.6 → PCB underside 15.6 (6 mm).
+- **Height:** plate top 9.6 → PCB underside 15.6 (6 mm). `MB_STANDOFF_H` = 6.0
+  (real part) is checked against `MB_POS[2]`; on a mismatch the spine warns
+  with the `MB_POS[2]` to use. The I/O cut-outs follow `MB_POS`, so after
+  changing it they move with the board.
   `MB_POS[1]` = -`FRONT_PANEL_THICKNESS` - `MB_PANEL_GAP` - 85 = -87.8
   (PCB edge 0.3 mm behind the panel; was -90 / 2.5 mm).
-- **Heat-set inserts** (`MB_HEAT_INSERT = true`, default): a blind bore of
-  `MB_INSERT_HOLE_DIA` (4.0) × `MB_INSERT_LEN + MB_INSERT_DEPTH_EXTRA`
-  (5.7 + 1.0) from the standoff top, for a common M3×5.7 insert (Ruthex /
-  CNC Kitchen style, knurl OD ~4.6). The M3 clearance bore
-  (`STANDOFF_HOLE_R` 1.9) continues below it. The bore is deeper than the
-  6 mm peg, so it is also cut into the plate (bottom Z 8.9).
-- **Wall:** `MB_STANDOFF_R = max(STANDOFF_R, hole/2 + MB_INSERT_MIN_WALL)` =
-  max(3.5, 2.0 + 1.8) = **3.8 mm** (7.6 OD; still inside the ~10 mm ITX
-  mounting-hole keep-out). 1.8 rather than the usual ~1.5 because the
-  insert's radial push acts across layer lines in this orientation. 2.0
-  would put the two -X standoffs 0.16 mm past the plate edge (the edge is
-  2 mm inside the MB, the holes 5.84 mm in). With inserts off, the
-  standoffs revert to 3.5 mm with a plain clearance bore.
+- **No printed standoffs.** Removing them leaves the MB face flat, which is
+  what lets the spine print MB face down (the only support-free flat
+  orientation — the HDD/GaN standoffs hang off the other face).
+- **M3 × 4 insert in a boss under the plate:** the same insert as the
+  [joints](#spine--io-plate-joints) — one part for the whole build
+  (`SPINE_PANEL_INSERT_DIA/LEN` follow `MB_INSERT_HOLE_DIA/LEN`). The Ø3.6
+  bore runs `MB_INSERT_LEN` 4.0 + `MB_INSERT_EXTRA` 0.9 down from the MB face,
+  open below; `mb_insert_bosses()` (Ø7.2, 0.5 mm chamfer) extends the plate
+  under each hole to the bore bottom, Z 4.7 — 1.9 mm below the plate. Printed
+  MB face down, the bosses grow straight up. What sets the limit:
+
+  | MB hole | Below | Boss clearance | Longest insert that would fit (not the one to buy) |
+  |---|---|---|---|
+  | −X front (−76.16, −12.33) | C14 body (top 1.17) | 3.53 | M3×5.7 |
+  | −X rear (−76.13, −166.93) | HDD (top 3.08) | 1.63 | M3×5 |
+  | +X front / rear (81.14, …) | GaN PSU corner (top 4.04, PSU X ≤ 80) | **0.66** | **M3×4** |
+
+  `mb_boss_checks()` echoes each and warns under `SPINE_PANEL_MIN_CLEARANCE`.
+  The −X front boss merges with the X −70 joint boss; the bores stay 2.2 mm
+  apart.
+- **Metal standoff:** **M3 × 6 mm brass hex, male–female, male thread 3–4
+  mm** (often listed as "M3×6+3" / "M3×6+4"). The male end screws straight
+  into the M3×4 insert; 6 mm (body, excluding the thread) keeps the PCB
+  underside at Z 15.6, so the I/O alignment is unchanged.
+  - **Male thread length matters** — the bore is open below the boss (4.9 mm
+    deep), so anything longer sticks out under it. Gap to the GaN PSU at the
+    two +X holes: 3–4 mm → stays inside (0.66 boss clearance), 5 mm →
+    **0.56** (too tight for real-world thread tolerance), 6 mm (the common
+    "M3×6+6") → **hits by 0.44**. Measure before installing.
+  - **Fallback:** M3 × 6 female–female + an **M3 × 5 set screw** (ISO 4026;
+    4 mm in the insert, 1 mm in the standoff). Same height, one more part.
+  - ATX case standoffs are 6-32 × M3 and ¼" (6.35 mm) tall — wrong thread
+    for the insert and 0.35 mm too tall.
+- **Ring:** `MB_INSERT_RING_R` = hole/2 + `MB_INSERT_MIN_WALL` = 3.6 mm stays
+  solid in the lightening pattern; the hex (6.35 mm across corners) sits on
+  it.
 
 #### HDD (6-32 UNC, O-ring isolated)
 
@@ -254,7 +336,7 @@ gets a 45° `standoff_ramp()` on its +Y side (`STANDOFF_RAMP_RUN_FACTOR`, 1.0
   the MB.
 - **Stack:** plate underside 6.6 → peg `GAN_STANDOFF_H` **1.0** (free; was
   2.67, shortened to lift the PSU) → O-ring gap `GAN_ORING_POCKET_DEPTH`
-  1.43 → PSU top. So `GAN_PSU_POS[2]` = 6.6 − 1.0 − 1.43 − 12.5 = **-8.33**
+  1.56 → PSU top. So `GAN_PSU_POS[2]` = 6.6 − 1.0 − 1.56 − 12.5 = **-8.46**
   (a literal; `new_spine()` warns if it drifts from `GAN_STANDOFF_H`). The
   O-rings, not the peg, are the thermal break, so the short peg only trades
   air gap above the PSU.
@@ -361,12 +443,35 @@ stack-1 X plus `usbc_x_offset`). World extent X 42.63..55.63, Z 16.52..23.52,
 leaving 2.25 mm of wall below the USB-A above it. Caliper your cable's
 overmold and resize if it is larger (thick braided cables can be).
 
+#### Power button
+
+A 12 mm (M12-thread) momentary switch through the I/O plate, above the
+DisplayPort (`IO_BUTTON_*`). It's positioned from the DP cutout's centre
+(`IO_DP_CENTER`, shield-STL coords) plus `IO_BUTTON_OFFSET` [−3, 16.5],
+which puts it at **X 69.99, Z 48.52**. The bezel (Ø15.5, measure yours)
+clears the DP cutout by 5.25 mm. The nut is 1.7 mm from the shell's upper
++X boss as the assembly slides in, which is what the −3 mm X shift buys.
+The I/O pocket is left out under the nut (Ø18 + 1 mm ring), so the nut
+clamps on the full 2.5 mm panel. Behind the panel the nut and body sit
+2 mm above the DP/HDMI housing and run back to Y −24.5
+(`IO_BUTTON_BODY_LEN` 22, measure yours). `io_button_checks()` echoes
+all of this and notes the space to check for a VRM heatsink. Wire it to
+PANEL1 PWRBTN#/GND (bottom-rear corner of the board), about 30 cm of lead.
+
 ### Front panel — lower (HDD / PSU side)
 
 #### HDD grill
 
 `HDD_GRILL_MODE` (`"diamond"` / `"honeycomb"`) around the drive's front
-face, with independent `HDD_GRILL_MARGIN_*`. `HDD_GRILL_MARGIN_BOTTOM` =
+face, with independent margins. **Top:** with the [spine ribs](#spine-channel-ribs)
+on, the top edge sits `HDD_GRILL_RIB_GAP` (1.25) below the lower rib's foot,
+Z 2.05 (`HDD_GRILL_MARGIN_TOP` only applies with `SPINE_RIB_ENABLE = false`;
+before, the grill nominally ran to Z 12.08 but everything above Z 6.6 was
+hidden behind the solid upper panel). The Game of Life shapes are anchored
+to the grill centre, so they stay centred when the top or bottom moves; to
+tune the band, use `HDD_GRILL_RIB_GAP` (top), `HDD_GRILL_MARGIN_BOTTOM`
+(bottom), `HDD_GRILL_W` / `HDD_GRILL_POS_X` (width / X), and the
+`GOL_Grill_N_ANCHOR` cells. `HDD_GRILL_MARGIN_BOTTOM` =
 6.83 extends it down into the grown face while keeping a ~1.46 mm solid
 border above the bottom edge (9 when the face was 94 tall, −2.17 with the
 trim). `HDD_GRILL_WALL` applies to both modes; diamond cells use their own
@@ -411,7 +516,7 @@ cells solid in a pattern. `SHAPE = GOL_OFF` disables a slot. Currently slots
 - `C14_POS = [-52.5, -2, -9.83]` (X free; Z free — lowered 4 mm when the
   face grew, then raised 2.17 with the bottom trim). `C14_ROT = [270, 180, 0]`.
 - **Mounting:** socket from inside, eared flange against the back face;
-  M3×10 nylon 90° flat head from outside → panel → flange → **M3 nylon (nyloc) nut**
+  M3×10 nylon 90° flat head from outside → panel → flange → **M3 all-nylon hex nut**
   (the flange holes are plain 3.2 mm clearance). `C14_SCREW_PITCH` 42 runs
   along world X for this `C14_ROT` (re-check if the rotation changes);
   countersinks match the front-panel screws (6.4 × 90°).
@@ -441,8 +546,9 @@ rail (177 × 35 mm, M3).
 
 ### Front panel mounting screws
 
-Six M3 × 90° countersunk holes, heads flush at Y = 0: the four outer
-corners plus mid-X on the top and bottom edges.
+Five M3 × 90° countersunk holes, heads flush at Y = 0: the four outer
+corners plus mid-X on the bottom edge. The top-middle hole was removed; see
+the last point.
 
 - Insets `FRONT_PANEL_SCREW_X/Z_INSET` = 5 to the hole centre, so the
   countersink edge is 5 − 3.2 = **1.8 mm** from the panel edge (was
@@ -452,10 +558,113 @@ corners plus mid-X on the top and bottom edges.
   heads 0.5 mm proud).
 - X positions derive from the enclosure X extent (outer corners 5 mm in,
   mid at the face centre X 2.75); Z from each panel's outer edge.
-  `FRONT_PANEL_MOUNT_OFFSET_UPPER/LOWER` add per-hole `[dx, dz]` nudges (all
-  0 now); the grill keep-out follows.
+  `FRONT_PANEL_MOUNT_OFFSET_UPPER/LOWER` add per-hole `[dx, dz]` nudges; the
+  grill keep-out follows. The lower row is nudged **−0.5 mm** in Z so the
+  shell's lower bosses clear the HDD as the assembly slides in (−1 mm left
+  only 0.63 mm of panel around the rounded corner).
 - The lower +X corner used to be skipped for the GaN PSU; since the face
   grew it sits well below the PSU.
+- **Into the shell:** each hole lines up with an M3×4 insert in a shell boss
+  (see [Outer shell](#outer-shell)). `FRONT_PANEL_MOUNT_ENABLE_UPPER/LOWER`
+  set which holes exist, and the shell's bosses follow the same lists. The
+  **top-middle hole is off**. Its boss would hang down to Z 53.6, 3.6 mm
+  below the cooler top (Z 57.2), and the cooler slides under that spot on
+  insertion wherever it sits in Y. So the plate is cut without it (the
+  pocket keep-out ring stays, so that spot is full 2.5 mm thickness), and
+  the shell has a [stop tab](#inside-features) behind it: **5 screws**.
+
+### Spine ↔ I/O plate joints
+
+The I/O plate is screwed to the spine's front edge with **M3 × 10 90° flat
+heads** (same length as the rest) through countersinks identical to the
+shell-mount holes, into **M3 × 4 heat-set inserts** (the same part as the MB
+holes) in bosses on the spine.
+
+- **One list drives both parts:** `SPINE_PANEL_SCREW_X = [-70, 0, 84]`
+  (free — edit freely). `spine_panel_screw_pts()` feeds the panel
+  countersinks (`spine_panel_screw_holes()`, in `io_plate()`) and the bosses
+  and bores (`spine_panel_bosses()` / `spine_panel_boss_bores()`, in
+  `new_spine()`), so they line up by construction.
+- **Boss:** a "D" — the hull of a Ø7.2 cylinder (insert Ø3.6 + 2 × 1.8 wall)
+  and the plate slab, along −Y. Its top is **flush with the MB face** (Z
+  9.6); the bore axis sits one wall below at `SPINE_PANEL_SCREW_Z` = 6.0 and
+  the boss bottom at Z 2.4. Printed MB face down, it grows straight up.
+- **Length:** insert bore Ø3.6 × 5.0 (4.0 + 1.0 for displaced plastic), then
+  a Ø3.4 clearance bore to the screw tip + 1 mm (the screw enters 7.5 mm past
+  the 2.5 mm panel, to Y −10), then a 1.5 mm closed end → boss Y −2.5..−12.5.
+  Change `SPINE_PANEL_SCREW_LEN` / `SPINE_PANEL_INSERT_*` and it follows.
+- **Grill:** the countersinks are added to the HDD grill's screw keep-out,
+  so cells within `FRONT_PANEL_SCREW_GRILL_WALL` stay solid. The boss
+  footprints (+ one `SPINE_GRID_WALL`) are kept solid in the lightening
+  pattern.
+
+**Where joints can go.** Everything under the spine's front edge is tight:
+
+With `GAN_PSU_POS[0]` = 52.5 (PSU X 25..80) and the 0.5 mm minimum clearance:
+
+| Boss centre X | What limits it | Verdict |
+|---|---|---|
+| −82.5 .. −78.9 | boss past the case side (X −82.5) | blocked |
+| −78.9 .. −72.5 | joint insert bore < 0.5 mm from the MB insert bore at (−76.16, −12.33) | blocked |
+| −72.5 .. ~−24 | C14 body, top Z 1.17 → **1.23 mm** air | OK (re-check for the right-angle socket) |
+| ~−24 .. 21.35 | nothing (HDD starts at Y −23.5) | free |
+| 21.35 .. 83.65 | GaN PSU: front face Y −4, top Z 4.04 | blocked |
+| **83.65 .. 84.4** | PSU corner (0.5 mm) on one side, case side X 88 on the other | OK, a 0.75 mm window |
+
+(For the M3×4×4 insert, `MB_INSERT_HOLE_DIA` 3.6 → boss R 3.6; a larger insert grows the boss and shrinks these windows.)
+
+The +X window exists only because the boss is a "D": its rounded bottom
+clears the PSU's top corner (0.85 mm at X 84) where a square boss would not.
+Moving the PSU in X moves the window with it.
+
+`spine_panel_joint_checks()` (runs with the spine) uses the real D profile
+(`spine_panel_boss_gap()`): it echoes each boss's gap to the PSU / HDD / C14
+body when under 2 mm, and warns when the gap is under
+`SPINE_PANEL_MIN_CLEARANCE` (0.5), when the joint's insert bore comes within
+that of an MB insert bore, when a boss overlaps an HDD/GaN standoff or passes
+the case side (X −82.5 / 88), or when a countersink comes within 1 mm of the
+C14 flange or the I/O pocket. Hanging past the spine plate's edge is only
+noted (fine). The MB insert bores are re-cut after the bosses, so a boss
+next to one can't fill it. The C14 body extent
+(`C14_BODY_HALF_W` 25.0, `C14_BODY_TOP_DZ` 11.0, `C14_BODY_DEPTH` 28.6) was
+measured from `c14_socket.stl` — re-measure for the right-angle socket.
+
+### Spine channel ribs
+
+Two ribs on the I/O plate's back face, one above and one below the spine's
+front edge, form a channel the spine pushes into. They locate the spine in Z
+and take bending/shear (e.g. plugging rear-I/O cables) so the joint screws
+only clamp; they stiffen the 2.5 mm plate rather than weaken it (a groove
+would leave 0.5–1.5 mm across the full width). The plate prints face down,
+so the ribs grow straight up with no supports.
+
+| Parameter | Value | What it does |
+|---|---|---|
+| `SPINE_RIB_ENABLE` | true | ribs on/off (off restores the old grill top) |
+| `SPINE_RIB_DEPTH` | 2.0 | stand-off from the panel back (Y) |
+| `SPINE_RIB_THICK` | 1.6 | rib thickness (Z) |
+| `SPINE_RIB_CLEARANCE` | 0.2 | per side, rib to spine plate (channel = 3.0 + 0.4) |
+| `SPINE_RIB_RAMP` | 1.5 | 45° root ramp on each rib's outer side, capped at the depth |
+| `SPINE_RIB_LEAD_IN` | 0.4 | chamfer on the channel side of each tip |
+| `SPINE_RIB_NOTCH_CLEARANCE` | 0.3 | lower-rib gap each side of a joint boss |
+| `SPINE_RIB_X_INSET` | 0 | trims both ends in from the spine's front-edge width (X −80..86) |
+| `SPINE_RIB_MB_CLEARANCE` | 2.0 | minimum upper rib → MB PCB underside (through-hole pins) |
+| `HDD_GRILL_RIB_GAP` | 1.25 | solid face between the grill top and the lower rib's foot |
+
+All free values. Derived: upper rib Z 9.8–11.4 (foot to 12.9), lower rib Z
+4.8–6.4 (foot to 3.3).
+
+- **Lower rib is notched at each joint boss** (the bosses hang below the
+  plate there); the notches also locate the spine in X.
+- **Spine edge is solid:** `SPINE_LIGHTENING_MARGIN_PY` = 3, matching the
+  other sides (was 0). Warned if it drops below `SPINE_RIB_DEPTH`.
+- **Clearances** (echoed by `spine_rib_checks()`, warned under
+  `SPINE_PANEL_MIN_CLEARANCE` / `SPINE_RIB_MB_CLEARANCE`): lower rib
+  0.76 mm above the GaN PSU and 2.13 mm above the C14 body; upper rib
+  3.0 mm below the MB PCB; upper foot vs the I/O pocket.
+- **Grill top follows the lower rib:** with ribs on, the grill's top edge is
+  `SPINE_RIB_LOWER_FOOT_Z − HDD_GRILL_RIB_GAP` (Z 2.05) and
+  `HDD_GRILL_MARGIN_TOP` is unused. See [HDD grill](#hdd-grill).
 
 ### CPU cooler and fan intake clearance
 
@@ -493,16 +702,21 @@ over the fan and no further.
 #### Stack-up
 
 ```
-MB_PCB_TOP_Z      17.2   = MB_POS[2] − MB_SIZE[2]/2 + MB_PCB_THICK
-CPU_COOLER_HEIGHT 37.0   real, Thermalright low-profile, PCB top → fan top
-CPU_COOLER_TOP_Z  54.2
-FAN_PANEL_GAP      5.0
-FAN_PANEL_INNER_Z 59.2   = FRONT_PANEL_TOP_Z   (was a hard-coded 55 from the reference STL)
+MB_PCB_TOP_Z          17.2   = MB_POS[2] − MB_SIZE[2]/2 + MB_PCB_THICK
+CPU_COOLER_HEIGHT     37.0   real, Thermalright low-profile, PCB top → fan top
+CPU_COOLER_FIT_OFFSET  3.0   measured (Oct 4 test fit: fan 2 mm, not 5, under the panel top)
+CPU_COOLER_TOP_Z      57.2
+FAN_PANEL_GAP          5.0
+FAN_PANEL_INNER_Z     62.2   = FRONT_PANEL_TOP_Z   (was a hard-coded 55 from the reference STL)
 ```
+
+`CPU_COOLER_FIT_OFFSET` covers a 3 mm error somewhere in the paper stack
+(standoff, PCB, cooler height); the test fit is the reference. It raises the
+panel top and enclosure top by 3 mm and nothing else.
 
 The cooler block uses `MB_PCB_TOP_Z`, so it must stay below the MB block in
 the file. `cooler_clearance_report()` echoes this every render and warns if
-the gap drops below 4 mm, the panel overshoots the enclosure top (60.5), or
+the gap drops below 4 mm, the panel overshoots the enclosure top (63.5), or
 `MB_SIZE[2]` understates the cooler.
 
 > **Assumption:** `CPU_COOLER_FAN_D = 92` (AXP90 class) — verify. The table's
@@ -510,7 +724,7 @@ the gap drops below 4 mm, the panel overshoots the enclosure top (60.5), or
 > ±40%.
 
 > **Known discrepancy:** `MB_SIZE[2] = 38` puts the MB envelope top at 53.6,
-> 0.6 mm below the cooler. Don't fix it by editing `MB_SIZE[2]` alone —
+> 3.6 mm below the cooler. Don't fix it by editing `MB_SIZE[2]` alone —
 > `FRONT_PANEL_IO_OFFSET` hangs off the board bottom, so also move
 > `MB_POS[2]` by half the change.
 
@@ -540,12 +754,191 @@ PCB), one on each header, turning the two sockets to face each other.
 - `SHOW_GAN_PSU_500W` shows a fit-check box for the HDPLEX 500W GaN
   (200.2 × 55 × 40) in the same slot.
 
+### Outer shell
+
+`shell.scad`: a tube closed at the **front** (Y −186, the face *opposite* the
+I/O) and open at Y = 0, where the I/O plate sits flush inside it. The
+spine and I/O plate slide in together from the open end; five M3×10 flat
+heads through the I/O plate hold them. In use it stands on its **−X side**
+(feet), so +X is the top.
+
+**Outer size:** 174.9 (X, height; 178.9 with feet) × 98.1 (Z) × 186 (Y) mm,
+≈ 3.2 L bounding box.
+
+**View flags** (top of `shell.scad`): `SHOW_ASSEMBLY` (live spine + I/O
+plate), `SHOW_COOLER`, `SHOW_FRONT_PARTS` (switch / USB-C bodies),
+`SHELL_CUTAWAY` `"x"`/`"z"` + `SHELL_CUTAWAY_AT`, `FOR_PRINT`. Files that
+include it set `SHELL_DRAW = false`.
+
+#### Body and corners
+
+- **Outline** (in `case_common.scad`, shared with the I/O plate): inner =
+  enclosure grown by `SHELL_FIT_CLEARANCE` 0.2; outer = inner grown by
+  `SHELL_WALL` **2.0**.
+- **Corners:** `SHELL_CORNER_R` 8 with `SHELL_CORNER_SMOOTHING` 0.6 — the
+  Figma / iOS "continuous corner" (curvature ramps in instead of jumping
+  from a straight edge to an arc, like Apple hardware). 0 gives a plain arc.
+  Straight walls start `(1 + smoothing) · R` = 12.8 mm from each corner.
+  `smooth_rect_pts()` builds it; `shell_outer_2d()`, `shell_inner_2d()` and
+  `front_panel_outline_2d()` are offsets of the same outline.
+- **Front face:** `SHELL_FRONT_THICK` 2.5, `SHELL_SPINE_REAR_GAP` 0.5 behind
+  the spine's rear edge, 1 mm 45° chamfer on the bed edge (hides elephant's
+  foot). The open end has a 0.5 mm outer chamfer and a 0.6 mm inner lead-in
+  for the I/O plate.
+
+#### Inside features
+
+- **I/O plate bosses:** one per panel mount hole, same insert / bore as the
+  [spine joints](#spine--io-plate-joints) (M3×4 insert, `SPINE_PANEL_*`):
+  Ø3.6 × 5.0 insert bore, Ø3.4 to 8.5 mm, boss 10 mm long behind the plate.
+  Each boss runs out to its Z wall (and the X wall when within 10 mm), with
+  a 45° gusset underneath so it prints without support.
+  `SHELL_BOSS_ENABLE_UPPER/LOWER` follow `FRONT_PANEL_MOUNT_ENABLE_*`, so
+  the **mid upper boss is off** (it would block the CPU cooler on
+  insertion). Upper wall 1.8, lower `SHELL_BOSS_WALL_LOWER` 1.4 so the lower
+  bosses clear the HDD silhouette by 0.725 mm (`SHELL_INSERT_MIN_CLEARANCE`
+  0.5).
+- **I/O plate stop tab** (`SHELL_TAB_*`): a 24 mm wide ledge on the inner +Z
+  wall at the top middle, where the plate has no screw. Its front face is
+  flush with the boss faces (Y −2.5), so the plate's back rests on it and
+  the top edge can't bow inward when you plug in cables. It hangs to
+  `SHELL_TAB_BOT_Z` = cooler top + 0.5 = **Z 57.7**, so the cooler slides
+  under it with the same 0.5 mm clearance the bosses get (checked in
+  `shell_checks()`). It has a 1.5 mm flat land, then a 45° underside back
+  into the wall, so it prints without support. It sits inside the top
+  grill's solid frame, and it contacts the plate above the I/O pocket
+  (pocket top Z 57.23).
+- **MB rail (−X wall):** the PCB's −X edge sits 0.7 mm off the inner wall.
+  Two ribs (`SHELL_MB_RAIL_*`: 2 mm deep, 1.6 thick, 0.2 clearance per side)
+  form a channel the board edge slides along, into the MB volume on
+  purpose. 1 mm lead-in at the open end. +X has no rail (no room).
+- **Spine nub sockets:** the spine's rear tapers leave two nubs at the back
+  corners. Pockets on the front inner face (`SHELL_SOCKET_*`: 6 mm deep,
+  0.2 clearance, 2 mm wall, 1 mm lead-in) follow the spine outline, so the
+  back of the spine can't wobble.
+
+#### Feet (−X)
+
+Four ramps (`SHELL_FOOT_*`): `H` 4 mm, length along Y 22 at the wall → 12 at
+the tip, thickness along Z 14 → 10, centres 25 mm from each end and 22 mm
+from the Z faces. In the print orientation (Y up) the underside is
+`atan((BASE − TIP)/2 / H)` = 51° from the bed; it warns below 45°.
+
+#### Grills
+
+Diamond cells, so every roof is 45° in the print orientation (the closed
+face's cells are vertical through-holes in the bed face). Every face gets
+a **full-face grill** from `grill_full(wall, ends, cell, web, chamfer)`.
+That's the wall's flat area inset by one shared solid frame,
+`SHELL_GRILL_FRAME` = corner extent + margin = **14.8 mm**, on every
+edge, so all five faces read as one design. `SHELL_GRILL_PZ/NZ/PX/NX/FRONT
+= [enable, centre [u, v], size [u, v], cell, web, chamfer]` (u, v = X, Y on
+the Z walls; Y, Z on the X walls; X, Z on `"front"`). You can still write a
+literal grill instead. Only whole cells are cut, 2 mm
+(`SHELL_GRILL_MARGIN`) from bosses, rails, nub sockets, feet and the USB-C,
+which leaves solid islands round them.
+
+| Grill | Size | Purpose |
+|---|---|---|
+| `PZ` (+Z, MB side panel, over the cooler) | 145 × 156, cell 5, web 1.2, chamfer 0.4 | Fan intake: [5 mm rule](#cpu-cooler-and-fan-intake-clearance), chamfered intake side. Covers the fan at the CPU position (`SHELL_COOLER_POS` = `MB_CPU_SOCKET_XY`, roughly centred in Y) with 15 mm margin; warns if not. |
+| `NZ` (−Z, HDD/PSU side panel) | 145 × 156, cell 8, web 1.6 | Intake |
+| `PX` (+X, top in use) | 156 × 68, cell 8, web 1.6 | Exhaust |
+| `NX` (−X, bottom) | 156 × 68 minus the MB-rail band and the feet, cell 8 | Intake |
+| `FRONT` (closed face = back in use) | 145 × 68 minus the USB-C and the nub sockets, cell 8 | PSU / HDD compartment exhaust |
+
+Away from the fan the cells are `SHELL_GRILL_CELL` 8 / `SHELL_GRILL_WEB`
+1.6. Print time scales with the number of hole outlines per layer, so I
+sliced the options with the [shell profile](#flat-part-slicer-profiles):
+
+| Grills | Filament | Time |
+|---|---|---|
+| Old (small, 5 mm cells) | 247 g | 12 h 55 m |
+| Full-face, 5 mm everywhere | 194 g | 15 h 09 m |
+| **Full-face, 8 mm off the fan (current)** | **201 g** | **13 h 24 m** |
+| Full-face, 10 mm off the fan | 204 g | 13 h 04 m |
+
+The cooler-side grill is now bigger than the "~112 mm and no further" rule
+from the vent analysis. The extra open area lets warm air rise out round
+the fan, at the cost of a little recirculation. That's a deliberate trade
+for covering the fan wherever the socket turns out to be.
+
+> **CPU position:** `SHELL_COOLER_POS = MB_CPU_SOCKET_XY` (X 11, Y −87):
+> roughly centred in Y, as seen on the real board and in the manual's
+> layout (preview and checks only).
+
+Game of Life patterns for the top grill are planned, not done.
+
+#### Rear USB-C (closed face)
+
+The power switch moved to the [I/O plate](#power-button). The USB-C sits
+on `SHELL_USBC_WALL` = `"front"`, the closed face opposite the I/O plate
+(`"px"`/`"nx"`/`"pz"`/`"nz"` also work). Positions are `[u, v]` on that
+wall (X, Z on the front face).
+
+- **Cable:** ADT-Link UTF3-FM-20P, i.e. UT8T Type-C female board → flat
+  ribbon (14 × 1.4 mm) → UF6A Type-E male. The `UT8T_*` dimensions come
+  from ADT-Link's STEP: a 27.28 × 9.6 ear bar with two 6 × 3.5 M3 slots
+  19.0 apart, a 13.6-wide neck to the ribbon, and a receptacle standing
+  10.0 mm above the component face.
+- **Mount:** the board's component face sits on two Ø7.2 bosses, 8 mm
+  tall, on the face's inner side. Each takes an M3×4 insert (the same as
+  the rest of the build) and an M3×5 pan head through the slot. The pitch
+  is 20 (the slots allow 16.5–21.5), which keeps the bosses 0.4 mm off the
+  receptacle flange. The receptacle goes through a 10.4 × 4.2 rounded hole
+  and its front sits 0.5 mm behind the outer face, inside a 13 × 7 × 1.0
+  overmold relief, so plugs seat even if it ends up ~0.7 mm deeper.
+- **Position** `SHELL_USBC_POS` [80, 47], `SHELL_USBC_ROT` 90: toward the
+  top (+X), and high on the MB side. The slot is portrait and the ribbon
+  leaves toward −X. The board stack spans X 67.4–83.0, Z 33.4–60.6, Y
+  −185.5…−172.9. That ends 0.1 mm short of the MB's rear-edge plane, but
+  16 mm above the PCB.
+- **Routing** (connector positions from the B860I manual): the 24-pin
+  (ATXPWR1, X 25.7–73.1) is under the top half, so its cable loop fills
+  the rear gap there up to roughly Z 40–45. The Type-E header (USB32_TC2)
+  is at the opposite, bottom-rear corner (X −64.6…−54.6, Y −168.5…−163.7).
+  The ribbon runs from the board toward −X, at Z ~40–54 above the 24-pin
+  loop, along the rear gap. At X ≈ −60 it drops onto the header. That's
+  about 18–20 cm, so use the **20 cm** length or longer (30 cm for slack;
+  Gen2x2 is rated to 50 cm).
+- USB32_TC2 is a **USB 3.2 Gen2 (10 Gb/s)** header, so the Gen2x2 cable
+  runs at 10 Gb/s here.
+- Installing: press the inserts and fit the board before the spine goes
+  in. The face is 186 mm deep, so you'll need a long driver.
+
+#### Shell checks
+
+`shell_checks()` echoes boss-to-component gaps, the foot angle, the rail
+offset, the top grill span vs the fan, the power button's clearance to the
+shell bosses, and the USB-C board stack. Warnings: a boss blocks the HDD /
+PSU / cooler / C14 or the button nut on insertion; feet under 45° or on
+the rounded corner; the top grill misses part of the fan or its cells
+exceed `FAN_PANEL_GAP`; the USB-C slots / bosses / flange don't agree, the
+board or relief runs onto the wall's edge, or the board hits the MB PCB,
+spine plate, PSU, HDD, cooler, 24-pin plug or a nub socket.
+
 ## Printing
 
 ### Orientation
 
-Print with the spine's **+Y face (the front panel) down**, build direction
-+Y → −Y. Consequences:
+**`flat_print` (this branch): two flat parts plus the shell.**
+
+- **Spine: MB face down** (flip `spine.stl` 180° about X or Y in the
+  slicer). It's the only flat orientation without supports: the HDD/GaN
+  standoffs and the joint bosses all hang off the other face and grow
+  straight up. The GaN countersinks are on the bed face (a 45° cone,
+  self-supporting); the joint bores are horizontal Ø3.6 / Ø3.4 (bridge).
+- **I/O plate: front face down** (rotate `io_plate.stl` −90° about X). The
+  I/O pocket and C14 flange pocket are on the back face, the top as printed.
+- **Shell: front face down** (`FOR_PRINT = true` exports it that way;
+  179 × 98 × 186 mm on the bed). Everything inside is built for it: boss
+  gussets, diamond grill cells and the feet's underside are all ≥ 45°, and
+  the USB-C hole, relief and bosses all grow straight up from the bed face.
+  No supports.
+- The tall-print constraints below (no lightening wall along X, −Y tapers
+  ≤ 45°) no longer apply; they're kept for reference.
+
+**One-piece upright print (`main`):** print with the spine's **+Y face (the
+front panel) down**, build direction +Y → −Y. Consequences:
 
 - **Standoffs** lie horizontal, so each has a 45° ramp on its +Y side. The
   ramp is two `hull()`s: peg → constant-width bar, then the bar tapering
@@ -562,7 +955,25 @@ Print with the spine's **+Y face (the front panel) down**, build direction
 - **On the bed (MK4S):** the 170 mm edge runs **left–right (along bed X)**,
   as tested.
 
+### Flat-part slicer profiles
+
+Two PrusaSlicer 3mf copies (MK4S, 0.4 nozzle, PETG), written next to the
+originals in `~/Downloads`. Re-export the STLs and **Reload from disk**
+before slicing — the shell work rounded the I/O plate's corners and moved
+its lower screws after these were made.
+
+| Part | File | Goal | Key settings | Time |
+|---|---|---|---|---|
+| I/O plate | `io_plate_translucent.3mf` | Translucent PETG: the infill shows, so make it even | **100 % rectilinear at 45°** (reads as one clean diagonal texture), 255 °C, flow 1.03, 14 mm³/s, first layer 30/60 mm/s, fan 15–30 % | 1 h 38 |
+| Spine | `spine_fast.3mf` | Sturdy and fast, looks don't matter | **0.30 mm** layers, 100 % rectilinear, 3 × 0.5 mm perimeters, SPEED-profile speeds/accels, 20 mm³/s, 250 °C | 1 h 31 (was 3 h 40) |
+| Shell | `shell.3mf` | Upright tube, front face down | `io_plate.3mf`'s `flat_parts` values (PETG 245 °C) with **0.28 mm layers** (−26 % vs 0.20; the print is limited by the grill-hole outlines per layer, so fewer layers is the only big lever), **4 perimeters** (the 2 mm walls, grill webs and insert bosses come out all-perimeter; 25 % gyroid only fills the closed face core, feet and gussets — 100 % saves nothing structural for +9 g), **3 mm brim** (the bed face is a grill) | 9 h 46, 193 g |
+
 ### Tested profile
+
+> [!NOTE]
+> This profile was tuned for the **one-piece upright print** on `main`
+> (177 mm tall, wobble-prone). The flat parts on this branch don't need the
+> anti-wobble measures; start from stock 0.25mm STRUCTURAL / PETG.
 
 Prusa MK4S, 0.4 HF nozzle, PrusaSlicer 2.9.2. Based on the stock
 **0.25mm STRUCTURAL** print profile and **Generic PETG**, tuned for a tall,
@@ -627,20 +1038,147 @@ another machine, use **Replace with STL** instead.
 
 ## Hardware and assembly
 
-Two thread standards: **M3** everywhere except the HDD's **6-32 UNC**. All
-M3 joints except the motherboard use one screw: **M3×10 nylon 90° flat head**.
+### Hardware
 
-**Buy list:**
+| Qty | Part | Used for |
+|---:|---|---|
+| 14 | **M3×4 heat-set insert** (all the same) | 7 in the spine, 7 in the shell |
+| 14 | **M3×10 nylon flat-head screw** (90°) | PSU 4, C14 2, I/O plate to spine 3, I/O plate to shell 5 |
+| 6 | **M3×5 pan-head screw** | Motherboard 4, USB-C board 2 |
+| 4 | **M3×6 brass standoff**, male–female, **3–4 mm male thread** | Motherboard |
+| 4 | **6-32 × 3/8" pan-head screw** | HDD |
+| 12 | **O-ring AS568-007**, silicone | HDD 8, PSU 4 |
+| 2 | **M3 nylon hex nut** | C14 power socket |
+| 1 | **12 mm push button** | Power button |
+| 1 | **ADT-Link UTF3-FM-20P USB-C ribbon**, ≥ 20 cm | Rear USB-C port |
 
-| Item | Qty | For |
+> [!WARNING]
+> Check the standoffs: the male thread must be **3–4 mm**. The common "M3×6+6" type is too long and will hit the PSU.
+
+### Assembly steps
+
+**Printed parts:** spine (the divider plate), I/O plate (the front panel), shell (the outer tube).
+
+#### 1. Heat-set inserts (do all 14 before anything else)
+
+All 14 are the same M3×4 insert. Press each one in **straight**, flush with the surface.
+
+**Spine: 7 inserts**
+
+| # | Where | Push in from |
 |---|---|---|
-| M3×10 nylon 90° flat head (DIN 965 / ISO 7046) | 12 (+4 spare) | GaN ×4, C14 ×2, front panel ×6 |
-| M3×6 pan head (steel OK) | 4 | Motherboard |
-| M3×5.7 heat-set insert (knurl OD ~4.6) | 4 | Motherboard standoffs |
-| 6-32 UNC × 3/8" pan / button head | 4 | HDD |
-| AS568-007 silicone O-ring | 8 | HDD |
-| 5/32" ID × 9/32" OD × 1/16" CS silicone O-ring | 4 | GaN |
-| M3 nut, nylon (nyloc preferred) | 2 | C14 |
+| 4 | The **4 motherboard holes** (on the flat face of the spine with nothing sticking out) | That flat face, straight down |
+| 3 | The **3 holes in the front edge** of the spine (the edge that touches the I/O plate) | The front edge, straight along the hole |
+
+**Shell: 7 inserts**
+
+| # | Where | Push in from |
+|---|---|---|
+| 5 | The **bosses around the open end**: 4 corners + middle of the HDD/PSU-side edge | The open end. Stand the shell on its closed end. |
+| 2 | The **2 small bosses on the inside of the closed end** (next to the USB-C hole) | Through the open end, so you need a long iron tip. Lay the shell on its side. |
+
+**I/O plate: no inserts.**
+
+#### 2. Prep the I/O plate (front panel)
+
+1. **C14 power socket:** put it in from the **back** of the plate, with the flange against the back face. Then put 2× **M3×10 nylon flat heads** in from the **front**, with a **nylon nut** on the back of each. Hand-tight only.
+2. **Power button:** push it through the hole above the DisplayPort cutout and tighten its nut on the back.
+
+#### 3. Prep the shell
+
+1. **Rear USB-C board:** inside the closed end, screw the board onto the 2 bosses with 2× **M3×5 pan heads** through its slots. The port goes through the rectangular hole. You need a long screwdriver because the shell is 186 mm deep.
+2. Leave the ribbon cable hanging out of the open end.
+
+#### 4. Prep the motherboard (on the bench, out of the case)
+
+1. Install the CPU, RAM, M.2 SSD and **CPU cooler** now, including the cooler backplate. You can't reach the back of the board later.
+
+#### 5. Mount the PSU and HDD on the spine (BEFORE the motherboard)
+
+> [!IMPORTANT]
+> The PSU and HDD screws go in **from the motherboard side** of the spine, so the motherboard would cover them. **PSU and HDD go on first, motherboard last.**
+
+Turn the spine so the **flat face (motherboard side) points up**. The PSU and HDD hang underneath, on the side with the pegs.
+
+**5a. PSU (HDPLEX GaN): 4 screws**
+
+1. Put **1 O-ring** on each of the 4 small pegs, between the peg and the PSU.
+2. Line up the PSU's 4 threaded holes with the pegs. The PSU's output connectors go toward the **back** (away from the I/O plate) and face **away from the spine**.
+3. From the top, drive 4× **M3×10 nylon flat heads** down through the countersunk holes into the PSU.
+4. Tighten until the O-ring just touches both sides, then **1/6 to 1/3 turn more**. Don't crank them, because nylon strips easily.
+
+**5b. HDD: 4 screws**
+
+1. Each screw gets **2 O-rings**: one **under the screw head** and one **between the standoff and the drive**.
+2. The drive's SATA connectors go toward the **back** (away from the I/O plate).
+3. From the top, drive 4× **6-32 × 3/8" pan heads** down through the spine and standoffs into the drive's **bottom** holes.
+4. Tighten until you first feel resistance, then **1/2 to 2/3 turn more**. There's no hard stop, so don't snug it down.
+
+**5c. Plug cables into the PSU now**
+
+While the PSU is easy to reach, plug in the 24-pin, 8-pin CPU (EPS) and SATA power. Leave the other ends loose. Plug SATA power and SATA data into the HDD as well.
+
+#### 6. Mount the motherboard
+
+1. Screw the 4× **brass standoffs** (male end down) into the 4 motherboard inserts. Snug only.
+2. Set the board on the standoffs with its rear I/O ports at the **front edge** of the spine.
+3. Fix it with 4× **M3×5 pan heads**.
+4. Plug in the **24-pin** and **8-pin CPU** cables from the PSU. Plug the **SATA data** cable into the board.
+
+#### 7. Attach the I/O plate to the spine
+
+1. Plug the **PSU's AC lead** into the back of the C14 socket.
+2. Push the I/O plate onto the spine's front edge. The spine slides into the **slot between the two ribs** on the back of the plate, and the motherboard ports line up with their cutouts.
+3. From the front, drive 3× **M3×10 nylon flat heads** into the 3 spine inserts. Snug only, because the ribs carry the load.
+4. Connect the **power button wires** to the board's **PANEL1** header (PWRBTN + GND, bottom-rear corner of the board).
+
+#### 8. Slide everything into the shell
+
+1. Hold the assembly at the shell's open end and plug the **USB-C ribbon** into the board's **USB32_TC2** header (bottom-rear corner).
+2. Slide the assembly in, back end first:
+   - The motherboard's edge rides in the **rail** on one inside wall.
+   - The 2 nubs at the back of the spine drop into the **2 sockets** inside the closed end.
+   - The CPU cooler slides under the **stop tab** at the top middle.
+3. The I/O plate ends up flush with the open end.
+4. Drive 5× **M3×10 nylon flat heads** through the I/O plate into the shell inserts: **4 corners + bottom middle**. Nothing goes at the top middle; the stop tab supports that spot.
+
+**Done.** The case stands on the 4 feet.
+
+#### Order at a glance
+
+```mermaid
+flowchart TD
+    A["1. All 14 heat-set inserts<br/>7 spine + 7 shell"] --> B["2. I/O plate: C14 socket + power button"]
+    B --> C["3. Shell: rear USB-C board"]
+    C --> D["4. Motherboard on bench: CPU, RAM, SSD, cooler"]
+    D --> E["5. Spine: PSU, then HDD, then plug cables into PSU"]
+    E --> F["6. Brass standoffs, then motherboard, then 24-pin, CPU 8-pin, SATA"]
+    F --> G["7. AC lead to C14, then I/O plate onto spine (3 screws), then button wires"]
+    G --> H["8. Plug USB-C ribbon, slide into shell, 5 screws"]
+```
+
+### Hardware details
+
+Design reference for the parts above: the reasons behind the specs, other inserts that fit, and the joint stack-ups.
+
+Two thread standards: **M3** everywhere except the HDD's **6-32 UNC**. All
+M3 flat-head joints use one length: **M3×10 nylon 90° flat head** (DIN 965 /
+ISO 7046). If your insert differs from M3×4×4, set `MB_INSERT_HOLE_DIA` /
+`MB_INSERT_LEN` to the listing's recommended hole; the bosses, rings and bores
+all follow, and the spine warns if a boss gets within 0.5 mm of the PSU / HDD /
+C14.
+
+**Insert OD** (all checked: no warnings, no part intersections; MB boss clearances don't change, they depend on length only):
+
+| Insert | `MB_INSERT_HOLE_DIA` | `SPINE_PANEL_INSERT_WALL` | Joint boss → C14 / PSU | Notes |
+|---|---|---|---|---|
+| **M3×4×4** (OD 4.0) — **modelled** | **3.6** | 1.8 | 1.23 / 0.85 | easiest to find; thinnest knurl, so snug the standoffs gently; print a test hole |
+| M3×4×4.5 (OD 4.5–4.6) | 4.0 | 1.8 | 0.83 / 0.52 | best grip-to-size balance |
+| M3×4×5 (OD 5.0) | 4.4 | **1.6** | 0.83 / 0.52 | with wall 1.8 the boss comes within 0.43 / 0.25 mm and warns |
+
+The shell's lower bosses grow with the insert too: their 0.725 mm HDD
+clearance drops by half the hole-diameter increase (0.525 at 4.0 — fine;
+0.325 at 4.4 — warns, so set `SHELL_BOSS_WALL_LOWER` to ~1.2).
 
 All three countersinks (GaN, C14, front panel) are Ø6.4 × 90° over a
 3.4–3.5 mm hole, ~1.5 mm deep; a DIN 965 head (Ø5.5–6.0) lands flush to
@@ -648,24 +1186,26 @@ All three countersinks (GaN, C14, front panel) are Ø6.4 × 90° over a
 
 | Joint | Qty | Thread | Length | Head | Notes |
 |---|---|---|---|---|---|
-| Motherboard → standoffs | 4 | M3 | 6 mm (8 max) | pan / socket | Into **M3×5.7 heat-set inserts** (4). M3×6 through the 1.6 mm PCB engages ~4.4 mm; M3×8 still bottoms clear. The only non-×10 M3: a ×10 would hit the insert-bore floor. With `MB_HEAT_INSERT = false`: M3 thread-forming screws into a 3.8 mm bore. |
+| Standoffs → plate | 4 | M3 | standoff male thread 3–4 mm | hex | Male end into the **M3×4 insert**; a 3–4 mm thread stays inside the 4.9 mm bore. Fallback: F-F standoff + M3×5 set screw. |
+| Motherboard → standoffs | 4 | M3 | **5 mm** | pan | 1.6 mm PCB + 3.4 mm into the standoff's female end. Check its thread depth before going longer (with the F-F fallback, M3×6 hits the set screw). |
+| I/O plate → spine | 3 | M3 | 10 mm | nylon, 90° flat head | Snug only — the channel ribs carry the load. 2.5 mm panel + 7.5 mm into the spine: 4 mm in the **M3×4 insert**, 3.5 mm in the clearance bore; tip 1 mm short of the bore end. See [joints](#spine--io-plate-joints). |
 | HDD → standoffs (from MB side) | 4 | **6-32 UNC** | 3/8" (9.53 mm)† | pan / button | Into the drive's bottom holes. The screw touches only the two O-rings and the drive threads. **Not** countersunk — the O-ring needs a flat face. |
 | HDD isolation O-rings | 8 | — | AS568-007 (ID 3.68, OD 7.24, CS 1.78 mm) | silicone 70A | Two per standoff: under the head and between standoff and drive. |
 | GaN PSU → standoffs (from MB side) | 4 | M3 | **10 mm**‡ | **nylon, 90° flat head** (DIN 965 / ISO 7046) | Into the PSU's tapped holes. Head flush in the plate top, so nothing stands proud under the MB's solder pins. |
-| GaN isolation O-rings | 4 | — | 5/32" ID × 9/32" OD × 1/16" CS (3.97 / 7.14 / 1.59 mm) | silicone 70A | **One** per screw, between standoff face and PSU body. Thermal break. |
-| Front panel → shell | 6 | M3 | 10 mm | nylon, 90° flat head | All four corners + top/bottom mid. 2.5 mm panel leaves **7.5 mm** of screw — the shell's bosses/inserts must accept it (e.g. 5.7 mm insert + ≥ 2.5 mm blind bore beyond). |
-| C14 inlet → panel | 2 | M3 | 10 mm | nylon, 90° flat head | From outside: panel 2.0 + flange 3.0 leaves 5.0 mm for a 4.0 mm **nylon (nyloc) nut** behind the flange. Hand-tight. |
+| GaN isolation O-rings | 4 | — | AS568-007 (ID 3.68, OD 7.24, CS 1.78 mm) — same as the HDD | silicone 70A | **One** per screw, between standoff face and PSU body. Thermal break. |
+| I/O plate → shell | 5 | M3 | 10 mm | nylon, 90° flat head | Four corners + bottom mid (there is no top-middle hole; a stop tab in the shell backs the plate there). Same stack as the spine joints: 2.5 mm panel + 7.5 mm into the shell boss, 4 mm in the **M3×4 insert**, tip 1 mm short of the 8.5 mm bore. See [Outer shell](#outer-shell). |
+| C14 inlet → panel | 2 | M3 | 10 mm | nylon, 90° flat head | From outside: panel 2.0 + flange 3.0 leaves 5.0 mm for a 2.4 mm **all-nylon hex nut** behind the flange (screw and nut both insulating, next to mains). Hand-tight; add a second nut as a jam nut if it ever loosens. |
 
 † Plate 3 mm + standoff gap + ≥3 mm engagement (SFF-8301 minimum) was made
 to land on 3/8" by adjusting `HDD_POS[2]`. 5/16" leaves only 0.38 mm of wall
 around the O-ring pocket; 7/16" pushes the drive past the enclosure floor.
 
-‡ Plate 3 + peg 1.0 + O-ring gap 1.43 = 5.43 mm before the PSU body, so
-M3×10 leaves ~4.6 mm (~7.6 threads) in the PSU. **Probe the PSU's holes:
+‡ Plate 3 + peg 1.0 + O-ring gap 1.56 = 5.56 mm before the PSU body, so
+M3×10 leaves ~4.4 mm (~8.8 threads) in the PSU. **Probe the PSU's holes:
 they must be ≥ 5 mm deep** (not in the STEP). If shallower, fall back to
-M3×8 (~2.6 mm engagement, marginal in nylon).
+M3×8 (~2.4 mm engagement, marginal in nylon).
 
-### GaN PSU thermal isolation
+#### GaN PSU thermal isolation
 
 A stress-tested HDPLEX 250W GaN measured up to 58 °C at the case surface —
 close to PETG's heat-deflection point for a joint under constant load. One
@@ -686,15 +1226,15 @@ Install:
 
 - **Target ~5–10% compression.** Thread in until the O-ring just touches
   both faces, then **1/6–1/3 turn** more (0.5 mm pitch → 0.08–0.17 mm of the
-  1.59 mm cross-section). One O-ring means each turn compresses twice as
+  1.78 mm cross-section). One O-ring means each turn compresses twice as
   much as the old two-O-ring stack.
 - The seated head is a stop for the head only — further turning keeps
   squeezing the O-ring. **Don't torque nylon:** M3 strips at ~0.3 N·m.
-- `GAN_ORING_POCKET_DEPTH` (1.43) is the nominal gap (~10%); the turn count
+- `GAN_ORING_POCKET_DEPTH` (1.56, = `HDD_ORING_POCKET_DEPTH`) is the nominal gap (~12%); the turn count
   is the real reference.
 - Nylon creeps when warm; re-snug ~1/8 turn if the PSU ever rattles.
 
-### HDD vibration isolation
+#### HDD vibration isolation
 
 Two O-rings per standoff carry the whole clamp load; there is **no hard
 stop**, so "snug it down" is wrong here.
@@ -705,15 +1245,6 @@ stop**, so "snug it down" is wrong here.
 - `HDD_ORING_POCKET_DEPTH` targets 12.5% assuming a nominal 1.78 mm
   cross-section; the turn count is the real reference.
 
-### Motherboard heat-set inserts
-
-Press the M3×5.7 inserts in with a soldering-iron tip at PETG temperature,
-straight down the standoff axis. The 1 mm of extra bore depth takes the
-displaced plastic. If you use a different insert, set `MB_INSERT_HOLE_DIA`
-/ `MB_INSERT_LEN` to its spec — the standoff radius and bore depth follow,
-and warnings fire if the wall drops below `MB_INSERT_MIN_WALL` or the bore
-leaves < 1 mm of plate.
-
 ## Self-checks (console warnings)
 
 | Warning | Fires when |
@@ -723,25 +1254,54 @@ leaves < 1 mm of plate.
 | `panel bottom is … below the PSU` | face bottom drifts from `FRONT_PANEL_PSU_CABLE_GAP` |
 | `SPINE_PLATE_TAPER_* BEFORE + 2*RUN + AFTER …` | a taper doesn't fit its edge |
 | `SPINE_PLATE_TAPER_NY_DEPTH … no longer matches` | NY waist not flush with the GaN standoffs |
-| `… cuts past a MB/HDD/GaN standoff` | a PX, NX, or NY/NY2 taper eats into a standoff |
-| `MB insert wall is …` / `MB insert bore bottom …` | insert wall too thin / bore too deep |
+| `… cuts past a MB/HDD/GaN standoff` / `TAPER_NY/NY2 cuts …mm into …` | a PX, NX, or NY/NY2 taper eats into a standoff (NY/NY2 tests the actual circle) |
+| `MB insert boss at … is only …mm above the …` | an MB boss (`MB_INSERT_LEN` + `MB_INSERT_EXTRA`) nears the PSU / HDD / C14 |
+| `spine front edge is Y …` | plate front edge ≠ −(`FRONT_PANEL_THICKNESS` + `SPINE_PANEL_GAP`) |
+| `spine joint boss at X … is only …mm from / overlaps the …` | the D-shaped boss is < `SPINE_PANEL_MIN_CLEARANCE` from the PSU / HDD / C14 body |
+| `spine joint insert bore at X … from the MB insert bore` | a joint's insert bore nears an MB insert bore |
+| `spine joint boss at X … overlaps the … standoff` | a boss hits an HDD/GaN standoff |
+| `spine joint boss at X … past the case side` | a boss would hit the side wall |
+| `lower spine rib is only …` / `upper spine rib is only …` / `… rib foot … I/O pocket` | a channel rib nears the PSU / HDD / C14, the MB PCB, or the I/O pocket |
+| `SPINE_RIB_RAMP … exceeds` / `SPINE_LIGHTENING_MARGIN_PY … < SPINE_RIB_DEPTH` | ramp capped; spine edge inside the channel not solid |
+| `spine joint countersink at X … within 1mm of …` | a joint countersink nears the C14 flange or the I/O pocket |
 | `GaN standoff pegs are …` | `GAN_PSU_POS[2]` drifts from `GAN_STANDOFF_H` |
+| `PCB underside is …mm above the plate, not MB_STANDOFF_H` | `MB_POS[2]` doesn't match the metal standoff height |
 | `FAN_PANEL_GAP …`, `MB envelope top …`, `panel top …` | cooler clearance report |
+| `panel screw at … leaves only …` | < 1 mm of panel left around a corner screw after rounding |
+| `shell boss at … would block the …` | a shell boss silhouette is < `SHELL_INSERT_MIN_CLEARANCE` from the HDD / PSU / cooler / C14 (`shell.scad`) |
+| `feet underside is …` / `foot at Z … rounded corner` | foot ramp < 45° from the bed, or a foot runs onto the corner |
+| `the top grill doesn't cover the whole fan` / `top grill cell … > FAN_PANEL_GAP` | `SHELL_GRILL_PZ` placement / cell size |
+| `the power button bezel …` / `… nut would hit the shell boss` / `… body hits the …` | button too close to the DP, panel edge or a screw; its nut blocks insertion; its body hits the cooler etc. |
+| `USB-C bosses …` / `SHELL_USBC_SCREW_PITCH … outside the board's slots` / `the USB-C board … hits the …` / `… relief runs onto …` | rear USB-C mount doesn't fit the UT8T board, the wall edge, or the internals |
 | `span …`, `the adaptor junction …` | SC adaptor report (`SHOW_GAN_BLOCKS`) |
 
-Currently firing: `SPINE_PLATE_TAPER_NY_DEPTH` (NY_DEPTH 38 vs a flush value
-of 10 — set it or accept the mismatch) and the MB envelope
-discrepancy above.
+Currently firing: `SPINE_PLATE_TAPER_NY_DEPTH` (NY_DEPTH 44 vs a flush value
+of 16 — set it or accept the mismatch) and the MB envelope discrepancy
+above (3.6 mm). `shell.scad` adds no warnings, and `io_plate.scad` notes
+where to check for a VRM heatsink behind the power button.
 
 ## Known open items
 
-- Outer shell not modeled; its front-panel bosses must take M3×10 flat heads (≥ 7.5 mm past the 2.5 mm panel).
+- **Shell measurements:** 12 mm button bezel / nut / body length, and
+  the board's VRM heatsink height behind the button (X 61–79, Y 0…−24.5,
+  above Z 39.5).
+- Game of Life patterns for the top grill (planned).
+- Depth budget: only ~10.7 mm is free behind the boards at the front face
+  (MB rear −172.8, PSU rear −174, HDD rear −170.5); the rear USB-C board
+  stack uses 10.6 of it (see [Rear USB-C](#rear-usb-c-closed-face)).
 - The C14 cutout still uses the straight-pin `c14_socket.stl`; confirm the
   right-angle socket's lip/flange match.
 - The GaN power-cable opening, PSU front mounts, and MB↔PSU vent grill are
   disabled (see [Disabled features](#disabled-features)).
 - Lightening pattern and grills are sized for printability, not validated
   thermally.
-- MB 24-pin position for the SC adaptor plan is unconfirmed.
-- MB envelope is 0.6 mm shorter than the cooler (see
+- MB 24-pin position for the SC adaptor plan: the B860I manual puts
+  ATXPWR1 at X 25.7–73.1, Y −170.4…−160.7 (`MB_ATXPWR_RECT`), within ~3 mm
+  of `MB_24PIN_IMPLIED`.
+- MB envelope is 3.6 mm shorter than the cooler (see
   [fan clearance](#cpu-cooler-and-fan-intake-clearance)).
+- `flat_print`: the +X joint (X 84) sits in a 0.75 mm window between the GaN
+  PSU (0.85 mm) and the case side — check for rubbing at test fit; the −70
+  joint has 1.23 mm over the straight-pin C14 body —
+  re-measure `C14_BODY_*` for the right-angle socket. The `print/` 3mf
+  profile is for the upright one-piece print.

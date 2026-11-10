@@ -7,7 +7,7 @@ SHOW_SPINE      = false;
 SHOW_ENCLOSURE  = false;
 SHOW_ODD        = false;
 
-used_components = true;
+used_components = false;
 
 SHOW_MB         = used_components;
 SHOW_HDD        = used_components;
@@ -19,8 +19,8 @@ SHOW_FRONT_PANEL_LOWER = true;
 SPINE_ALPHA     = 0.9;
 ENCLOSURE_ALPHA = 0.55;
 
-ENCLOSURE_SIZE = [170.5, 178, 91.96];
-ENCLOSURE_POS  = [2.75, -90, 14.52];
+ENCLOSURE_SIZE = [170.5, 184, 94.96];  // Y 178 + SPINE_PLATE_REAR_EXT 6; Z +3 top for CPU_COOLER_FIT_OFFSET
+ENCLOSURE_POS  = [2.75, -93, 16.02];
 FRONT_PANEL_PSU_CABLE_GAP = 10.5;
 ENCLOSURE_ROT  = [0, 0, 0];
 ENCLOSURE_EDGE_R = 1.0;
@@ -79,31 +79,32 @@ SC_MIN_SPAN_ROUND = 70.0;
 SHOW_GAN_PSU_500W = false;
 GAN_PSU_500W_SIZE = [200.2, 55, 40];
 
-SPINE_PLATE_POS  = [2.31, -89.75, 8.1];  // literal: front edge must equal -(FRONT_PANEL_THICKNESS + SPINE_PANEL_GAP); warned on drift
-SPINE_PLATE_SIZE = [170.6, 174.5, 3];  // X extent is overridden by SPINE_PLATE_NX_X / PX_X
+SPINE_PLATE_REAR_EXT = 6.0;  // extra spine length at the rear (-Y) for SATA/power cables; rear tapers below absorb it
+SPINE_PLATE_POS  = [2.31, -89.75 - SPINE_PLATE_REAR_EXT/2, 8.1];  // literal: front edge must equal -(FRONT_PANEL_THICKNESS + SPINE_PANEL_GAP); warned on drift
+SPINE_PLATE_SIZE = [170.6, 174.5 + SPINE_PLATE_REAR_EXT, 3];  // X extent is overridden by SPINE_PLATE_NX_X / PX_X
 SPINE_PLATE_MARGIN_X = 0;
 
 SPINE_PLATE_PX_X = MB_POS[0] + MB_SIZE[0]/2 - 2.0;
 SPINE_PLATE_NX_X = MB_POS[0] - MB_SIZE[0]/2 + 2.0;
 SPINE_PLATE_TAPER_PX_BEFORE = 41;
 SPINE_PLATE_TAPER_PX_RUN = 20;
-SPINE_PLATE_TAPER_PX_AFTER = 20;
+SPINE_PLATE_TAPER_PX_AFTER = 20 + SPINE_PLATE_REAR_EXT;
 SPINE_PLATE_TAPER_PX_DEPTH = 30;
 
 SPINE_PLATE_TAPER_NY_BEFORE = 7;
-SPINE_PLATE_TAPER_NY_RUN = 38;
+SPINE_PLATE_TAPER_NY_RUN = 38 + SPINE_PLATE_REAR_EXT;
 SPINE_PLATE_TAPER_NY_AFTER = 44.4;
-SPINE_PLATE_TAPER_NY_DEPTH = 38.0;
+SPINE_PLATE_TAPER_NY_DEPTH = 38.0 + SPINE_PLATE_REAR_EXT;
 
 SPINE_PLATE_TAPER_NY2_ENABLE = true;
-SPINE_PLATE_TAPER_NY2_BEFORE = 110;
-SPINE_PLATE_TAPER_NY2_RUN    = 3;
+SPINE_PLATE_TAPER_NY2_BEFORE = 100;
+SPINE_PLATE_TAPER_NY2_RUN    = 3 ;
 SPINE_PLATE_TAPER_NY2_AFTER  = 10;
-SPINE_PLATE_TAPER_NY2_DEPTH  = 7;
+SPINE_PLATE_TAPER_NY2_DEPTH  = 7 + SPINE_PLATE_REAR_EXT;
 
 SPINE_PLATE_TAPER_NX_BEFORE = 53.0;
 SPINE_PLATE_TAPER_NX_RUN = 28;
-SPINE_PLATE_TAPER_NX_AFTER = 55;
+SPINE_PLATE_TAPER_NX_AFTER = 55 + SPINE_PLATE_REAR_EXT;
 SPINE_PLATE_TAPER_NX_DEPTH = 28;
 
 STANDOFF_R      = 3.5;
@@ -128,6 +129,13 @@ MB_HOLES_RAW = [
     [ 78.14, -79.13],
 ];
 MB_HOLES = [for (p = MB_HOLES_RAW) [p[0] + MB_HOLES_X_SHIFT, p[1]]];
+
+// B860I WiFi connectors, scaled from the manual's layout drawing (p.6, ~+-2 mm). [x0, x1, y0, y1] world.
+MB_ATXPWR_RECT   = [25.7, 73.1, -170.4, -160.7];   // 24-pin ATXPWR1, latch on the rear (-Y) side
+MB_ATXPWR_PLUG_H = 22;                             // mated plug + wire exit above the PCB top (est.)
+MB_TYPE_E_RECT   = [-64.6, -54.6, -168.5, -163.7]; // USB32_TC2 front-panel Type-C header (USB 3.2 Gen2, 10 Gb/s)
+MB_PANEL1_RECT   = [-51.8, -39.8, -163.7, -158.9]; // PANEL1 (PWRBTN#, GND, ...)
+MB_CPU_SOCKET_XY = [11, -87];                      // socket centre from the drawing - SHELL_COOLER_POS assumes [3, -67.8]
 
 HDD_HOLE_X_INSET  = 3.18;  // SFF-8301 A5
 HDD_HOLE_Y_FRONT  = 41.28;  // SFF-8301 A7, from the connector (-Y) end
@@ -168,8 +176,9 @@ CPU_COOLER_HEIGHT = 37.0;
 CPU_COOLER_FAN_D  = 92.0;  // assumed (AXP90 class) - verify; FAN_PANEL_GAP scales with it
 
 FAN_PANEL_GAP = 5.0;  // don't go below ~4 without redoing the vent numbers
+CPU_COOLER_FIT_OFFSET = 3.0;  // measured: Oct 4 test fit had the fan 2 mm (not 5) under the panel top
 
-CPU_COOLER_TOP_Z  = MB_PCB_TOP_Z + CPU_COOLER_HEIGHT;
+CPU_COOLER_TOP_Z  = MB_PCB_TOP_Z + CPU_COOLER_HEIGHT + CPU_COOLER_FIT_OFFSET;
 FAN_PANEL_INNER_Z = CPU_COOLER_TOP_Z + FAN_PANEL_GAP;
 
 FRONT_PANEL_TOP_Z_STL = 55;  // reference only, unused
@@ -194,6 +203,17 @@ IO_PORT_CLEARANCE = 0.5;
 USB_C_RELIEF        = true;
 USB_C_RELIEF_SIZE   = [13.0, 7.0];   // overmold opening [w, h], pill
 USB_C_RELIEF_CENTER = [116.14, 5.25];  // USB-C centre in shield-STL coords
+
+// Power button: 12 mm momentary switch above the DisplayPort.
+IO_BUTTON_ENABLE   = true;
+IO_DP_CENTER       = [140.0, 17.25];  // DP cutout centre in shield-STL coords (asrock_b860i_io_shield.scad: dp_x 15.0 mirrored, dp_y)
+IO_DP_SIZE         = [17.5, 7.0];
+IO_BUTTON_OFFSET   = [-3.0, 16.5];    // button centre from the DP centre [dX, dZ] (free); -3 X keeps the nut 1.7 mm off the shell's +X boss
+IO_BUTTON_HOLE_D   = 12.3;   // 12 mm (M12 thread) switch
+IO_BUTTON_HEAD_D   = 15.5;   // bezel on the outside - checks / preview only, measure yours
+IO_BUTTON_NUT_D    = 18.0;   // nut across corners - the panel stays full thickness (no I/O pocket) under it; measure
+IO_BUTTON_BODY_D   = 13.0;   // body behind the nut - checks / preview only
+IO_BUTTON_BODY_LEN = 22.0;   // behind the panel incl. terminals - measure yours
 USE_SNAP_IN_C14 = false;
 SHOW_C14_SOCKET = used_components;
 C14_STL_FILE = USE_SNAP_IN_C14 ? "c14_snap-fit_socket.stl" : "c14_socket.stl";
@@ -258,7 +278,11 @@ module panel_screw_hole(x, z, r, cs_dia, cs_angle) {
 }
 
 FRONT_PANEL_MOUNT_OFFSET_UPPER = [[0, 0], [0, 0], [0, 0]];  // [dx, dz]: -X corner, mid, +X corner
-FRONT_PANEL_MOUNT_OFFSET_LOWER = [[0, 0], [0, 0], [0, 0]];  // [dx, dz]: -X corner, mid, +X corner
+FRONT_PANEL_MOUNT_OFFSET_LOWER = [[0, -0.5], [0, -0.5], [0, -0.5]];  // [dx, dz]: -X corner, mid, +X corner; -0.5 lets the shell bosses clear the HDD on insertion
+// Which mount holes exist (the shell has a boss for each). The mid upper one is off: its shell boss would hang
+// 3.6 mm below the cooler top and catch the cooler on insertion; the shell has a stop tab there instead.
+FRONT_PANEL_MOUNT_ENABLE_UPPER = [true, false, true];
+FRONT_PANEL_MOUNT_ENABLE_LOWER = [true, true, true];
 
 function front_panel_mount_x() = [
     ENCLOSURE_POS[0] - ENCLOSURE_SIZE[0]/2 + FRONT_PANEL_SCREW_X_INSET,
@@ -279,6 +303,59 @@ module front_panel_mount_holes(pts) {
     for (p = pts)
         panel_screw_hole(p[0], p[1], FRONT_PANEL_SCREW_R,
             FRONT_PANEL_SCREW_CS_DIA, FRONT_PANEL_SCREW_CS_ANGLE);
+}
+function _enabled(pts, en) = [for (i = [0 : len(pts) - 1]) if (en[i]) pts[i]];
+
+// Outer shell cross-section (XZ), shared with shell.scad: the I/O plate sits inside the shell's open end.
+SHELL_WALL             = 2.0;
+SHELL_FIT_CLEARANCE    = 0.2;  // per side, I/O plate edge -> shell inner wall
+SHELL_CORNER_R         = 8.0;  // outer corner, equivalent circular radius
+SHELL_CORNER_SMOOTHING = 0.6;  // 0 = plain arc; 0.6 = Apple-style continuous-curvature corner
+SHELL_CORNER_STEPS     = 16;
+FRONT_PANEL_CORNER_ROUND = true;  // clip the I/O plate's corners to the shell's inner corners
+
+// Figma/iOS corner smoothing: arc in the middle, cubic Beziers easing into the straight edges (curvature -> 0).
+// Corner frame: vertex at the origin, interior towards -x/-y; runs from (-p, 0) to (0, -p), p = (1 + s) r.
+function smooth_corner_pts(r, s, n) =
+    let(p   = (1 + s) * r,
+        am  = 90 * (1 - s),
+        L   = sin(am/2) * r * sqrt(2),
+        c   = r * tan((90 - am)/4) * cos(45 * s),
+        d   = c * tan(45 * s),
+        b   = (p - L - c - d) / 3,
+        a   = 2 * b,
+        b1  = [[-p, 0], [-p + a, 0], [-p + a + b, 0], [-p + a + b + c, -d]],
+        a2  = [-p + a + b + c + L, -d - L],
+        b2  = [a2, a2 + [d, -c], a2 + [d, -(b + c)], [0, -p]],
+        bez = function (P, t) pow(1-t, 3)*P[0] + 3*pow(1-t, 2)*t*P[1] + 3*(1-t)*t*t*P[2] + pow(t, 3)*P[3])
+    concat([for (i = [0 : n-1]) bez(b1, i/n)],
+           [for (i = [0 : n-1]) let(t = 45 + am/2 - am*i/n) [-r, -r] + r*[cos(t), sin(t)]],
+           [for (i = [0 : n])   bez(b2, i/n)]);
+
+function smooth_rect_pts(x0, x1, y0, y1, r, s, n) =
+    let(q = smooth_corner_pts(r, s, n))
+    concat([for (p = q) [x1, y1] + p],
+           [for (p = q) [x1, y0] + [p[1], -p[0]]],
+           [for (p = q) [x0, y0] - p],
+           [for (p = q) [x0, y1] + [-p[1], p[0]]]);
+
+function shell_inner_box() = [  // [x0, x1, z0, z1]
+    ENCLOSURE_POS[0] - ENCLOSURE_SIZE[0]/2 - SHELL_FIT_CLEARANCE,
+    ENCLOSURE_POS[0] + ENCLOSURE_SIZE[0]/2 + SHELL_FIT_CLEARANCE,
+    ENCLOSURE_POS[2] - ENCLOSURE_SIZE[2]/2 - SHELL_FIT_CLEARANCE,
+    FRONT_PANEL_TOP_Z + SHELL_FIT_CLEARANCE];
+
+module shell_outer_2d() {
+    b = shell_inner_box();
+    polygon(smooth_rect_pts(b[0] - SHELL_WALL, b[1] + SHELL_WALL, b[2] - SHELL_WALL, b[3] + SHELL_WALL,
+                            SHELL_CORNER_R, SHELL_CORNER_SMOOTHING, SHELL_CORNER_STEPS));
+}
+module shell_inner_2d() { offset(r = -SHELL_WALL) shell_outer_2d(); }
+module front_panel_outline_2d() { offset(r = -(SHELL_WALL + SHELL_FIT_CLEARANCE)) shell_outer_2d(); }
+
+// 2D in world XZ -> solid spanning world Y [y0, y1].
+module xz_extrude(y0, y1) {
+    translate([0, y1, 0]) rotate([90, 0, 0]) linear_extrude(height = y1 - y0) children();
 }
 
 // Spine <-> I/O plate joints: M3 flat heads through the panel into heat inserts in bosses on the spine's front edge.
@@ -514,21 +591,50 @@ module io_port_holes_2d() {
     }
 }
 
+// World [X, Z] of the shield STL's origin, centred in the ATX-derived I/O rectangle FRONT_PANEL_IO_OFFSET.
+// Shield local y=0 is its HDMI/DP (low) end, which lands on world Z under rotate([90,0,0]).
+function io_shield_origin() =
+    let(mb_bottom = MB_POS[2] - MB_SIZE[2]/2,
+        io = [MB_POS[0] + FRONT_PANEL_IO_OFFSET[0], MB_POS[0] + FRONT_PANEL_IO_OFFSET[1],
+              mb_bottom + FRONT_PANEL_IO_OFFSET[2], mb_bottom + FRONT_PANEL_IO_OFFSET[3]])
+    [(io[0] + io[1])/2 - IO_SHIELD_STL_SIZE[0]/2, (io[2] + io[3])/2 - IO_SHIELD_STL_SIZE[1]/2 + IO_SHIELD_Z_SHIFT];
+function io_dp_center()  = io_shield_origin() + IO_DP_CENTER;   // world [X, Z]
+function io_button_pos() = io_dp_center() + IO_BUTTON_OFFSET;  // world [X, Z]
+
+module io_button_checks() {
+    if (IO_BUTTON_ENABLE) {
+        p = io_button_pos();
+        dp = io_dp_center();
+        dp_top = dp[1] + IO_DP_SIZE[1]/2;
+        head_gap = p[1] - IO_BUTTON_HEAD_D/2 - dp_top;
+        ring_gap = p[1] - (IO_BUTTON_NUT_D/2 + IO_POCKET_SCREW_WALL) - (dp_top + IO_POCKET_MARGIN);
+        body_bot = p[1] - IO_BUTTON_NUT_D/2;
+        echo(str("Power button at X ", p[0], ", Z ", p[1], " (DP centre X ", dp[0], "): bezel ", head_gap,
+                 "mm above the DP cutout; nut / body from Z ", body_bot, ", ", body_bot - (dp_top + IO_POCKET_MARGIN),
+                 "mm over the DP/HDMI housing, back to Y ", -FRONT_PANEL_THICKNESS - IO_BUTTON_BODY_LEN, "."));
+        if (head_gap < 1.0)
+            echo(str("WARNING: the power button bezel is only ", head_gap, "mm above the DP cutout - a DP plug latch will hit it."));
+        if (ring_gap < 0)
+            echo(str("WARNING: the full-thickness ring under the button nut reaches ", -ring_gap,
+                     "mm into the DP housing's pocket margin - raise IO_BUTTON_OFFSET[1]."));
+        if (FRONT_PANEL_TOP_Z - (p[1] + IO_BUTTON_HEAD_D/2) < 1.0)
+            echo("WARNING: the power button bezel runs off the top of the I/O plate.");
+        for (s = front_panel_mount_holes_upper()) {
+            g = norm(s - p) - max(IO_BUTTON_HEAD_D, IO_BUTTON_NUT_D)/2 - FRONT_PANEL_SCREW_CS_DIA/2;
+            if (g < 1.0) echo(str("WARNING: the power button is ", g, "mm from the panel screw at [", s[0], ",", s[1], "]."));
+        }
+        echo(str("NOTE: check nothing on the board (VRM heatsink) stands above Z ", body_bot, " within X ",
+                 p[0] - IO_BUTTON_NUT_D/2, "..", p[0] + IO_BUTTON_NUT_D/2, ", Y 0..", -FRONT_PANEL_THICKNESS - IO_BUTTON_BODY_LEN, "."));
+    }
+}
+
 module front_panel_upper(show, plate_bot, col, alpha) {
     if (show) {
         x_min = ENCLOSURE_POS[0] - ENCLOSURE_SIZE[0]/2;
         x_max = ENCLOSURE_POS[0] + ENCLOSURE_SIZE[0]/2;
-        mb_bottom = MB_POS[2] - MB_SIZE[2]/2;
-        io = [
-            MB_POS[0] + FRONT_PANEL_IO_OFFSET[0],
-            MB_POS[0] + FRONT_PANEL_IO_OFFSET[1],
-            mb_bottom + FRONT_PANEL_IO_OFFSET[2],
-            mb_bottom + FRONT_PANEL_IO_OFFSET[3],
-        ];
-
-        // Shield local y=0 is its HDMI/DP (low) end, which lands on world Z under rotate([90,0,0]).
-        shield_x = (io[0] + io[1])/2 - IO_SHIELD_STL_SIZE[0]/2;
-        shield_z = (io[2] + io[3])/2 - IO_SHIELD_STL_SIZE[1]/2 + IO_SHIELD_Z_SHIFT;
+        so = io_shield_origin();
+        shield_x = so[0];
+        shield_z = so[1];
 
         mb_front_y = MB_POS[1] + MB_SIZE[1]/2;
         mb_gap = -FRONT_PANEL_THICKNESS - mb_front_y;
@@ -589,7 +695,15 @@ module front_panel_upper(show, plate_bot, col, alpha) {
                                     for (p = front_panel_mount_holes_upper())
                                         translate([p[0] - shield_x, p[1] - shield_z])
                                             circle(r = FRONT_PANEL_SCREW_CS_DIA/2 + IO_POCKET_SCREW_WALL, $fn = 48);
+                                    if (IO_BUTTON_ENABLE)  // full-thickness panel under the button nut
+                                        translate(io_button_pos() - [shield_x, shield_z])
+                                            circle(r = IO_BUTTON_NUT_D/2 + IO_POCKET_SCREW_WALL, $fn = 64);
                                 }
+
+                if (IO_BUTTON_ENABLE)
+                    translate([io_button_pos()[0], 1, io_button_pos()[1]])
+                        rotate([90, 0, 0])
+                            cylinder(d = IO_BUTTON_HOLE_D, h = FRONT_PANEL_THICKNESS + 2, $fn = 96);
 
                 translate(C14_POS)
                     rotate(C14_ROT)
@@ -598,7 +712,7 @@ module front_panel_upper(show, plate_bot, col, alpha) {
                 c14_screw_holes();
                 c14_flange_pocket();
 
-                front_panel_mount_holes(front_panel_mount_holes_upper());
+                front_panel_mount_holes(_enabled(front_panel_mount_holes_upper(), FRONT_PANEL_MOUNT_ENABLE_UPPER));
             }
     }
 }
@@ -801,7 +915,7 @@ module front_panel_lower(show, plate_top, col, alpha) {
 
                 c14_screw_holes();
                 c14_flange_pocket();
-                front_panel_mount_holes(front_panel_mount_holes_lower());
+                front_panel_mount_holes(_enabled(front_panel_mount_holes_lower(), FRONT_PANEL_MOUNT_ENABLE_LOWER));
 
                 // Grill-local frame: x = X - grill_x, y = -(Z - grill_z). The protect test is centre vs apothem, but a rotated cell reaches its circumradius - hence this extra.
                 grill_cell_corner_extra = (HDD_GRILL_MODE == "diamond")
@@ -1343,6 +1457,7 @@ module io_plate(show, col, alpha) {
         plate_top = SPINE_PLATE_POS[2] + SPINE_PLATE_SIZE[2]/2;
         plate_bot = SPINE_PLATE_POS[2] - SPINE_PLATE_SIZE[2]/2;
         spine_rib_checks();
+        io_button_checks();
         color(col, alpha) difference() {
             union() {
                 front_panel_upper(SHOW_FRONT_PANEL, plate_bot, col, alpha);
@@ -1350,6 +1465,30 @@ module io_plate(show, col, alpha) {
                 spine_ribs();
             }
             spine_panel_screw_holes();
+            if (FRONT_PANEL_CORNER_ROUND)
+                difference() {
+                    xz_extrude(-30, 1) offset(delta = 20) front_panel_outline_2d();
+                    xz_extrude(-31, 2) front_panel_outline_2d();
+                }
+        }
+        front_panel_corner_checks();
+    }
+}
+
+// Material left between each corner screw's countersink and the rounded panel corner.
+module front_panel_corner_checks() {
+    if (FRONT_PANEL_CORNER_ROUND) {
+        b = shell_inner_box();
+        r_eff = SHELL_CORNER_R - SHELL_WALL - SHELL_FIT_CLEARANCE;  // arc radius on the diagonal (exact for the arc part)
+        pts = concat(front_panel_mount_holes_upper(), front_panel_mount_holes_lower());
+        for (p = [pts[0], pts[2], pts[3], pts[5]]) {
+            cx = p[0] < ENCLOSURE_POS[0] ? b[0] + SHELL_FIT_CLEARANCE + r_eff : b[1] - SHELL_FIT_CLEARANCE - r_eff;
+            cz = p[1] < 0 ? b[2] + SHELL_FIT_CLEARANCE + r_eff : b[3] - SHELL_FIT_CLEARANCE - r_eff;
+            in_corner = (p[0] - cx) * sign(p[0] - ENCLOSURE_POS[0]) > 0 && (p[1] - cz) * sign(p[1]) > 0;
+            rim = in_corner ? r_eff - norm([p[0] - cx, p[1] - cz]) - FRONT_PANEL_SCREW_CS_DIA/2 : 99;
+            if (rim < 1.0)
+                echo(str("WARNING: panel screw at [", p[0], ",", p[1], "] leaves only ", rim,
+                         "mm between its countersink and the rounded corner. Lower SHELL_CORNER_R."));
         }
     }
 }
@@ -1397,7 +1536,7 @@ module cooler_clearance_report() {
     budget_slack = encl_top - FRONT_PANEL_TOP_Z;
 
     echo(str("Cooler stack: PCB top ", MB_PCB_TOP_Z, " + ", CPU_COOLER_HEIGHT,
-             "mm cooler = fan top ", CPU_COOLER_TOP_Z,
+             "mm cooler + ", CPU_COOLER_FIT_OFFSET, "mm test-fit offset = fan top ", CPU_COOLER_TOP_Z,
              "; + ", FAN_PANEL_GAP, "mm intake gap => panel inner face ",
              FAN_PANEL_INNER_Z, "."));
     echo(str("=> FRONT_PANEL_TOP_Z = ", FRONT_PANEL_TOP_Z,

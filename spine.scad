@@ -2,7 +2,7 @@
 // Shared model in case_common.scad; export with SHOW_OTHER_PART = false and used_components = false.
 include <case_common.scad>
 
-SHOW_OTHER_PART = true;
+SHOW_OTHER_PART = false;
 ASSEMBLY_PREVIEW = false;
 
 new_spine(true, "Orange", 1);
