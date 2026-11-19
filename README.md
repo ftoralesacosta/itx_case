@@ -105,6 +105,13 @@ standoffs are replaced by metal M3 standoffs.
   The spine and I/O plate STLs are in world coordinates; orient them in the
   slicer (see [Printing](#printing)). `FOR_PRINT` already lays the shell
   front face down at z = 0.
+- **One-piece option** (spine and I/O plate as one body, like the old
+  upright print): export the assembly instead,
+  `openscad --backend=manifold -D used_components=false -o one_piece.stl case_common.scad`.
+  The spine's front edge sits on the plate's back face, so the two fuse
+  into one connected body (checked). Print it front face down, upright,
+  184 mm tall (see the upright notes under [Orientation](#orientation)).
+  The joint screws become optional.
 - After any change, **read the console for `WARNING:` lines** (see
   [Self-checks](#self-checks-console-warnings)).
 
