@@ -56,12 +56,27 @@ SHELL_MB_RAIL_CLEARANCE = 0.2;   // per side, PCB -> rib
 SHELL_MB_RAIL_LEAD_IN   = 1.0;   // channel widens by this at the open end
 SHELL_MB_RAIL_START_GAP = 0.5;   // behind the I/O plate's back face
 
+// ---------- motherboard rail (+X wall): rear only, with a funnel ----------
+// The fan headers run along the PCB's +X edge, so this rail only covers the header-free rear SHELL_MB_RAIL_PX_REACH
+// of it. The front SHELL_MB_RAIL_PX_FUNNEL_LEN of that is a funnel: the channel opens by SHELL_MB_RAIL_PX_FUNNEL in Z
+// each way at the mouth and narrows to the tight channel behind it, so the board's rear corner gets caught even
+// when the back of the assembly is several mm high or low.
+SHELL_MB_RAIL_PX_ENABLE       = true;
+SHELL_MB_RAIL_PX_REACH        = 30;    // from the PCB's rear edge towards the I/O plate (measured on the board)
+SHELL_MB_RAIL_PX_FUNNEL_LEN   = 15;    // front part of the reach; the rest is the tight channel
+SHELL_MB_RAIL_PX_FUNNEL       = 8;     // Z opening per side at the mouth (28deg flanks at 15 long)
+SHELL_MB_RAIL_PX_DEPTH        = 1.5;   // rib protrusion: ~1.3 over the PCB (edge 0.2 off the wall), 0.7 off the spine's edge
+
 // ---------- spine nub sockets (front inner face) ----------
-SHELL_SOCKET_DEPTH     = 6.0;   // Y engagement
-SHELL_SOCKET_CLEARANCE = 0.2;   // per side
-SHELL_SOCKET_WALL      = 2.0;
-SHELL_SOCKET_LEAD_IN   = 1.0;
-SHELL_SOCKET_REACH     = 15;    // X window around each nub, inboard
+// A tight part at the back holds the nubs; in front of it a funnel opens by FUNNEL_Z above / below the plate and
+// FUNNEL_XY round the nub outline, so the nubs find their sockets from a few mm off.
+SHELL_SOCKET_DEPTH      = 4.0;   // tight part, from the front inner face (the spine's rear edge is 0.5 in front of it)
+SHELL_SOCKET_FUNNEL_LEN = 5.0;   // flared mouth in front of the tight part; the mouth stays 0.5 behind the PSU's rear
+SHELL_SOCKET_FUNNEL_Z   = 3.0;   // extra opening above and below the plate at the mouth
+SHELL_SOCKET_FUNNEL_XY  = 1.5;   // extra opening round the nub outline at the mouth (X play is only ~0.9 total)
+SHELL_SOCKET_CLEARANCE  = 0.2;   // per side
+SHELL_SOCKET_WALL       = 2.0;
+SHELL_SOCKET_REACH      = 15;    // X window around each nub, inboard
 
 // ---------- feet (-X side = bottom in use) ----------
 SHELL_FOOT_ENABLE    = true;
@@ -78,6 +93,7 @@ SHELL_FOOT_Z = [OB[2] + SHELL_FOOT_Z_INSET, OB[3] - SHELL_FOOT_Z_INSET];
 // ---------- grills (diamond cells: 45deg roofs in the print orientation) ----------
 SHELL_GRILL_MARGIN     = 2.0;   // solid band around keep-outs and the rounded corners
 SHELL_GRILL_END_MARGIN = 4.0;   // solid band at both ends of each wall
+SHELL_GRILL_BLIND_SKIN = 0.8;   // cells over the +X rail stay as blind recesses with this much wall left inside
 SHELL_GRILL_FRAME      = SHELL_CORNER_EXTENT + SHELL_GRILL_MARGIN;  // solid frame round every grill: where the walls go flat
 // CPU cooler: roughly centred in Y in the case (confirmed at test fit), matching the manual's layout drawing
 // (MB_CPU_SOCKET_XY). The top grill covers the whole flat face, so it covers the fan here with margin.
@@ -223,6 +239,44 @@ module shell_mb_rails() {
             }
         }
     }
+    shell_mb_rail_px();
+}
+
+// +X rail Y stations: [back (into the front face), funnel start = end of the tight channel, mouth].
+function shell_rail_px_y() = let(mouth = MB_POS[1] - MB_SIZE[1]/2 + SHELL_MB_RAIL_PX_REACH)
+    [SHELL_FRONT_IN_Y - 0.5, mouth - SHELL_MB_RAIL_PX_FUNNEL_LEN, mouth];
+
+// Rib k (0 = below the PCB, 1 = above) at Y = y: [z0, z1]. Tight behind the funnel start, then opening linearly.
+function shell_rail_px_z(k, y) =
+    let(ry = shell_rail_px_y(), rz = shell_rail_z()[k],
+        t = min(max((y - ry[1]) / (ry[2] - ry[1]), 0), 1), dz = (k == 0 ? -1 : 1) * t * SHELL_MB_RAIL_PX_FUNNEL)
+    [rz[0] + dz, rz[1] + dz];
+
+// XZ silhouettes [y0, y1, z0, z1] of the +X rail, the funnel split into slabs (grill keep-outs, checks).
+function shell_rail_px_boxes(n = 5) =
+    let(ry = shell_rail_px_y(), rz = shell_rail_z())
+    SHELL_MB_RAIL_PX_ENABLE ? concat(
+        [for (k = [0, 1]) [ry[0], ry[1], rz[k][0], rz[k][1]]],
+        [for (k = [0, 1], i = [0 : n - 1])
+            let(ya = ry[1] + (ry[2] - ry[1]) * i / n, yb = ry[1] + (ry[2] - ry[1]) * (i + 1) / n,
+                za = shell_rail_px_z(k, ya), zb = shell_rail_px_z(k, yb))
+            [ya, yb, min(za[0], zb[0]), max(za[1], zb[1])]]) : [];
+
+module shell_mb_rail_px() {
+    if (SHELL_MB_RAIL_PX_ENABLE) {
+        ry = shell_rail_px_y();
+        x0 = IB[1] - SHELL_MB_RAIL_PX_DEPTH;
+        w = SHELL_MB_RAIL_PX_DEPTH + SHELL_WALL/2;
+        for (k = [0, 1]) {
+            zt = shell_rail_px_z(k, ry[1]);
+            zm = shell_rail_px_z(k, ry[2]);
+            xz_extrude(ry[0], ry[1]) translate([x0, zt[0]]) square([w, zt[1] - zt[0]]);
+            hull() {  // funnel flank
+                xz_extrude(ry[1] - 0.01, ry[1]) translate([x0, zt[0]]) square([w, zt[1] - zt[0]]);
+                xz_extrude(ry[2] - 0.01, ry[2]) translate([x0, zm[0]]) square([w, zm[1] - zm[0]]);
+            }
+        }
+    }
 }
 
 // ---------- spine nub sockets ----------
@@ -231,33 +285,48 @@ function shell_nub_windows() = [
     [SPINE_PLATE_PX_X - (SPINE_PLATE_TAPER_NY2_ENABLE ? SPINE_PLATE_TAPER_NY2_AFTER : SPINE_PLATE_TAPER_NY_AFTER)
         - SHELL_SOCKET_REACH, IB[1] + SHELL_WALL/2]];
 
-function shell_socket_z() = [SPINE_PANEL_PLATE_BOT_Z - SHELL_SOCKET_CLEARANCE - SHELL_SOCKET_WALL,
-                             SPINE_PANEL_PLATE_TOP_Z + SHELL_SOCKET_CLEARANCE + SHELL_SOCKET_WALL];
+// [front inner face, end of the tight part, mouth]
+function shell_socket_y() = [SHELL_FRONT_IN_Y, SHELL_FRONT_IN_Y + SHELL_SOCKET_DEPTH,
+                             SHELL_FRONT_IN_Y + SHELL_SOCKET_DEPTH + SHELL_SOCKET_FUNNEL_LEN];
+// Socket block Z: the funnel's mouth plus a wall above and below.
+function shell_socket_z() = [SPINE_PANEL_PLATE_BOT_Z - SHELL_SOCKET_CLEARANCE - SHELL_SOCKET_FUNNEL_Z - SHELL_SOCKET_WALL,
+                             SPINE_PANEL_PLATE_TOP_Z + SHELL_SOCKET_CLEARANCE + SHELL_SOCKET_FUNNEL_Z + SHELL_SOCKET_WALL];
+
+// Thin slice of the nub slot at Y = y inside window w, grown by g (XY) and gz (Z). Convex (one interval per window),
+// so a hull of two slices is the funnel between them.
+module shell_socket_slice(w, y, g, gz) {
+    c = SHELL_SOCKET_CLEARANCE;
+    translate([0, 0, SPINE_PANEL_PLATE_BOT_Z - c - gz])
+        linear_extrude(height = SPINE_PANEL_PLATE_TOP_Z - SPINE_PANEL_PLATE_BOT_Z + 2*(c + gz))
+            intersection() {
+                offset(delta = c + g) polygon(spine_plate_outline());
+                translate([w[0], y - 0.005]) square([w[1] - w[0], 0.01]);
+            }
+}
 
 module shell_sockets() {
-    y0 = SHELL_FRONT_IN_Y - 0.5;
-    y1 = SHELL_FRONT_IN_Y + SHELL_SOCKET_DEPTH;
+    sy = shell_socket_y();
     sz = shell_socket_z();
+    y0 = sy[0] - 0.5;
+    ym = sy[2];
     c = SHELL_SOCKET_CLEARANCE;
-    L = SHELL_SOCKET_LEAD_IN;
+    ring = c + SHELL_SOCKET_FUNNEL_XY + SHELL_SOCKET_WALL;
     pz0 = SPINE_PANEL_PLATE_BOT_Z - c;
     pz1 = SPINE_PANEL_PLATE_TOP_Z + c;
     for (w = shell_nub_windows())
         difference() {
             intersection() {
                 translate([0, 0, sz[0]]) linear_extrude(height = sz[1] - sz[0]) union() {
-                    offset(r = c + SHELL_SOCKET_WALL) polygon(spine_plate_outline());
+                    offset(r = ring) polygon(spine_plate_outline());
                     translate([w[0] < 0 ? w[0] : SPINE_PLATE_PX_X - 1, y0])
-                        square([w[0] < 0 ? SPINE_PLATE_NX_X + 1 - w[0] : w[1] - SPINE_PLATE_PX_X + 1, y1 - y0]);
+                        square([w[0] < 0 ? SPINE_PLATE_NX_X + 1 - w[0] : w[1] - SPINE_PLATE_PX_X + 1, ym - y0]);
                 }
-                translate([w[0], y0, sz[0] - 1]) cube([w[1] - w[0], y1 - y0, sz[1] - sz[0] + 2]);
+                translate([w[0], y0, sz[0] - 1]) cube([w[1] - w[0], ym - y0, sz[1] - sz[0] + 2]);
             }
             translate([0, 0, pz0]) linear_extrude(height = pz1 - pz0) offset(delta = c) polygon(spine_plate_outline());
-            hull() {  // lead-in at the socket mouth
-                translate([0, y1 - L, pz0]) linear_extrude(height = pz1 - pz0)
-                    intersection() { offset(delta = c) polygon(spine_plate_outline()); translate([-200, -L/2]) square([400, 0.01]); }
-                translate([0, y1, pz0 - L]) linear_extrude(height = pz1 - pz0 + 2*L)
-                    intersection() { offset(delta = c + L) polygon(spine_plate_outline()); translate([-200, -0.01]) square([400, 0.02]); }
+            hull() {  // funnel: tight slot at the end of the tight part -> mouth grown by FUNNEL_XY / FUNNEL_Z
+                shell_socket_slice(w, sy[1], 0, 0);
+                shell_socket_slice(w, ym + 0.01, SHELL_SOCKET_FUNNEL_XY, SHELL_SOCKET_FUNNEL_Z);
             }
         }
 }
@@ -327,8 +396,9 @@ function wall_keepouts(wall) =
         rails = (wall == "nx" && SHELL_MB_RAIL_ENABLE)
                 ? [_grow([SHELL_FRONT_IN_Y - 1, 1, rz[0][0], rz[1][1]], m)] : [],
         sz = shell_socket_z(),
+        sy = shell_socket_y(),
         sockets = (wall == "nx" || wall == "px")
-                ? [_grow([SHELL_FRONT_IN_Y - 1, SHELL_FRONT_IN_Y + SHELL_SOCKET_DEPTH, sz[0], sz[1]], m)]
+                ? [_grow([SHELL_FRONT_IN_Y - 1, sy[2], sz[0], sz[1]], m)]
                 : wall == "front" ? [for (w = shell_nub_windows()) _grow([w[0], w[1], sz[0], sz[1]], m)] : [],
         feet = (wall == "nx" && SHELL_FOOT_ENABLE)
                 ? [for (y = SHELL_FOOT_Y, z = SHELL_FOOT_Z)
@@ -337,21 +407,27 @@ function wall_keepouts(wall) =
         io = (wall == SHELL_USBC_WALL && SHELL_USBC_ENABLE) ? [_grow(io_usbc_rect(), m)] : [])
     concat(bosses, rails, sockets, feet, io);
 
+// Zones where cells are cut blind (from outside, SHELL_GRILL_BLIND_SKIN left) instead of dropped, so the pattern
+// reads the same from outside while the +X rail and funnel ribs keep a solid wall to grow from.
+function wall_blind_zones(wall) = wall == "px" ? [for (b = shell_rail_px_boxes()) _grow(b, 1.0)] : [];
+
 function _box_overlap(a, b) = a[0] < b[1] && b[0] < a[1] && a[2] < b[3] && b[2] < a[3];
 
-// Diamond lattice centred on the grill; whole cells only.
-function grill_cells(g, wall) =
+// Diamond lattice centred on the grill; whole cells only. blind = false: through cells; true: the blind ones.
+function grill_cells(g, wall, blind = false) =
     let(c = g[1], s = g[2], cell = g[3], web = g[4],
         h = cell / sqrt(2),
         q = (cell + web) / sqrt(2),
         f = wall_flat(wall),
         area = [max(c[0] - s[0]/2, f[0]), min(c[0] + s[0]/2, f[1]), max(c[1] - s[1]/2, f[2]), min(c[1] + s[1]/2, f[3])],
         n = ceil(max(s[0], s[1]) / q) + 2,
-        ko = wall_keepouts(wall))
+        ko = wall_keepouts(wall),
+        bz = wall_blind_zones(wall))
     [for (i = [-n : n], j = [-n : n])
         let(u = c[0] + (i + j) * q, v = c[1] + (j - i) * q, bb = [u - h, u + h, v - h, v + h])
         if (bb[0] >= area[0] && bb[1] <= area[1] && bb[2] >= area[2] && bb[3] <= area[3]
-            && len([for (k = ko) if (_box_overlap(bb, k)) 1]) == 0)
+            && len([for (k = ko) if (_box_overlap(bb, k)) 1]) == 0
+            && (len([for (k = bz) if (_box_overlap(bb, k)) 1]) > 0) == blind)
             [u, v]];
 
 module diamond_2d(cell) { rotate(45) square(cell, center = true); }
@@ -359,15 +435,22 @@ module diamond_2d(cell) { rotate(45) square(cell, center = true); }
 module shell_grill(g, wall) {
     if (g[0]) {
         cells = grill_cells(g, wall);
-        echo(str("Shell grill ", wall, ": ", len(cells), " cells (", g[3], " mm, ", g[4], " mm webs)."));
-        wall_frame(wall)
-            for (p = cells) translate([p[0], p[1], 0]) {
-                translate([0, 0, -0.5]) linear_extrude(height = wall_t(wall) + 1) diamond_2d(g[3]);
-                if (g[5] > 0)
-                    translate([0, 0, -0.01]) linear_extrude(height = g[5] + 0.01, scale = g[3] / (g[3] + 2*g[5]))
-                        diamond_2d(g[3] + 2*g[5]);
-            }
+        blind = grill_cells(g, wall, true);
+        echo(str("Shell grill ", wall, ": ", len(cells), " cells", len(blind) > 0 ? str(" + ", len(blind), " blind") : "",
+                 " (", g[3], " mm, ", g[4], " mm webs)."));
+        wall_frame(wall) {
+            for (p = cells) translate([p[0], p[1], 0]) grill_cell_cut(g, wall_t(wall) + 1);
+            for (p = blind) translate([p[0], p[1], 0]) grill_cell_cut(g, wall_t(wall) - SHELL_GRILL_BLIND_SKIN + 0.5);
+        }
     }
+}
+
+// One cell in the wall frame: from 0.5 outside the outer face, depth d; plus the optional outer chamfer.
+module grill_cell_cut(g, d) {
+    translate([0, 0, -0.5]) linear_extrude(height = d) diamond_2d(g[3]);
+    if (g[5] > 0)
+        translate([0, 0, -0.01]) linear_extrude(height = g[5] + 0.01, scale = g[3] / (g[3] + 2*g[5]))
+            diamond_2d(g[3] + 2*g[5]);
 }
 
 // ---------- rear USB-C (on SHELL_USBC_WALL) ----------
@@ -479,6 +562,48 @@ module shell_checks() {
     if (SHELL_MB_RAIL_ENABLE)
         echo(str("Shell MB rail: PCB edge X ", mb_x0, " sits ", mb_x0 - IB[0], "mm off the -X wall; channel ", SHELL_MB_RAIL_DEPTH, "mm deep."));
 
+    // +X rail: overlap with the PCB, clearance to the spine's +X edge (it passes the rail first), and what the
+    // funnel's flanks reach above / below the PCB in the final position.
+    if (SHELL_MB_RAIL_PX_ENABLE) {
+        ry = shell_rail_px_y();
+        mb_x1 = MB_POS[0] + MB_SIZE[0]/2;
+        rib_x = IB[1] - SHELL_MB_RAIL_PX_DEPTH;
+        spine_x = max([for (y = [ry[0] : 1 : ry[2]]) spine_plate_px_edge(y)]);
+        lo = shell_rail_px_z(0, ry[2]); hi = shell_rail_px_z(1, ry[2]);
+        echo(str("Shell +X MB rail: Y ", SHELL_FRONT_IN_Y, "..", ry[2], " (tight to ", ry[1], ", funnel ", ry[1], "..", ry[2],
+                 "); ribs overlap the PCB by ", mb_x1 - rib_x, "mm, ", rib_x - spine_x, "mm off the spine's +X edge; funnel mouth catches Z ",
+                 lo[1], "..", hi[0], " (PCB ", MB_PCB_TOP_Z - MB_PCB_THICK, "..", MB_PCB_TOP_Z, "), flanks reach Z ", lo[0], "..", hi[1], "."));
+        echo(str("NOTE: keep fan headers / parts off X > ", rib_x, " for Y < ", ry[2], " (", SHELL_MB_RAIL_PX_REACH,
+                 "mm from the PCB's rear edge) - the +X rail and its funnel sit there."));
+        if (mb_x1 - rib_x < 0.8)
+            echo(str("WARNING: the +X rail only overlaps the PCB by ", mb_x1 - rib_x, "mm - deepen SHELL_MB_RAIL_PX_DEPTH."));
+        if (rib_x - spine_x < 0.3)
+            echo(str("WARNING: the +X rail ribs are ", rib_x - spine_x, "mm from the spine's +X edge - it may catch them on insertion."));
+        if (ry[1] - ry[0] < 5)
+            echo(str("WARNING: the +X rail's tight channel is only ", ry[1] - ry[0], "mm long - shorten SHELL_MB_RAIL_PX_FUNNEL_LEN."));
+        if (ry[1] < MB_POS[1] - MB_SIZE[1]/2 + 3)
+            echo("WARNING: the +X rail's tight channel barely reaches the PCB - shorten SHELL_MB_RAIL_PX_FUNNEL_LEN.");
+    }
+
+    // Socket funnels: they stand in front of the face, behind the boards - keep them off the PSU, HDD and PCB.
+    {
+        fy = shell_socket_y(); fz = shell_socket_z();
+        echo(str("Shell nub sockets: tight Y ", fy[0], "..", fy[1], " (", fy[1] - (SPINE_PLATE_POS[1] - SPINE_PLATE_SIZE[1]/2),
+                 "mm engagement), funnel to ", fy[2], "; mouth catches +-", SHELL_SOCKET_CLEARANCE + SHELL_SOCKET_FUNNEL_Z,
+                 "mm in Z, +-", SHELL_SOCKET_CLEARANCE + SHELL_SOCKET_FUNNEL_XY, "mm round the nubs; block Z ", fz[0], "..", fz[1], "."));
+        if (fy[1] - (SPINE_PLATE_POS[1] - SPINE_PLATE_SIZE[1]/2) < 2)
+            echo("WARNING: the nubs engage the sockets' tight part by less than 2 mm - raise SHELL_SOCKET_DEPTH.");
+        pcb = [MB_POS[0] - MB_SIZE[0]/2, MB_POS[0] + MB_SIZE[0]/2, MB_POS[1] - MB_SIZE[1]/2, MB_POS[1] + MB_SIZE[1]/2,
+              MB_PCB_TOP_Z - MB_PCB_THICK, MB_POS[2] + MB_SIZE[2]/2];
+        for (w = shell_nub_windows(), o = [["GaN PSU", _box3(GAN_PSU_POS, [GAN_PSU_SIZE[1], GAN_PSU_SIZE[0], GAN_PSU_SIZE[2]])],
+                                           ["HDD", _box3(HDD_POS, HDD_SIZE)], ["MB", pcb]]) {
+            b = [w[0], w[1], fy[0], fy[2] + 0.3, fz[0], fz[1]];
+            if (_box3_overlap(b, o[1]))
+                echo(str("WARNING: the nub socket funnel at X ", w[0], "..", w[1], " comes within 0.3 mm of the ", o[0],
+                         " - shorten SHELL_SOCKET_FUNNEL_LEN or shrink SHELL_SOCKET_FUNNEL_Z."));
+        }
+    }
+
     // Top grill vs the fan footprint
     g = SHELL_GRILL_PZ;
     if (g[0]) {
@@ -515,7 +640,7 @@ module shell_checks() {
         ["24-pin plug (mated, est.)", [MB_ATXPWR_RECT[0], MB_ATXPWR_RECT[1], MB_ATXPWR_RECT[2] - 1.7, MB_ATXPWR_RECT[3],
                                        MB_PCB_TOP_Z, MB_PCB_TOP_Z + MB_ATXPWR_PLUG_H]],
         for (w = shell_nub_windows())
-            ["spine nub socket", [w[0], w[1], SHELL_FRONT_IN_Y, SHELL_FRONT_IN_Y + SHELL_SOCKET_DEPTH, sz[0], sz[1]]]];
+            ["spine nub socket", [w[0], w[1], SHELL_FRONT_IN_Y, shell_socket_y()[2], sz[0], sz[1]]]];
 
     // Power button (on the I/O plate): its nut slides past the shell's upper bosses; its body sits behind the panel.
     if (IO_BUTTON_ENABLE) {

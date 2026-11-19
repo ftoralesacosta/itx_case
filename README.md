@@ -394,7 +394,7 @@ less wall.
 | `MB_PANEL_GAP` | 0.3 | free — PCB edge to panel back face |
 | `IO_PORT_OVERHANG` | 1.0 | **real** — calipered (furthest housing) |
 | `IO_PORT_CLEARANCE` | 0.5 | free — connectors get 1.0 + 0.5 = 1.5 mm of room |
-| `IO_POCKET_DEPTH` | 1.2 | free — 0.3 + 1.2 = 1.5 mm; leaves a **1.3 mm** skin over the ports |
+| `IO_POCKET_DEPTH` | 1.8 | free — 0.3 + 1.8 = 2.1 mm; leaves a **0.7 mm** skin over the ports (3 layers: 0.2 + 2 × 0.25). Was 1.2 / 1.3 mm skin; see [Board position vs the mITX spec](#board-position-vs-the-mitx-spec) |
 | `IO_POCKET_MARGIN` | 2.0 | free — housing size beyond its hole, per side |
 | `IO_POCKET_EXTRA_NX` | 2.5 | free — extra on -X only (below) |
 | `IO_POCKET_EXTRA_PZ` | 5.0 | free — extra on +Z only (below) |
@@ -420,6 +420,31 @@ less wall.
   (the top as printed), so no supports.
 - `front_panel_upper()` warns if the overhang plus clearance doesn't fit, or
   if `MB_POS[1]` drifts from `MB_PANEL_GAP`.
+- **PCB edge relief** (`IO_PCB_RELIEF_*`): a groove in the back face along
+  the board's whole front edge, `IO_PCB_RELIEF_DEPTH` 1.2 deep, 0.6 mm past
+  the PCB on every side (X −82.6 … 88.6, Z 15.0 … 17.8). The pocket already
+  covers X −61 … 84; the groove covers the two ends it misses, where the
+  board's front corner hit the plate.
+
+#### Board position vs the mITX spec
+
+Nov test fit: the PCB's front corner hit the plate and the I/O webs pressed
+on the port housings, so the plate sat tilted. Cause: `MB_HOLES_RAW` doesn't
+match the Mini-ITX hole pattern (`MB_HOLES_SPEC`: holes at 10.16 / 33.02 mm
+from the I/O edge and 165.10 mm for the rear pair). The model's front holes
+sit 0.59–0.63 mm closer to the I/O edge than the spec and its rear holes 0.97
+mm further from the rear edge (C–H 154.6 vs 154.94). The M3 screws have
+(3.96 − 3.0)/2 = 0.48 mm of slop in the board's holes, so a spec board on these
+standoffs has to sit **0.49 – 1.07 mm closer to the panel** than `MB_POS`
+says. With `MB_PANEL_GAP` 0.3 that's a collision, not a gap.
+
+The spine's holes were left as they are, so only the I/O plate needs a reprint.
+The plate makes room for the board instead: at the least forced shift
+(0.49) the PCB edge clears the relief floor by 1.01 mm and the port housings
+clear the pocket floor by 0.61 mm. `io_fit_checks()` echoes both and warns
+under 0.2 mm. To fix the root cause on a future spine reprint, set
+`MB_HOLES_RAW` from `MB_HOLES_SPEC`. Caliper the board first: a front hole's
+centre should be 10.16 mm from the PCB's I/O edge (the model has 9.53).
 
 #### USB-C overmold relief
 
@@ -811,11 +836,30 @@ include it set `SHELL_DRAW = false`.
 - **MB rail (−X wall):** the PCB's −X edge sits 0.7 mm off the inner wall.
   Two ribs (`SHELL_MB_RAIL_*`: 2 mm deep, 1.6 thick, 0.2 clearance per side)
   form a channel the board edge slides along, into the MB volume on
-  purpose. 1 mm lead-in at the open end. +X has no rail (no room).
+  purpose. 1 mm lead-in at the open end.
+- **MB rail (+X wall, rear only, with funnel)** (`SHELL_MB_RAIL_PX_*`): the
+  fan headers run along the PCB's +X edge, so this rail only covers the
+  header-free rear `REACH` 30 mm of it (Y −183.5 … −142.8, measured from the
+  PCB's rear edge). Its front `FUNNEL_LEN` 15 mm is a funnel. At the mouth
+  (Y −142.8) the channel is open from Z 7.4 to 25.4, i.e. `FUNNEL` 8 mm each
+  way, and its flanks narrow at 28° to the tight channel (same Z and 0.2
+  clearance as the −X rail) from Y −157.8 back. The PCB's rear corner
+  enters the mouth 30 mm before the end of travel and is fully guided 15 mm
+  before it, ahead of the nub sockets. The ribs stand `DEPTH` 1.5 off the wall:
+  they reach 1.3 mm over the PCB and stay 0.7 mm off the spine's +X edge, which
+  passes them first. The flanks reach Z 5.8 … 27 at the mouth. **Keep parts
+  off X > 86.7 within 30 mm of the PCB's rear edge** (`shell_checks()`
+  notes it).
 - **Spine nub sockets:** the spine's rear tapers leave two nubs at the back
-  corners. Pockets on the front inner face (`SHELL_SOCKET_*`: 6 mm deep,
-  0.2 clearance, 2 mm wall, 1 mm lead-in) follow the spine outline, so the
-  back of the spine can't wobble.
+  corners. Pockets on the front inner face (`SHELL_SOCKET_*`) follow the
+  spine outline, so the back of the spine can't wobble. The tight part is
+  `DEPTH` 4 mm (3.5 mm engagement), 0.2 clearance. In front of it a 5 mm
+  `FUNNEL_LEN` funnel opens by `FUNNEL_Z` 3 mm above and below the plate and
+  `FUNNEL_XY` 1.5 mm round the nub outline, so the nubs find the sockets from
+  ±3.2 mm in Z and ±1.7 mm sideways (the X play is only ~0.9 mm in total). The
+  block (Z 1.4 … 14.8, 2 mm walls past the mouth) ends at Y −174.5, 0.5 mm
+  behind the PSU's rear face. The inner faces widen as they rise in the print,
+  so they need no support.
 
 #### Feet (−X)
 
@@ -842,7 +886,7 @@ which leaves solid islands round them.
 |---|---|---|
 | `PZ` (+Z, MB side panel, over the cooler) | 145 × 156, cell 5, web 1.2, chamfer 0.4 | Fan intake: [5 mm rule](#cpu-cooler-and-fan-intake-clearance), chamfered intake side. Covers the fan at the CPU position (`SHELL_COOLER_POS` = `MB_CPU_SOCKET_XY`, roughly centred in Y) with 15 mm margin; warns if not. |
 | `NZ` (−Z, HDD/PSU side panel) | 145 × 156, cell 8, web 1.6 | Intake |
-| `PX` (+X, top in use) | 156 × 68, cell 8, web 1.6 | Exhaust |
+| `PX` (+X, top in use) | 156 × 68, cell 8, web 1.6; 8 cells blind over the +X rail | Exhaust |
 | `NX` (−X, bottom) | 156 × 68 minus the MB-rail band and the feet, cell 8 | Intake |
 | `FRONT` (closed face = back in use) | 145 × 68 minus the USB-C and the nub sockets, cell 8 | PSU / HDD compartment exhaust |
 
@@ -865,6 +909,12 @@ for covering the fan wherever the socket turns out to be.
 > **CPU position:** `SHELL_COOLER_POS = MB_CPU_SOCKET_XY` (X 11, Y −87):
 > roughly centred in Y, as seen on the real board and in the manual's
 > layout (preview and checks only).
+
+**Blind cells:** where the +X rail and its funnel meet the wall, the `PX`
+cells aren't dropped (that left a chevron-shaped bite in the top face).
+They're cut **blind** from outside instead, leaving `SHELL_GRILL_BLIND_SKIN`
+0.8 mm of wall for the ribs to grow from (8 cells). The pattern looks the same
+from outside (`wall_blind_zones()`).
 
 Game of Life patterns for the top grill are planned, not done.
 
@@ -908,13 +958,17 @@ wall (X, Z on the front face).
 #### Shell checks
 
 `shell_checks()` echoes boss-to-component gaps, the foot angle, the rail
-offset, the top grill span vs the fan, the power button's clearance to the
+offset, the +X rail's span / PCB overlap / spine clearance / funnel reach,
+the nub sockets' engagement and catch, the top grill span vs the fan, the power button's clearance to the
 shell bosses, and the USB-C board stack. Warnings: a boss blocks the HDD /
 PSU / cooler / C14 or the button nut on insertion; feet under 45° or on
 the rounded corner; the top grill misses part of the fan or its cells
 exceed `FAN_PANEL_GAP`; the USB-C slots / bosses / flange don't agree, the
 board or relief runs onto the wall's edge, or the board hits the MB PCB,
-spine plate, PSU, HDD, cooler, 24-pin plug or a nub socket.
+spine plate, PSU, HDD, cooler, 24-pin plug or a nub socket; the +X rail
+overlaps the PCB by < 0.8 mm, comes < 0.3 mm from the spine or its tight part
+is too short; the nubs engage < 2 mm or a socket funnel nears the PSU / HDD /
+PCB.
 
 ## Printing
 
@@ -1136,8 +1190,9 @@ While the PSU is easy to reach, plug in the 24-pin, 8-pin CPU (EPS) and SATA pow
 
 1. Hold the assembly at the shell's open end and plug the **USB-C ribbon** into the board's **USB32_TC2** header (bottom-rear corner).
 2. Slide the assembly in, back end first:
-   - The motherboard's edge rides in the **rail** on one inside wall.
-   - The 2 nubs at the back of the spine drop into the **2 sockets** inside the closed end.
+   - The motherboard's −X edge rides in the full-length **rail** on that wall.
+   - Near the end of travel, the board's +X rear corner enters the **+X rail's funnel**, which steers it into the short rear channel.
+   - In the last ~5 mm, the 2 nubs at the back of the spine meet the **funnels** of the **2 sockets** inside the closed end and get steered in.
    - The CPU cooler slides under the **stop tab** at the top middle.
 3. The I/O plate ends up flush with the open end.
 4. Drive 5× **M3×10 nylon flat heads** through the I/O plate into the shell inserts: **4 corners + bottom middle**. Nothing goes at the top middle; the stop tab supports that spot.
@@ -1251,6 +1306,7 @@ stop**, so "snug it down" is wrong here.
 |---|---|
 | `PCB front edge is … not MB_PANEL_GAP` | `MB_POS[1]` drifts from the gap |
 | `IO connectors stick out …` | overhang + clearance > gap + pocket depth |
+| `a spec board's PCB edge / port housings come within …` / `MB_HOLES can't take a spec board` / `… pocket leaves only a …mm skin` | `io_fit_checks()`: clearances at the forced shift of a spec board (see [Board position vs the mITX spec](#board-position-vs-the-mitx-spec)) |
 | `panel bottom is … below the PSU` | face bottom drifts from `FRONT_PANEL_PSU_CABLE_GAP` |
 | `SPINE_PLATE_TAPER_* BEFORE + 2*RUN + AFTER …` | a taper doesn't fit its edge |
 | `SPINE_PLATE_TAPER_NY_DEPTH … no longer matches` | NY waist not flush with the GaN standoffs |
@@ -1269,6 +1325,8 @@ stop**, so "snug it down" is wrong here.
 | `FAN_PANEL_GAP …`, `MB envelope top …`, `panel top …` | cooler clearance report |
 | `panel screw at … leaves only …` | < 1 mm of panel left around a corner screw after rounding |
 | `shell boss at … would block the …` | a shell boss silhouette is < `SHELL_INSERT_MIN_CLEARANCE` from the HDD / PSU / cooler / C14 (`shell.scad`) |
+| `the +X rail only overlaps the PCB …` / `… ribs are …mm from the spine's +X edge` / `… tight channel …` | +X rail depth / funnel length (`SHELL_MB_RAIL_PX_*`) |
+| `the nubs engage the sockets' tight part by less than 2 mm` / `the nub socket funnel … comes within 0.3 mm of the …` | socket depth / funnel size (`SHELL_SOCKET_*`) |
 | `feet underside is …` / `foot at Z … rounded corner` | foot ramp < 45° from the bed, or a foot runs onto the corner |
 | `the top grill doesn't cover the whole fan` / `top grill cell … > FAN_PANEL_GAP` | `SHELL_GRILL_PZ` placement / cell size |
 | `the power button bezel …` / `… nut would hit the shell boss` / `… body hits the …` | button too close to the DP, panel edge or a screw; its nut blocks insertion; its body hits the cooler etc. |
@@ -1286,6 +1344,11 @@ where to check for a VRM heatsink behind the power button.
   the board's VRM heatsink height behind the button (X 61–79, Y 0…−24.5,
   above Z 39.5).
 - Game of Life patterns for the top grill (planned).
+- `MB_HOLES_RAW` is 0.6–1.0 mm off the mITX spec in Y (see
+  [Board position vs the mITX spec](#board-position-vs-the-mitx-spec)). The
+  I/O plate makes room for it; fix the holes on the next spine reprint.
+- +X rail: the 30 mm header-free reach was measured on the board. The tight
+  channel only engages the PCB's last ~15 mm.
 - Depth budget: only ~10.7 mm is free behind the boards at the front face
   (MB rear −172.8, PSU rear −174, HDD rear −170.5); the rear USB-C board
   stack uses 10.6 of it (see [Rear USB-C](#rear-usb-c-closed-face)).

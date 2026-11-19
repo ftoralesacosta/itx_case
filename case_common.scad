@@ -192,7 +192,7 @@ IO_SHIELD_STL_SIZE = [155.0, 40.5];  // must match the STL bbox exactly - larger
 IO_SHIELD_EDGE_INSET = 1.0;  // must stay < the nearest port's distance to the shield edge
 IO_SHIELD_Z_SHIFT = 0.0;
 
-IO_POCKET_DEPTH  = 1.2;
+IO_POCKET_DEPTH  = 1.8;  // 0.7 mm skin over the ports (3 layers at 0.2 + 2 x 0.25); was 1.2 - the ports hit the webs (Nov test fit)
 IO_POCKET_MARGIN = 2.0;
 IO_POCKET_SCREW_WALL = 1.0;
 IO_POCKET_EXTRA_NX = 2.5;
@@ -200,6 +200,16 @@ IO_POCKET_EXTRA_PZ = 5.0;  // fixed to the Wi-Fi housing: re-add any IO_SHIELD_Z
 MB_PANEL_GAP = 0.3;
 IO_PORT_OVERHANG = 1.0;
 IO_PORT_CLEARANCE = 0.5;
+// Groove in the back face along the PCB's whole front edge, so the board can't touch the panel where the pocket
+// doesn't reach (Nov test fit: the front corner hit the plate and tilted it). See mb_spec_y_shift() for why.
+IO_PCB_RELIEF_ENABLE = true;
+IO_PCB_RELIEF_DEPTH  = 1.2;  // leaves 1.3 mm of panel along the strip
+IO_PCB_RELIEF_MARGIN = 0.6;  // past the PCB on every side (Z above / below, X at both ends)
+// Mini-ITX spec hole centres [from the -X edge, from the I/O edge], in MB_HOLES_RAW order. Fit check only:
+// MB_HOLES_RAW sits 0.6-1.0 mm closer to the I/O edge than this, so the standoffs push the real board forward.
+MB_HOLES_SPEC    = [[6.35, 10.16], [163.83, 33.02], [6.35, 165.10], [163.83, 165.10]];
+MB_HOLE_DIA_SPEC = 3.96;  // ATX / mITX mounting hole (0.156")
+MB_SCREW_DIA     = 3.0;   // M3 into the standoffs
 USB_C_RELIEF        = true;
 USB_C_RELIEF_SIZE   = [13.0, 7.0];   // overmold opening [w, h], pill
 USB_C_RELIEF_CENTER = [116.14, 5.25];  // USB-C centre in shield-STL coords
@@ -601,6 +611,32 @@ function io_shield_origin() =
 function io_dp_center()  = io_shield_origin() + IO_DP_CENTER;   // world [X, Z]
 function io_button_pos() = io_dp_center() + IO_BUTTON_OFFSET;  // world [X, Z]
 
+// [min, max] shift (+Y, towards the panel) of a spec-drilled board on the spine's standoffs vs MB_POS: every hole
+// needs |model - spec| <= the screw's radial slop. min > 0 means the board is pushed forward even at best.
+function mb_spec_y_shift() =
+    let(d = [for (i = [0 : 3]) MB_HOLES[i][1] - (MB_SIZE[1]/2 - MB_HOLES_SPEC[i][1])],
+        s = (MB_HOLE_DIA_SPEC - MB_SCREW_DIA) / 2)
+    [max(d) - s, min(d) + s];
+
+// Panel back-face clearances for the PCB edge and the port housings, at the model position and at the spec shift.
+module io_fit_checks() {
+    sh = mb_spec_y_shift();
+    pcb_room  = MB_PANEL_GAP + (IO_PCB_RELIEF_ENABLE ? max(IO_PCB_RELIEF_DEPTH, 0) : 0);
+    port_room = MB_PANEL_GAP + IO_POCKET_DEPTH - IO_PORT_OVERHANG;
+    echo(str("I/O fit: vs the mITX hole spec the standoffs put the board ", sh[0], "..", sh[1],
+             "mm towards the panel (model: 0). PCB edge to panel: ", pcb_room, "mm modelled, ", pcb_room - sh[0],
+             " at the least shift; port housings to the pocket floor: ", port_room, "mm modelled, ", port_room - sh[0],
+             " at the least shift (", FRONT_PANEL_THICKNESS - IO_POCKET_DEPTH, "mm skin)."));
+    if (sh[0] > sh[1])
+        echo("WARNING: MB_HOLES can't take a spec board at all - no shift fits every hole within the screw slop.");
+    if (pcb_room - sh[0] < 0.2)
+        echo(str("WARNING: a spec board's PCB edge comes within ", pcb_room - sh[0], "mm of the panel - deepen IO_PCB_RELIEF_DEPTH."));
+    if (port_room - sh[0] < 0.2)
+        echo(str("WARNING: a spec board's port housings come within ", port_room - sh[0], "mm of the pocket floor - deepen IO_POCKET_DEPTH."));
+    if (FRONT_PANEL_THICKNESS - IO_POCKET_DEPTH < 0.6)
+        echo(str("WARNING: the I/O pocket leaves only a ", FRONT_PANEL_THICKNESS - IO_POCKET_DEPTH, "mm skin."));
+}
+
 module io_button_checks() {
     if (IO_BUTTON_ENABLE) {
         p = io_button_pos();
@@ -667,6 +703,12 @@ module front_panel_upper(show, plate_bot, col, alpha) {
                                 hull() for (s = [-1, 1])
                                     translate([s * (USB_C_RELIEF_SIZE[0] - USB_C_RELIEF_SIZE[1])/2, 0])
                                         circle(d = USB_C_RELIEF_SIZE[1], $fn = 48);
+
+                if (IO_PCB_RELIEF_ENABLE) {
+                    m = IO_PCB_RELIEF_MARGIN;
+                    translate([MB_POS[0] - MB_SIZE[0]/2 - m, -FRONT_PANEL_THICKNESS - 1, MB_POS[2] - MB_SIZE[2]/2 - m])
+                        cube([MB_SIZE[0] + 2*m, IO_PCB_RELIEF_DEPTH + 1, MB_PCB_THICK + 2*m]);
+                }
 
                 if (IO_POCKET_DEPTH > 0)
                     translate([shield_x, -FRONT_PANEL_THICKNESS + IO_POCKET_DEPTH, shield_z])
@@ -1458,6 +1500,7 @@ module io_plate(show, col, alpha) {
         plate_bot = SPINE_PLATE_POS[2] - SPINE_PLATE_SIZE[2]/2;
         spine_rib_checks();
         io_button_checks();
+        io_fit_checks();
         color(col, alpha) difference() {
             union() {
                 front_panel_upper(SHOW_FRONT_PANEL, plate_bot, col, alpha);
