@@ -18,10 +18,17 @@ The outer shell is redesigned too (`shell.scad`, see
 [Outer shell](#outer-shell)): a rounded tube closed at the front, printed
 front face down, that the spine + I/O plate assembly slides into.
 
-**`flat_print` branch:** the spine and the front plane are two separate
-parts, each printed flat and joined by M3 flat-head screws into heat inserts
-(see [Spine ↔ I/O plate joints](#spine--io-plate-joints)). The printed MB
-standoffs are replaced by metal M3 standoffs.
+**Two ways to print the spine + I/O plate**, from the same model:
+
+- **Two flat parts (default):** the spine and the front plane print flat
+  and are joined by M3 flat-head screws into heat inserts (see
+  [Spine ↔ I/O plate joints](#spine--io-plate-joints)).
+- **One piece:** export both as one fused body and print it upright, as
+  the original design did (see [Using the model](#using-the-model)).
+
+Either way the motherboard sits on metal M3 standoffs; the spine has no
+printed MB standoffs. (Older branches `flat_print` and the one-piece `main`
+were merged into `main` in Nov 2026.)
 
 ## Contents
 
@@ -105,13 +112,13 @@ standoffs are replaced by metal M3 standoffs.
   The spine and I/O plate STLs are in world coordinates; orient them in the
   slicer (see [Printing](#printing)). `FOR_PRINT` already lays the shell
   front face down at z = 0.
-- **One-piece option** (spine and I/O plate as one body, like the old
-  upright print): export the assembly instead,
+- **One-piece option** (spine and I/O plate as one body): export the
+  assembly instead,
   `openscad --backend=manifold -D used_components=false -o one_piece.stl case_common.scad`.
   The spine's front edge sits on the plate's back face, so the two fuse
   into one connected body (checked). Print it front face down, upright,
-  184 mm tall (see the upright notes under [Orientation](#orientation)).
-  The joint screws become optional.
+  184 mm tall (see [Orientation](#orientation)). The joint screws become
+  optional; their holes stay.
 - After any change, **read the console for `WARNING:` lines** (see
   [Self-checks](#self-checks-console-warnings)).
 
@@ -269,9 +276,9 @@ and recurses once to subdivide a cell near that polyline.
 ### Standoffs
 
 The HDD and GaN standoffs hang off the plate's underside, built along Z.
-Printed flat (MB face down) they grow straight up; the 45° `standoff_ramp()`
-on each +Y side (`STANDOFF_RAMP_RUN_FACTOR`, 1.0 = 45°) is left over from the
-upright print and is no longer needed.
+Printed flat (MB face down) they grow straight up. The 45° `standoff_ramp()`
+on each +Y side (`STANDOFF_RAMP_RUN_FACTOR`, 1.0 = 45°) is only needed for the
+one-piece upright print; keep it so that option stays printable.
 
 #### Motherboard (M3, metal standoffs)
 
@@ -981,7 +988,7 @@ PCB.
 
 ### Orientation
 
-**`flat_print` (this branch): two flat parts plus the shell.**
+**Two flat parts plus the shell (default).**
 
 - **Spine: MB face down** (flip `spine.stl` 180° about X or Y in the
   slicer). It's the only flat orientation without supports: the HDD/GaN
@@ -996,10 +1003,12 @@ PCB.
   the USB-C hole, relief and bosses all grow straight up from the bed face.
   No supports.
 - The tall-print constraints below (no lightening wall along X, −Y tapers
-  ≤ 45°) no longer apply; they're kept for reference.
+  ≤ 45°) don't matter for the flat parts, but keep them so the one-piece
+  option stays printable.
 
-**One-piece upright print (`main`):** print with the spine's **+Y face (the
-front panel) down**, build direction +Y → −Y. Consequences:
+**One-piece upright print (`one_piece.stl`, optional):** print with the
+spine's **+Y face (the front panel) down**, build direction +Y → −Y,
+184 mm tall. Consequences:
 
 - **Standoffs** lie horizontal, so each has a 45° ramp on its +Y side. The
   ramp is two `hull()`s: peg → constant-width bar, then the bar tapering
@@ -1012,7 +1021,10 @@ front panel) down**, build direction +Y → −Y. Consequences:
   top as printed.
 - **No lightening wall may run purely along X** (see
   [Lightening pattern](#lightening-pattern)).
-- **-Y-facing tapers ≤ 45°** (RUN ≥ DEPTH).
+- **-Y-facing tapers ≤ 45°** (RUN ≥ DEPTH). The PX taper is 30 deep over a
+  20 run, the same as in the earlier one-piece print, which printed fine.
+- **MB insert bosses** (Ø7.2, 1.9 mm below the plate) stick out sideways;
+  expect a little sag on their undersides. It doesn't matter for the inserts.
 - **On the bed (MK4S):** the 170 mm edge runs **left–right (along bed X)**,
   as tested.
 
@@ -1032,9 +1044,10 @@ its lower screws after these were made.
 ### Tested profile
 
 > [!NOTE]
-> This profile was tuned for the **one-piece upright print** on `main`
-> (177 mm tall, wobble-prone). The flat parts on this branch don't need the
-> anti-wobble measures; start from stock 0.25mm STRUCTURAL / PETG.
+> This profile was tuned for the **one-piece upright print** (177 mm tall
+> then, 184 mm now; wobble-prone). Use it for `one_piece.stl`. The flat
+> parts don't need the anti-wobble measures; use the flat-part profiles
+> above or stock 0.25mm STRUCTURAL / PETG.
 
 Prusa MK4S, 0.4 HF nozzle, PrusaSlicer 2.9.2. Based on the stock
 **0.25mm STRUCTURAL** print profile and **Generic PETG**, tuned for a tall,
@@ -1370,7 +1383,7 @@ where to check for a VRM heatsink behind the power button.
   of `MB_24PIN_IMPLIED`.
 - MB envelope is 3.6 mm shorter than the cooler (see
   [fan clearance](#cpu-cooler-and-fan-intake-clearance)).
-- `flat_print`: the +X joint (X 84) sits in a 0.75 mm window between the GaN
+- Spine ↔ I/O plate joints: the +X joint (X 84) sits in a 0.75 mm window between the GaN
   PSU (0.85 mm) and the case side — check for rubbing at test fit; the −70
   joint has 1.23 mm over the straight-pin C14 body —
   re-measure `C14_BODY_*` for the right-angle socket. The `print/` 3mf
